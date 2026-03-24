@@ -67,6 +67,8 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const [destinationLocation, setDestinationLocation] = useState(null);
 
   const [chatid, setChatId] = useState();
+  const [showChatPanel, setShowChatPanel] = useState(false);
+  const chatEndRef = useRef(null);
   // Состояния для записей
   const [recordings, setRecordings] = useState([]);
   const [loadingRecordings, setLoadingRecordings] = useState(false);
@@ -91,7 +93,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   // Use chat hook
   const actId = streamData?.id || channelName?.replace("act_", "");
   const { user } = useAuthStore();
-  // const { messages: chatMessages, sendMessage, sending } = useChat(actId);
+  const { messages: chatMessages, sendMessage: sendChatMessage, sending } = useChat(actId);
 
   // Spot Agent state
   const {
@@ -118,6 +120,8 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const clientRef = useRef(null);
   const isConnectingRef = useRef(false);
   const streamStartTimeRef = useRef(null);
+  const localVideoTrackRef = useRef(null);
+  const localAudioTrackRef = useRef(null);
 
   const [isopenmenu, setisopenmenu] = useState(false);
   // Extract user ID
@@ -345,8 +349,8 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       console.log(`🎥 Starting stream for ${isStreamer ? 'publisher' : 'subscriber'}:`, actualChannelName);
       console.log("🎥 User ID:", userIdNum);
       const chats = await chatApi.getAll();
-      const currentchat = chats.find(c => c.actId == actId) 
-      setChatId(currentchat.id);
+      const currentchat = chats.find(c => c.actId == actId);
+      if (currentchat) setChatId(currentchat.id);
       const role = 'publisher';
       const response = await api.get(
         `/act/token/${actualChannelName}/${role}/uid?uid=0&expiry=3600`
@@ -406,6 +410,114 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     }
   };
 
+  // Очистка Agora для стримера без остановки бэкенд-стрима (при уходе со страницы)
+  const cleanupStreamerAgora = async () => {
+    try {
+      if (localVideoTrackRef.current) {
+        localVideoTrackRef.current.stop();
+        localVideoTrackRef.current.close();
+        localVideoTrackRef.current = null;
+      }
+      if (localAudioTrackRef.current) {
+        localAudioTrackRef.current.stop();
+        localAudioTrackRef.current.close();
+        localAudioTrackRef.current = null;
+      }
+      if (clientRef.current) {
+        await clientRef.current.leave();
+        clientRef.current = null;
+      }
+    } catch (e) {
+      console.warn('Ошибка при очистке Agora стримера:', e);
+    }
+    setLocalVideoTrack(null);
+    setLocalAudioTrack(null);
+    setIsPublishing(false);
+    setIsStreamActive(false);
+    isConnectingRef.current = false;
+  };
+
+  // Cleanup стримера при размонтировании (без остановки стрима на бэкенде)
+  useEffect(() => {
+    if (!isStreamer) return;
+    return () => {
+      // Размонтирование: тихо отключаемся от Agora, стрим остаётся ONLINE
+      if (localVideoTrackRef.current) {
+        localVideoTrackRef.current.stop();
+        localVideoTrackRef.current.close();
+      }
+      if (localAudioTrackRef.current) {
+        localAudioTrackRef.current.stop();
+        localAudioTrackRef.current.close();
+      }
+      if (clientRef.current) {
+        clientRef.current.leave().catch(() => {});
+        clientRef.current = null;
+      }
+    };
+  }, [isStreamer]);
+
+  // Переподключение стримера без повторного /act/start-act
+  const reconnectAsStreamer = async () => {
+    if (isConnectingRef.current || clientRef.current) return;
+    isConnectingRef.current = true;
+    setIsStartingStream(true);
+    setError(null);
+
+    try {
+      const role = 'publisher';
+      const response = await api.get(
+        `/act/token/${actualChannelName}/${role}/uid?uid=0&expiry=3600`
+      );
+      const token = response.data.token;
+      if (!token) throw new Error('No token received');
+
+      const client = AgoraRTC.createClient({ mode: 'live', codec: 'vp8' });
+      await client.setClientRole('host');
+      clientRef.current = client;
+
+      client.on('user-unpublished', (user) => {
+        setRemoteUsers((prev) => prev.filter((u) => u.uid !== user.uid));
+      });
+
+      await client.join(
+        import.meta.env.VITE_AGORA_APP_ID,
+        actualChannelName,
+        token,
+        userIdNum
+      );
+
+      // Захватываем камеру и микрофон заново
+      const videoTrack = await AgoraRTC.createCameraVideoTrack();
+      const audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+
+      localVideoTrackRef.current = videoTrack;
+      localAudioTrackRef.current = audioTrack;
+      setLocalVideoTrack(videoTrack);
+      setLocalAudioTrack(audioTrack);
+
+      if (localVideoRef.current) {
+        videoTrack.play(localVideoRef.current);
+      }
+
+      await client.publish([videoTrack, audioTrack]);
+
+      setIsPublishing(true);
+      setIsStreamActive(true);
+      setIsConnected(true);
+      streamStartTimeRef.current = Date.now();
+
+      console.log('✅ Стример переподключился!');
+    } catch (err) {
+      console.error('Ошибка переподключения стримера:', err);
+      setError(err.message);
+      toast.error('Failed to reconnect to stream: ' + err.message);
+    } finally {
+      setIsStartingStream(false);
+      isConnectingRef.current = false;
+    }
+  };
+
   // Функция для начала публикации стрима (для стримера)
   const startPublishing = async (client) => {
     try {
@@ -417,6 +529,10 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       
       setLocalVideoTrack(videoTrack);
       setLocalAudioTrack(audioTrack);
+
+      // Синхронизируем в ref для корректной очистки
+      localVideoTrackRef.current = videoTrack;
+      localAudioTrackRef.current = audioTrack;
 
       // Показываем превью стримеру
       if (localVideoRef.current) {
@@ -457,17 +573,23 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     
     try {
       console.log("🛑 Stopping stream...");
+
+      const vTrack = localVideoTrackRef.current || localVideoTrack;
+      const aTrack = localAudioTrackRef.current || localAudioTrack;
       
-      if (localVideoTrack && localAudioTrack) {
-        await clientRef.current.unpublish([localVideoTrack, localAudioTrack]);
-        localVideoTrack.close();
-        localAudioTrack.close();
-        
+      if (vTrack || aTrack) {
+        const toUnpublish = [vTrack, aTrack].filter(Boolean);
+        await clientRef.current.unpublish(toUnpublish);
+        vTrack?.close();
+        aTrack?.close();
+        localVideoTrackRef.current = null;
+        localAudioTrackRef.current = null;
         setLocalVideoTrack(null);
         setLocalAudioTrack(null);
       }
       
       await clientRef.current.leave();
+      clientRef.current = null;
       
       setIsPublishing(false);
       setIsStreamActive(false);
@@ -597,13 +719,21 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
   // Очистка Agora соединения
   const cleanupAgora = () => {
-    if (clientRef.current && isConnected) {
+    if (clientRef.current) {
       // Если это стример, сначала останавливаем публикацию
       if (isStreamer && localVideoTrack && localAudioTrack) {
         localVideoTrack.close();
         localAudioTrack.close();
       }
-      
+
+      // Для зрителей останавливаем аудио/видео треки удалённых пользователей
+      if (!isStreamer) {
+        remoteUsers.forEach((u) => {
+          u.audioTrack?.stop();
+          u.videoTrack?.stop();
+        });
+      }
+
       clientRef.current.leave();
       clientRef.current = null;
     }
@@ -658,6 +788,33 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       setStreamDuration(0);
     }
   }, [isConnected]);
+
+  // Загружаем chatId для зрителей
+  useEffect(() => {
+    if (isStreamer || !actId) return;
+    const loadViewerChatId = async () => {
+      try {
+        const chats = await chatApi.getAll();
+        const currentchat = chats.find((c) => c.actId == actId);
+        if (currentchat) setChatId(currentchat.id);
+      } catch (err) {
+        console.error('Error loading chat ID for viewer:', err);
+      }
+    };
+    loadViewerChatId();
+  }, [actId, isStreamer]);
+
+  // Auto-show chat overlay for streamer when publishing starts
+  useEffect(() => {
+    if (isStreamer && (isPublishing || isStreamActive)) {
+      setShowChatPanel(true);
+    }
+  }, [isStreamer, isPublishing, isStreamActive]);
+
+  // Auto-scroll chat overlay to bottom on new messages
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
 
   // Fetch tasks when modal is opened
   const fetchTasks = async () => {
@@ -737,10 +894,10 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   };
 
   const handleSendMessage = () => {
-    // if (chatMessage.trim() && !sending) {
-    //   sendMessage(chatMessage);
-    //   setChatMessage("");
-    // }
+    if (chatMessage.trim() && !sending) {
+      sendChatMessage(chatMessage);
+      setChatMessage("");
+    }
   };
 
   const handleKeyPress = (e) => {
@@ -748,6 +905,22 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       handleSendMessage();
     }
   };
+
+  // Автореконнект стримера: если он вернулся на страницу, а стрим уже ONLINE
+  const autoReconnectDoneRef = useRef(false);
+  useEffect(() => {
+    if (
+      isStreamer &&
+      actualStreamData?.status === 'ONLINE' &&
+      !isPublishing &&
+      !isConnectingRef.current &&
+      !autoReconnectDoneRef.current &&
+      !clientRef.current
+    ) {
+      autoReconnectDoneRef.current = true;
+      reconnectAsStreamer();
+    }
+  }, [isStreamer, actualStreamData?.status, isPublishing]);
 
   const handleEmojiClick = () => {
     setShowEmojiPicker(!showEmojiPicker);
@@ -858,7 +1031,12 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
           <div className={styles.header}>
             <div className={styles.header_cont}>
               <img src={back} alt="Back" 
-                onClick={() => navigate(`/acts/${actId}`)}
+                onClick={async () => {
+                  if (!isStreamer) {
+                    await disconnectFromStream();
+                  }
+                  navigate(`/acts/${actId}`);
+                }}
               />
               {!isStreamer ?
                 <div className={styles.online}>
@@ -988,8 +1166,38 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
             )}
           </div>
           
-          {(isPublishing || isStreamActive) && (
+          {(isPublishing || isStreamActive || (!isStreamer && isConnected)) && (
             <div className={styles.chatContainer}>
+              {showChatPanel && (
+                <div className={styles.chatOverlay}>
+                  <div className={styles.chatOverlayMessages}>
+                    {chatMessages.filter(m => (m.message || m.content || '').trim()).map((m, i) => (
+                      <div key={m.id || i} className={styles.chatOverlayMsg}>
+                        <span className={styles.chatOverlayUsername}>{m.user?.username || m.username || 'User'}</span>
+                        <p className={styles.chatOverlayText}>{m.message || m.content}</p>
+                      </div>
+                    ))}
+                    <div ref={chatEndRef} />
+                  </div>
+                  <div className={styles.chatOverlayInput}>
+                    <input
+                      className={styles.messageInput}
+                      value={chatMessage}
+                      onChange={e => setChatMessage(e.target.value)}
+                      onKeyDown={handleKeyPress}
+                      placeholder="Message..."
+                      disabled={sending}
+                    />
+                    <button
+                      className={styles.chatOverlaySendBtn}
+                      onClick={handleSendMessage}
+                      disabled={sending || !chatMessage.trim()}
+                    >
+                      ➤
+                    </button>
+                  </div>
+                </div>
+              )}
               <div className={styles.chatActions}>
                 <button
                   className={styles.actionButton}
@@ -1003,8 +1211,9 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                 >
                   <img src={tasks_image} alt="Tasks" />
                 </button>
-                <button className={styles.actionButton}
-                  onClick={() => navigate(`/group/${chatid}`)}
+                <button
+                  className={`${styles.actionButton} ${showChatPanel ? styles.active : ''}`}
+                  onClick={() => setShowChatPanel(v => !v)}
                 >
                   <img src={messages} alt="Chat" />
                 </button>

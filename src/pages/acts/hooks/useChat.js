@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 
 import api from "../../../shared/api/api";
+import { useAuthStore } from "../../../shared/stores/authStore";
 
 const useChat = (actId) => {
   const [messages, setMessages] = useState([]);
@@ -18,85 +19,82 @@ const useChat = (actId) => {
 
     console.log(`Подключение к чату для акта ${actId}...`);
 
-    const socket = io(
-      `${import.meta.env.VITE_API_URL || "http://localhost:3000"}/chat`,
-      {
+    // VITE_API_URL может содержать /api — убираем для socket.io
+    const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
+    const wsBase = apiUrl.replace(/\/api$/, "");
+
+    const createSocket = () => {
+      const token = useAuthStore.getState().getToken();
+      return io(`${wsBase}/chat`, {
         path: "/socket.io",
-        withCredentials: true, 
         transports: ["websocket", "polling"],
-      },
-    );
-
-    socketRef.current = socket;
-
-    socket.on("connect", () => {
-      console.log("Подключен к чату актов, socket.id:", socket.id);
-      setIsConnected(true);
-      setError(null);
-
-      console.log(`Подписка на комнату акта ${actId}...`);
-
-      // ВАЖНО: Сервер подписывает пользователя при отправке sendMessage
-      // Отправляем техническое сообщение с пробелом для активации подписки
-      // Оно будет отфильтровано при отображении
-      setTimeout(() => {
-        console.log(
-          "Отправка технического сообщения для активации подписки...",
-        );
-        socket.emit("sendMessage", {
-          actId: parseInt(actId),
-          content: " ", // Пробел - будет отфильтрован при отображении
-        });
-        console.log(
-          "Техническое сообщение отправлено (не будет показано пользователям)",
-        );
-      }, 100);
-    });
-
-    socket.on("connect_error", (err) => {
-      console.error("Ошибка подключения к чату:", err.message);
-      setError("Failed to connect to chat");
-      setIsConnected(false);
-    });
-
-    socket.on("disconnect", (reason) => {
-      console.log("Отключен от чата, причина:", reason);
-      setIsConnected(false);
-    });
-
-    socket.on("newMessage", (message) => {
-      console.log("Новое сообщение получено через WebSocket:", message);
-
-      const content = message.content || message.message || "";
-      if (!content.trim()) {
-        console.log("Пропускаем пустое сообщение (техническое)");
-        return;
-      }
-
-      setMessages((prevMessages) => {
-        const messageExists = prevMessages.some((msg) => msg.id === message.id);
-        if (messageExists) {
-          console.log("Сообщение уже существует, пропускаем:", message.id);
-          return prevMessages;
-        }
-
-        console.log(
-          "Текущие сообщения:",
-          prevMessages.length,
-          "-> Добавляем:",
-          message,
-        );
-        return [...prevMessages, message];
+        query: token ? { token } : {},
+        reconnection: false, // управляем вручную, чтобы брать свежий токен
       });
-    });
+    };
 
-    socket.onAny((eventName, ...args) => {
-      console.log(`Socket event: ${eventName}`, args);
-    });
+    let socket = createSocket();
+    socketRef.current = socket;
+    let destroyed = false;
+
+    const attachHandlers = (s) => {
+      s.on("connect", () => {
+        console.log("Подключен к чату актов, socket.id:", s.id);
+        setIsConnected(true);
+        setError(null);
+        console.log(`Присоединение к комнате акта ${actId}...`);
+        s.emit("joinStream", { actId: parseInt(actId) });
+      });
+
+      s.on("disconnect", (reason) => {
+        console.log("Отключен от чата, причина:", reason);
+        setIsConnected(false);
+        // При серверном дисконнекте (auth fail) пересоздаём сокет со свежим токеном
+        if (!destroyed && reason === "io server disconnect") {
+          setTimeout(() => {
+            if (destroyed) return;
+            console.log("Переподключение к чату со свежим токеном...");
+            const newSocket = createSocket();
+            socketRef.current = newSocket;
+            attachHandlers(newSocket);
+          }, 1500);
+        }
+      });
+
+      s.on("joinedStream", (data) => {
+        console.log("Успешно присоединён к стриму:", data);
+      });
+
+      s.on("chatHistory", (data) => {
+        const msgs = (data.messages || []).filter(
+          (m) => (m.message || m.content || "").trim(),
+        );
+        console.log(`Загружено ${msgs.length} сообщений из истории`);
+        setMessages(msgs);
+      });
+
+      s.on("connect_error", (err) => {
+        console.error("Ошибка подключения к чату:", err.message);
+        setError("Failed to connect to chat");
+        setIsConnected(false);
+      });
+
+      s.on("newMessage", (message) => {
+        const content = message.content || message.message || "";
+        if (!content.trim()) return;
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === message.id)) return prev;
+          return [...prev, message];
+        });
+      });
+    };
+
+    attachHandlers(socket);
 
     return () => {
+      destroyed = true;
       console.log("Отключение от чата для акта", actId);
-      socket.disconnect();
+      socketRef.current?.disconnect();
       socketRef.current = null;
     };
   }, [actId]);
@@ -154,8 +152,18 @@ const useChat = (actId) => {
         return;
       }
 
-      if (!isConnected) {
-        console.warn("Невозможно отправить сообщение: сокет не подключен");
+      if (!socketRef.current?.connected) {
+        // Пробуем переподключиться и поставить сообщение в очередь
+        console.warn("Невозможно отправить сообщение: сокет не подключен, ожидаем подключения...");
+        if (socketRef.current) {
+          socketRef.current.once("connect", () => {
+            socketRef.current.emit("sendMessage", {
+              actId: parseInt(actId),
+              content: message.trim(),
+            });
+          });
+          socketRef.current.connect();
+        }
         return;
       }
 
@@ -187,7 +195,7 @@ const useChat = (actId) => {
         setSending(false);
       }
     },
-    [actId, isConnected],
+    [actId],
   );
 
   // Load more messages (for pagination)

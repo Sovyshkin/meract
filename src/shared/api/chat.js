@@ -101,5 +101,15 @@ deleteMessage: async (messageId) => {
     const response = await api.patch(`/chat/${chatId}/mute`);
     return response.data;
   },
+
+  getInviteCode: async (chatId) => {
+    const response = await api.get(`/chat/${chatId}/invite`);
+    return response.data;
+  },
+
+  joinByInviteCode: async (code) => {
+    const response = await api.post(`/chat/join/${code}`);
+    return response.data;
+  },
   
 };

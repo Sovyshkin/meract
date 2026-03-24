@@ -25,7 +25,7 @@ const PayTransfer = () => {
    return(
     <div className={styles.container}>
         <div className={styles.header_cont}>
-                            <img src={back} alt="back" onClick={() => navigate('/wallet')} style={{ cursor: 'pointer' }} />
+                            <img src={back} alt="back" onClick={() => navigate(-1)} style={{ cursor: 'pointer' }} />
                             <div className="name"><h1>Transfer Echo</h1></div>
                             <div></div>
         </div>

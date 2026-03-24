@@ -100,6 +100,12 @@ api.interceptors.response.use(
       window.location.href = "/login";
     }
 
+    // If it's 401 on a retried request (refresh succeeded but request still unauthorized)
+    if (error.response?.status === 401 && originalRequest._retry) {
+      useAuthStore.getState().logout();
+      window.location.href = "/login";
+    }
+
     return Promise.reject(error);
   },
 );

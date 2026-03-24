@@ -96,9 +96,9 @@ const RankDetails = () => {
 };
     const sendMessage = async() => {
         const data = await chatApi.getAll();
-        const chatuser = data.find(user => user.partner.id == id);
+        const chatuser = data.find(user => user.partner?.id == id);
         if(chatuser){
-            navigate(`/chat/${chatuser.id}/${data.id}`)
+            navigate(`/chat/${chatuser.id}/${id}`)
         }else{
             const chatdata = await chatApi.createChat(id);
             navigate(`/chat/${chatdata.id}/${id}`)

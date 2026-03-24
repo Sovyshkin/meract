@@ -403,7 +403,7 @@ const ChatMulti = () => {
           <img 
             src={back} 
             alt="back" 
-            onClick={() => navigate('/chats')} 
+            onClick={() => navigate(-1)} 
             style={{ cursor: 'pointer' }} 
           />
         
