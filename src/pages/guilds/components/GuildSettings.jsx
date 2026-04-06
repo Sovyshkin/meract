@@ -191,7 +191,8 @@ const [inviteError, setInviteError] = useState(false);
                 </>
             )}
 
-            {/* БЛОК ИНВАЙТОВ (ВОЗВРАЩЕН) */}
+            {/* БЛОК ИНВАЙТОВ — только для владельца гильдии */}
+            {isAdmin && (
             <div className={styles.paragraph} ref={inviteSectionRef}>
                 <h4 className={styles.elsetitle}>Invite users</h4>
                 <p className={styles.subtitle}>Enter email or username</p>
@@ -205,20 +206,13 @@ const [inviteError, setInviteError] = useState(false);
         if (inviteError) setInviteError(false);
     }}
 />
-
-                {/* <input 
-                    type="text" 
-                    className={styles.inputField} 
-                    placeholder="Email" 
-                    value={email} 
-                    onChange={(e) => setEmail(e.target.value)}
-                /> */}
                 <div className={styles.active}>
                     <button className={styles.savebutton} onClick={() => inviteUser()}>
                         Add user
                     </button>
                 </div> 
             </div>
+            )}
 
             {/* КНОПКА СОХРАНЕНИЯ */}
             {isAdmin &&

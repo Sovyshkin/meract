@@ -81,6 +81,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   // Состояния для стримера
   const [localVideoTrack, setLocalVideoTrack] = useState(null);
   const [localAudioTrack, setLocalAudioTrack] = useState(null);
+  const [isMicMuted, setIsMicMuted] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isStreamActive, setIsStreamActive] = useState(false);
   const [isStartingStream, setIsStartingStream] = useState(false);
@@ -839,20 +840,11 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
 
-  // Fetch tasks when modal is opened
-  const fetchTasks = async () => {
-    if (!actId) return;
-
-    setLoadingTasks(true);
-    try {
-      const response = await api.get(`/act/${actId}/tasks`);
-      setTasks(response.data || []);
-    } catch (error) {
-      console.error("Error fetching tasks:", error);
-      setTasks([]);
-    } finally {
-      setLoadingTasks(false);
-    }
+  // Fetch tasks when modal is opened — use team tasks from already loaded act data
+  const fetchTasks = () => {
+    if (!actualStreamData) return;
+    const teamTasks = (actualStreamData.teams ?? []).flatMap(t => t.tasks ?? []);
+    setTasks(teamTasks);
   };
 
   useEffect(() => {
@@ -1284,14 +1276,26 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                     </button>
                   )}
 
-                {/* Кнопка голосового переключения */}
+                {/* Кнопка голосового переключения / мута микрофона */}
                 <button
                   className={`${styles.actionButton} ${isNavigator && showVoicePanel ? styles.active : ''}`}
-                  onClick={() => isNavigator && setShowVoicePanel(v => !v)}
-                  title={canSpeak ? (isNavigator ? 'Voice Switch' : 'Microphone active') : speakReason}
-                  style={!canSpeak && !isNavigator ? { opacity: 0.45 } : {}}
+                  onClick={() => {
+                    if (isNavigator) {
+                      setShowVoicePanel(v => !v);
+                    } else if (isStreamer) {
+                      const newMuted = !isMicMuted;
+                      setIsMicMuted(newMuted);
+                      if (localAudioTrackRef.current) {
+                        localAudioTrackRef.current.setEnabled(!newMuted);
+                      }
+                    }
+                  }}
+                  title={isStreamer ? (isMicMuted ? 'Unmute microphone' : 'Mute microphone') : (canSpeak ? (isNavigator ? 'Voice Switch' : 'Microphone active') : speakReason)}
+                  style={(!canSpeak && !isNavigator && !isStreamer) ? { opacity: 0.45 } : {}}
                 >
-                  <span style={{ fontSize: '22px', lineHeight: 1 }}>{canSpeak ? '🎙️' : '🔇'}</span>
+                  <span style={{ fontSize: '22px', lineHeight: 1 }}>
+                    {isStreamer ? (isMicMuted ? '🔇' : '🎙️') : (canSpeak ? '🎙️' : '🔇')}
+                  </span>
                 </button>
               </div>
             </div>
@@ -1482,25 +1486,12 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                     {tasks.map((task) => (
                       <div
                         key={task.id}
-                        className={`${styles.taskItem} ${task.isCompleted ? styles.taskCompleted : ""} ${styles.card}`}
+                        className={`${styles.taskItem} ${styles.card}`}
                       >
-                        <div className={styles.taskCheckbox}>
-                          <input
-                            type="checkbox"
-                            id={`task-${task.id}`}
-                            checked={task.isCompleted}
-                            disabled
-                            readOnly
-                          />
-                          <label htmlFor={`task-${task.id}`}></label>
-                        </div>
                         <div className={styles.taskContent}>
-                          <div className={styles.taskTitle}>{task.title}</div>
-                          {task.isCompleted && task.completedAt && (
-                            <div className={styles.taskCompletedTime}>
-                              Completed:{" "}
-                              {new Date(task.completedAt).toLocaleString()}
-                            </div>
+                          <div className={styles.taskTitle}>{task.description}</div>
+                          {task.address && (
+                            <div className={styles.taskCompletedTime}>📍 {task.address}</div>
                           )}
                         </div>
                       </div>

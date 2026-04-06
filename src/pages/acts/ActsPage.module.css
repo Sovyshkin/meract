@@ -347,79 +347,51 @@ button {
   /* transition: none; */ 
 }
 
-.thumbcont {
-  position: absolute;
-  min-width: 30px; 
-  height: 30px;
-  background-color: #0092FE;
-  z-index: 99;
-  border-radius: 8px;
-  transform: translate(-50%, -50%);
-  top: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-}
-.rangeThumb {
-  width: auto; 
-  height: auto; 
-  display: block;
-}
+
 
 .hiddenInput {
   position: absolute;
   width: 100%;
-  height: 6px; /* Высота должна совпадать с высотой трека */
+  height: 6px;
   top: 50%;
   transform: translateY(-50%);
-  
-  /* Полная прозрачность */
   appearance: none;
   -webkit-appearance: none;
-  background: transparent; 
+  background: transparent;
   outline: none;
   border: none;
   margin: 0;
   padding: 0;
-  
-  /* Пропускаем клики сквозь трек */
-  pointer-events: none; 
+  pointer-events: none;
   z-index: 10;
 }
 
-/* Убираем синюю обводку в Chrome/Safari при фокусе */
 .hiddenInput:focus {
   outline: none;
 }
 
-/* Стилизация невидимого ползунка (Chrome, Safari, Edge, Opera) */
 .hiddenInput::-webkit-slider-thumb {
   appearance: none;
   -webkit-appearance: none;
-  
-  /* Размер должен быть равен или чуть больше вашего синего кастомного ползунка */
-  height: 30px; 
+  height: 30px;
   width: 30px;
-  
-  /* Делаем его прозрачным, чтобы видеть ваш кастомный thumb под ним */
-  background: transparent; 
+  border-radius: 8px;
+  background: #0092FE;
   cursor: pointer;
-  
-  /* Возвращаем возможность клика и перетаскивания */
-  pointer-events: all; 
+  pointer-events: all;
   border: none;
+  box-shadow: 0 0 8px rgba(0, 146, 254, 0.5);
 }
 
-/* Стилизация невидимого ползунка (Firefox) */
 .hiddenInput::-moz-range-thumb {
   appearance: none;
   height: 30px;
   width: 30px;
-  background: transparent;
+  border-radius: 8px;
+  background: #0092FE;
   cursor: pointer;
-  pointer-events: all;
   border: none;
+  box-shadow: 0 0 8px rgba(0, 146, 254, 0.5);
 }
 
 /* Убираем серую полоску трека в Firefox */

@@ -9,7 +9,7 @@ import notification from '../../images/notification.png';
 import filter from '../../images/setting.png';
 import search from '../../images/search.png';
 import Menu from '../Menu/Menu.jsx';
-import thumb from '../../images/thumb.png';
+
 import { actApi } from "../../shared/api/act.js";
 import { geoApi } from "../../shared/api/geo.js";
 import { useFilterStore } from "../../shared/stores/actsFilters.js";
@@ -163,16 +163,7 @@ export default function ActsPage() {
                     {r.label}
                   </div>
                 ))}
-                <div
-                  className={styles.thumbcont}
-                  style={{
-                    left: selectedRangeIdx < 0
-                      ? '0%'
-                      : `${(selectedRangeIdx / (locationRanges.length - 1 || 1)) * 100}%`
-                  }}
-                >
-                  <img src={thumb} alt="thumb" className={styles.rangeThumb} />
-                </div>
+
                 <input
                   type="range"
                   min="-1"

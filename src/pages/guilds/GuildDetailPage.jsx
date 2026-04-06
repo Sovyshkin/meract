@@ -98,20 +98,11 @@ useEffect(() => {
         setUserid(profileData.id);
       }
 
-      // Если админ, загружаем заявки отдельно
-      if (isAdmin) {
+      // Если владелец, загружаем заявки
+      if (isUserOwner) {
         try {
           const joinData = await guildApi.getJoins(id);
-          console.log('Join data from API:', joinData); // Должен быть массив с данными
-          
           setJoin(joinData);
-          console.log('After setJoin, join state should be updated');
-          
-          // Проверим сразу после установки (но setState асинхронный)
-          setTimeout(() => {
-            console.log('Join state after set (via setTimeout):', joinData);
-          }, 100);
-          
         } catch (joinError) {
           console.error("Error loading joins:", joinError);
           setJoin([]);
@@ -128,7 +119,7 @@ useEffect(() => {
   if (id) {
     loadAllData();
   }
-}, [id, isAdmin]);
+}, [id]);
 
   const requestGuild = async() => {
     await guildApi.joinGuild(id);
@@ -139,22 +130,6 @@ useEffect(() => {
       setIsOverflowing(descRef.current.scrollHeight > 60);
     }
   }, [description, loading]);
-
-  useEffect(() => {
-    const fetchGuildDetails = async () => {
-      try {
-        const response = await api.get(`/guild/${id}`);
-        setGuild(response.data);
-        const userIsMember = response.data.members?.some(m => m.id === user?.id || m.userId === user?.id) || response.data.ownerId === user?.id;
-        setIsMember(userIsMember);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchGuildDetails();
-  }, [id, user?.id]);
 
   useEffect(() => {
     const closeMenu = () => setIsMenuOpen(false);
@@ -206,11 +181,10 @@ useEffect(() => {
   };
 
   const DenyJoin = async(joinId) => {
-    await guildApi.DenyJoin(joinId);
+    await guildApi.RejectJoin(joinId);
     const updatedJoins = joinusers.filter(join => join.id !== joinId);
     setJoin(updatedJoins);
     await getmembers();
-
   }
   const AcceptJoin = async(joinId) => {
     await guildApi.AcceptJoin(joinId);
@@ -260,10 +234,12 @@ useEffect(() => {
             )
 
             }
+            {isAdmin && (
             <div className={styles.dpopitem}>
               <img src={adduser} alt="" />
               <div className={styles.menuItem} onClick={() => navigate(`/guild-settings/${id}`)}>Invite member</div>
             </div>
+            )}
            
             <div className={styles.dpopitem} >
               <img src={about} alt="" />
@@ -406,7 +382,7 @@ useEffect(() => {
             <>
             <div className={styles.cardcontfirst}>
               <p className={styles.title} style={{ fontSize: '18px', margin: '0px' }}>Best achievements</p>
-              {achivemenets.filter(a => a.isBest).map((achive) => (
+              {achivemenets.filter(a => a.featured).map((achive) => (
                 <div 
                   key={achive.id} 
                   className={`${styles.members} ${selectedToSwap?.id === achive.id ? styles.selected : ""}`} 
@@ -428,7 +404,7 @@ useEffect(() => {
             </div>
 
             <div className={styles.cardcont} style={{ marginTop: '20px' }}>
-              {achivemenets.filter(a => !a.isBest).map((achive) => (
+              {achivemenets.filter(a => !a.featured).map((achive) => (
                 <div 
                   key={achive.id} 
                   className={`${styles.members} ${selectedToSwap?.id === achive.id ? styles.selected : ""}`} 
