@@ -32,8 +32,16 @@ useEffect(() => {
         setTitle(actsdata.title || actsdata.name || 'Untitled');
         setDescription(actsdata.description || 'No description');
         
-        setHeroes(Array.isArray(actsdata.heroes) ? actsdata.heroes.join(', ') : 'no heroes');
-        setNavigator(Array.isArray(actsdata.navigators) ? actsdata.navigators.join(', ') : 'no navigators');
+        // Extract heroes/navigators from teams structure
+        const allRoleConfigs = (actsdata.teams || []).flatMap(t => t.roleConfigs || []);
+        const heroNames = allRoleConfigs
+          .filter(rc => rc.role === 'hero')
+          .flatMap(rc => (rc.candidates || []).map(c => c.user?.login).filter(Boolean));
+        const navNames = allRoleConfigs
+          .filter(rc => rc.role === 'navigator')
+          .flatMap(rc => (rc.candidates || []).map(c => c.user?.login).filter(Boolean));
+        setHeroes(heroNames.length > 0 ? heroNames.join(', ') : 'open voting');
+        setNavigator(navNames.length > 0 ? navNames.join(', ') : 'open voting');
         
         if (actsdata.initiator) {
           setLocation(`${actsdata.initiator.city || ''}, ${actsdata.initiator.country || ''}`);

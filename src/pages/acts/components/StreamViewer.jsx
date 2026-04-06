@@ -16,6 +16,7 @@ import api from "../../../shared/api/api";
 import { useSpotAgent } from "../../../shared/hooks/useSpotAgent";
 import { useAuthStore } from "../../../shared/stores/authStore";
 import useChat from "../hooks/useChat";
+import { useNavigatorVoice } from "../hooks/useNavigatorVoice";
 import EmojiPicker from "./EmojiPicker";
 import styles from "./StreamViewer.module.css";
 import menu from '../../../images/guildmenu.png';
@@ -115,6 +116,20 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const spotAgentCount = actualStreamData?.spotAgentCount || 0;
   const hasApplied = candidates.some((c) => c.userId === currentUserId);
 
+  // Navigator Voice Switch
+  const { canSpeak, speakReason, voiceState, switchVoice } = useNavigatorVoice(actId);
+
+  // Проверяем, является ли текущий пользователь навигатором
+  const isNavigator = useMemo(() => {
+    if (!currentUserId || !actualStreamData?.teams) return false;
+    return actualStreamData.teams.some(team =>
+      (team.roleConfigs || []).some(rc =>
+        rc.role === 'navigator' &&
+        (rc.candidates || []).some(c => (c.user?.id ?? c.userId) === currentUserId)
+      )
+    );
+  }, [currentUserId, actualStreamData?.teams]);
+
   const remoteVideoRef = useRef(null);
   const localVideoRef = useRef(null);
   const clientRef = useRef(null);
@@ -124,6 +139,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const localAudioTrackRef = useRef(null);
 
   const [isopenmenu, setisopenmenu] = useState(false);
+  const [showVoicePanel, setShowVoicePanel] = useState(false);
   // Extract user ID
   const baseUserId = useMemo(() => {
     if (user?.id) {
@@ -804,6 +820,13 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     loadViewerChatId();
   }, [actId, isStreamer]);
 
+  // Синхронизируем navigator:voice:permission → Agora аудио трек
+  useEffect(() => {
+    if (localAudioTrackRef.current) {
+      localAudioTrackRef.current.setEnabled(canSpeak);
+    }
+  }, [canSpeak]);
+
   // Auto-show chat overlay for streamer when publishing starts
   useEffect(() => {
     if (isStreamer && (isPublishing || isStreamActive)) {
@@ -1198,6 +1221,32 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                   </div>
                 </div>
               )}
+              {/* Панель переключения голоса (только для навигатора) */}
+              {isNavigator && showVoicePanel && (
+                <div className={styles.voicePanel}>
+                  <p className={styles.voicePanelTitle}>Voice Switch</p>
+                  {['initiator', 'hero', 'spot_agent'].map(role => {
+                    const isActive = voiceState?.activeTarget?.role === role;
+                    return (
+                      <button
+                        key={role}
+                        className={`${styles.voiceRoleBtn} ${isActive ? styles.voiceRoleBtnActive : ''}`}
+                        onClick={() => switchVoice(role)}
+                      >
+                        {role === 'spot_agent' ? 'Spot Agent' : role.charAt(0).toUpperCase() + role.slice(1)}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Микрофон заглушен (для не-навигатора) */}
+              {!isNavigator && !canSpeak && speakReason && (
+                <div className={styles.micMutedBanner}>
+                  🔇 {speakReason}
+                </div>
+              )}
+
               <div className={styles.chatActions}>
                 <button
                   className={styles.actionButton}
@@ -1234,6 +1283,16 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                       )}
                     </button>
                   )}
+
+                {/* Кнопка голосового переключения */}
+                <button
+                  className={`${styles.actionButton} ${isNavigator && showVoicePanel ? styles.active : ''}`}
+                  onClick={() => isNavigator && setShowVoicePanel(v => !v)}
+                  title={canSpeak ? (isNavigator ? 'Voice Switch' : 'Microphone active') : speakReason}
+                  style={!canSpeak && !isNavigator ? { opacity: 0.45 } : {}}
+                >
+                  <span style={{ fontSize: '22px', lineHeight: 1 }}>{canSpeak ? '🎙️' : '🔇'}</span>
+                </button>
               </div>
             </div>
           )}

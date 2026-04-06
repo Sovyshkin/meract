@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@stripe/react-stripe-js": "^6.1.0",
+    "@stripe/stripe-js": "^9.0.1",
     "@trivago/prettier-plugin-sort-imports": "^5.2.2",
     "agora-rtc-sdk-ng": "^4.24.0",
     "axios": "^1.10.0",

@@ -4,17 +4,35 @@ import { useAuthStore } from "../stores/authStore";
 
 let isRefreshing = false;
 let failedQueue = [];
+let isLoggingOut = false;
 
 const processQueue = (error, token = null) => {
   failedQueue.forEach(({ resolve, reject }) => {
-    if (error) {
-      reject(error);
-    } else {
-      resolve(token);
+    if (error) reject(error);
+    else resolve(token);
+  });
+  failedQueue = [];
+};
+
+const logoutAndRedirect = () => {
+  if (isLoggingOut) return;
+  isLoggingOut = true;
+
+  // Сбрасываем все pending запросы
+  processQueue(new Error("Unauthorized"), null);
+  isRefreshing = false;
+
+  // Очищаем cookies
+  document.cookie.split(";").forEach((cookie) => {
+    const name = cookie.split("=")[0].trim();
+    if (name) {
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${window.location.hostname};`;
     }
   });
 
-  failedQueue = [];
+  useAuthStore.getState().logout();
+  window.location.replace("/login");
 };
 
 const api = axios.create({
@@ -25,7 +43,7 @@ const api = axios.create({
   withCredentials: true,
 });
 
-// Interceptor for adding token to each request
+// Добавляем токен к каждому запросу
 api.interceptors.request.use(
   (config) => {
     const token = useAuthStore.getState().getToken();
@@ -34,79 +52,65 @@ api.interceptors.request.use(
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  },
+  (error) => Promise.reject(error),
 );
 
-// Interceptor for handling responses with automatic token refresh
+// Обработка 401
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
-    if (
-      error.response?.status === 401 &&
-      !originalRequest._retry &&
-      !originalRequest.url.includes("/auth/refresh")
-    ) {
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject });
+    if (!error.response || error.response.status !== 401) {
+      return Promise.reject(error);
+    }
+
+    // Для запросов авторизации — сразу выходим
+    if (!originalRequest || originalRequest.url?.includes("/auth/")) {
+      logoutAndRedirect();
+      return Promise.reject(error);
+    }
+
+    // Уже пробовали обновить токен — выходим
+    if (originalRequest._retry) {
+      logoutAndRedirect();
+      return Promise.reject(error);
+    }
+
+    // Если уже идёт обновление — ставим в очередь
+    if (isRefreshing) {
+      return new Promise((resolve, reject) => {
+        failedQueue.push({ resolve, reject });
+      })
+        .then((token) => {
+          originalRequest.headers.Authorization = `Bearer ${token}`;
+          return api(originalRequest);
         })
-          .then((token) => {
-            originalRequest.headers.Authorization = `Bearer ${token}`;
-            return api(originalRequest);
-          })
-          .catch((err) => {
-            return Promise.reject(err);
-          });
-      }
-
-      originalRequest._retry = true;
-      isRefreshing = true;
-
-      try {
-        const response = await api.post("/auth/refresh");
-        const { token } = response.data;
-
-        useAuthStore.getState().setToken(token);
-
-        processQueue(null, token);
-
-        originalRequest.headers.Authorization = `Bearer ${token}`;
-
-        return api(originalRequest);
-      } catch (refreshError) {
-        processQueue(refreshError, null);
-
-        // If token refresh also returns 401, log out
-        if (refreshError.response?.status === 401) {
-          useAuthStore.getState().logout();
-          window.location.href = "/login";
-        }
-        return Promise.reject(refreshError);
-      } finally {
-        isRefreshing = false;
-      }
+        .catch(() => {
+          logoutAndRedirect();
+          return Promise.reject(error);
+        });
     }
 
-    // If it's 401 on /auth/refresh, log out immediately
-    if (
-      error.response?.status === 401 &&
-      originalRequest.url.includes("/auth/refresh")
-    ) {
-      useAuthStore.getState().logout();
-      window.location.href = "/login";
-    }
+    originalRequest._retry = true;
+    isRefreshing = true;
 
-    // If it's 401 on a retried request (refresh succeeded but request still unauthorized)
-    if (error.response?.status === 401 && originalRequest._retry) {
-      useAuthStore.getState().logout();
-      window.location.href = "/login";
-    }
+    try {
+      const response = await api.post("/auth/refresh");
+      const token = response.data?.token || response.data?.accessToken;
 
-    return Promise.reject(error);
+      if (!token) throw new Error("No token in refresh response");
+
+      useAuthStore.getState().setToken(token);
+      processQueue(null, token);
+      originalRequest.headers.Authorization = `Bearer ${token}`;
+      return api(originalRequest);
+    } catch {
+      logoutAndRedirect();
+      return Promise.reject(error);
+    } finally {
+      isRefreshing = false;
+    }
   },
 );
 

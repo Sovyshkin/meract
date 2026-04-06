@@ -10,6 +10,7 @@ import Menu from '../Menu/Menu.jsx';
 import NavBar from "../../shared/ui/NavBar/NavBar";
 import userimg from '../../images/user.png';
 import { chatApi } from "../../shared/api/chat.js";
+import api from "../../shared/api/api.js";
 
 const getPreviewText = (msg) => {
   if (!msg) return 'No messages';
@@ -35,6 +36,39 @@ export default function ChatPage() {
   const [cards, setCards] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
+  const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'acts' | 'contacts'
+  const [userResults, setUserResults] = useState([]);
+  const [userSearchLoading, setUserSearchLoading] = useState(false);
+
+  // Поиск пользователей по username с debounce
+  useEffect(() => {
+    if (searchTerm.trim().length < 2) {
+      setUserResults([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setUserSearchLoading(true);
+      try {
+        const res = await api.get('/user/all-users-for-guild');
+        const query = searchTerm.toLowerCase().trim();
+        setUserResults((res.data || []).filter(u => u.login?.toLowerCase().includes(query)));
+      } catch {
+        setUserResults([]);
+      } finally {
+        setUserSearchLoading(false);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  const openUserChat = async (userId) => {
+    try {
+      const chat = await chatApi.createChat(userId);
+      navigate(`/chat/${chat.id}/${userId}`);
+    } catch {
+      // silent
+    }
+  };
 
   useEffect(() => {
     const fetchChats = async () => {
@@ -52,12 +86,13 @@ export default function ChatPage() {
   }, []);
 
   const filteredChats = useMemo(() => {
+    let list = cards;
+    if (activeFilter === 'acts') list = list.filter(c => c.actId != null);
+    else if (activeFilter === 'contacts') list = list.filter(c => c.type === 'direct');
     const query = searchTerm.toLowerCase().trim();
-    if (!query) return cards;
-    return cards.filter(card => 
-      card.name?.toLowerCase().includes(query)
-    );
-  }, [searchTerm, cards]);
+    if (!query) return list;
+    return list.filter(card => card.name?.toLowerCase().includes(query));
+  }, [searchTerm, cards, activeFilter]);
 
   const toChat = (type, id, userId) => {
     type === 'direct' ? navigate(`/chat/${id}/${userId}`) : navigate(`/group/${id}`);
@@ -99,6 +134,21 @@ export default function ChatPage() {
               style={{ cursor: 'pointer' }}
             />
           </div>
+        </div>
+
+        <div className={styles.btncont} style={{ marginBottom: '12px' }}>
+          <button
+            className={activeFilter === 'all' ? styles.active : ''}
+            onClick={() => setActiveFilter('all')}
+          >All</button>
+          <button
+            className={activeFilter === 'acts' ? styles.active : ''}
+            onClick={() => setActiveFilter('acts')}
+          >Acts</button>
+          <button
+            className={activeFilter === 'contacts' ? styles.active : ''}
+            onClick={() => setActiveFilter('contacts')}
+          >Contacts</button>
         </div>
       </div>
 
@@ -149,6 +199,44 @@ export default function ChatPage() {
           <h3 style={{ color: 'white', margin: 'auto' }}>
             {searchTerm ? "No chats found" : "Nothing found"}
           </h3>
+        )}
+
+        {/* People section — user search results */}
+        {searchTerm.trim().length >= 2 && (
+          <div style={{ width: '100%', marginTop: '16px' }}>
+            <p style={{ color: '#888', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px', padding: '0 4px' }}>
+              People
+            </p>
+            {userSearchLoading ? (
+              <p style={{ color: '#666', fontSize: '13px', padding: '0 4px' }}>Searching...</p>
+            ) : userResults.length > 0 ? (
+              userResults.map(u => (
+                <div
+                  key={u.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '10px 0',
+                    borderBottom: '1px solid rgba(255,255,255,0.06)',
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => openUserChat(u.id)}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <img src={u.imageUrl || userimg} alt={u.login} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} />
+                    <div>
+                      <p style={{ color: '#fff', fontSize: '15px', margin: 0 }}>{u.login}</p>
+                      {u.email && <p style={{ color: '#888', fontSize: '12px', margin: 0 }}>{u.email}</p>}
+                    </div>
+                  </div>
+                  <span style={{ color: '#FF3B57', fontSize: '13px', fontWeight: 500 }}>Message</span>
+                </div>
+              ))
+            ) : (
+              <p style={{ color: '#666', fontSize: '13px', padding: '0 4px' }}>No users found</p>
+            )}
+          </div>
         )}
       </div>
       <NavBar />

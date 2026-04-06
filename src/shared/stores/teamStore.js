@@ -16,12 +16,18 @@ const useTeamStore = create(
       heroes: [],
       navigators: [],
       agents: [],
+      tasks: [],
       teamName: '',
       
       // Состояния для чекбоксов текущей команды
       isHeroRecruitmentOpen: false,
       isNavigatorRecruitmentOpen: false,
       
+      // Метод подбора для каждой роли: 'fixed' | 'voting_candidates' | 'open_voting'
+      heroMethod: 'voting_candidates',
+      navigatorMethod: 'voting_candidates',
+      agentMethod: 'voting_candidates',
+
       // Данные для полей ввода текущей команды
       heroVotingStartTime: '10:30',
       heroVotingStartDate: '2026-02-13',
@@ -29,6 +35,9 @@ const useTeamStore = create(
       navigatorVotingStartTime: '10:30',
       navigatorVotingStartDate: '2026-02-13',
       navigatorVotingHours: 24,
+      agentVotingStartTime: '10:30',
+      agentVotingStartDate: '2026-02-13',
+      agentVotingHours: 24,
 
       // Получить все команды
       getTeams: () => get().teams,
@@ -55,15 +64,22 @@ const useTeamStore = create(
           heroes: [],
           navigators: [],
           agents: [],
+          tasks: [],
           teamName: '',
           isHeroRecruitmentOpen: false,
           isNavigatorRecruitmentOpen: false,
+          heroMethod: 'voting_candidates',
+          navigatorMethod: 'voting_candidates',
+          agentMethod: 'voting_candidates',
           heroVotingStartTime: '10:30',
           heroVotingStartDate: '2026-02-13',
           heroVotingHours: 24,
           navigatorVotingStartTime: '10:30',
           navigatorVotingStartDate: '2026-02-13',
           navigatorVotingHours: 24,
+          agentVotingStartTime: '10:30',
+          agentVotingStartDate: '2026-02-13',
+          agentVotingHours: 24,
         });
         return newTeamId;
       },
@@ -77,15 +93,22 @@ const useTeamStore = create(
             heroes: team.heroes || [],
             navigators: team.navigators || [],
             agents: team.agents || [],
+            tasks: team.tasks || [],
             teamName: team.name || '',
             isHeroRecruitmentOpen: team.isHeroRecruitmentOpen || false,
             isNavigatorRecruitmentOpen: team.isNavigatorRecruitmentOpen || false,
+            heroMethod: team.heroMethod || 'voting_candidates',
+            navigatorMethod: team.navigatorMethod || 'voting_candidates',
+            agentMethod: team.agentMethod || 'voting_candidates',
             heroVotingStartTime: team.heroVotingStartTime || '10:30',
             heroVotingStartDate: team.heroVotingStartDate || '2026-02-13',
             heroVotingHours: team.heroVotingHours || 24,
             navigatorVotingStartTime: team.navigatorVotingStartTime || '10:30',
             navigatorVotingStartDate: team.navigatorVotingStartDate || '2026-02-13',
             navigatorVotingHours: team.navigatorVotingHours || 24,
+            agentVotingStartTime: team.agentVotingStartTime || '10:30',
+            agentVotingStartDate: team.agentVotingStartDate || '2026-02-13',
+            agentVotingHours: team.agentVotingHours || 24,
           });
         }
       },
@@ -112,14 +135,21 @@ const useTeamStore = create(
           heroes: [...state.heroes],
           navigators: [...state.navigators],
           agents: [...state.agents],
+          tasks: [...(state.tasks || [])],
           isHeroRecruitmentOpen: state.isHeroRecruitmentOpen,
           isNavigatorRecruitmentOpen: state.isNavigatorRecruitmentOpen,
+          heroMethod: state.heroMethod || 'voting_candidates',
+          navigatorMethod: state.navigatorMethod || 'voting_candidates',
+          agentMethod: state.agentMethod || 'voting_candidates',
           heroVotingStartTime: state.heroVotingStartTime,
           heroVotingStartDate: state.heroVotingStartDate,
           heroVotingHours: state.heroVotingHours,
           navigatorVotingStartTime: state.navigatorVotingStartTime,
           navigatorVotingStartDate: state.navigatorVotingStartDate,
           navigatorVotingHours: state.navigatorVotingHours,
+          agentVotingStartTime: state.agentVotingStartTime,
+          agentVotingStartDate: state.agentVotingStartDate,
+          agentVotingHours: state.agentVotingHours,
           createdAt: new Date().toISOString(),
         };
 
@@ -164,19 +194,31 @@ const useTeamStore = create(
           heroes: data.heroes || [],
           navigators: data.navigators || [],
           agents: data.agents || [],
+          tasks: data.tasks || [],
           isHeroRecruitmentOpen: data.isHeroRecruitmentOpen || false,
           isNavigatorRecruitmentOpen: data.isNavigatorRecruitmentOpen || false,
+          heroMethod: data.heroMethod || 'voting_candidates',
+          navigatorMethod: data.navigatorMethod || 'voting_candidates',
+          agentMethod: data.agentMethod || 'voting_candidates',
           heroVotingStartTime: data.heroVotingStartTime || '10:30',
           heroVotingStartDate: data.heroVotingStartDate || '2026-02-13',
           heroVotingHours: data.heroVotingHours || 24,
           navigatorVotingStartTime: data.navigatorVotingStartTime || '10:30',
           navigatorVotingStartDate: data.navigatorVotingStartDate || '2026-02-13',
           navigatorVotingHours: data.navigatorVotingHours || 24,
+          agentVotingStartTime: data.agentVotingStartTime || '10:30',
+          agentVotingStartDate: data.agentVotingStartDate || '2026-02-13',
+          agentVotingHours: data.agentVotingHours || 24,
         });
       },
 
       // Actions для team
       setTeamName: (name) => set({ teamName: name }),
+
+      // Actions для заданий
+      addTask: (task) => set((state) => ({ tasks: [...(state.tasks || []), task] })),
+      removeTask: (id) => set((state) => ({ tasks: (state.tasks || []).filter(t => t.id !== id) })),
+      updateTask: (id, data) => set((state) => ({ tasks: (state.tasks || []).map(t => t.id === id ? { ...t, ...data } : t) })),
       
       // Actions для участников
       addHero: (hero) => set((state) => {
@@ -209,6 +251,11 @@ const useTeamStore = create(
       // Actions для чекбоксов
       setHeroRecruitment: (value) => set({ isHeroRecruitmentOpen: value }),
       setNavigatorRecruitment: (value) => set({ isNavigatorRecruitmentOpen: value }),
+
+      // Actions для методов подбора ролей
+      setHeroMethod: (method) => set({ heroMethod: method }),
+      setNavigatorMethod: (method) => set({ navigatorMethod: method }),
+      setAgentMethod: (method) => set({ agentMethod: method }),
       
       // Actions для полей ввода hero
       setHeroVotingTime: (time) => set({ heroVotingStartTime: time }),
@@ -219,6 +266,11 @@ const useTeamStore = create(
       setNavigatorVotingTime: (time) => set({ navigatorVotingStartTime: time }),
       setNavigatorVotingDate: (date) => set({ navigatorVotingStartDate: date }),
       setNavigatorVotingHours: (hours) => set({ navigatorVotingHours: hours }),
+
+      // Actions для полей ввода agent
+      setAgentVotingTime: (time) => set({ agentVotingStartTime: time }),
+      setAgentVotingDate: (date) => set({ agentVotingStartDate: date }),
+      setAgentVotingHours: (hours) => set({ agentVotingHours: hours }),
       
       // Очистка текущей команды
       resetCurrentTeam: () => set({
@@ -226,15 +278,22 @@ const useTeamStore = create(
         heroes: [],
         navigators: [],
         agents: [],
+        tasks: [],
         teamName: '',
         isHeroRecruitmentOpen: false,
         isNavigatorRecruitmentOpen: false,
+        heroMethod: 'voting_candidates',
+        navigatorMethod: 'voting_candidates',
+        agentMethod: 'voting_candidates',
         heroVotingStartTime: '10:30',
         heroVotingStartDate: '2026-02-13',
         heroVotingHours: 24,
         navigatorVotingStartTime: '10:30',
         navigatorVotingStartDate: '2026-02-13',
         navigatorVotingHours: 24,
+        agentVotingStartTime: '10:30',
+        agentVotingStartDate: '2026-02-13',
+        agentVotingHours: 24,
       }),
     }),
     {
