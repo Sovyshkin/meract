@@ -1,4 +1,4 @@
-import { useState, useRef, useLayoutEffect } from 'react';
+import { useState, useRef, useLayoutEffect, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import back from '../../images/arrow-left.png';
@@ -6,7 +6,7 @@ import logo from '../../images/user.png';
 import trash from '../../images/trash.png';
 import styles from './Notifications.module.css';
 import { noticeApi } from '../../shared/api/notifications';
-import { useEffect } from 'react';
+import { useNotificationStore } from '../../shared/stores/notificationStore';
 const accept = () => {
     console.log('Accepted');
 }
@@ -14,15 +14,12 @@ const accept = () => {
 const reject = () => {
     console.log('Rejected');
 }
-
-const NotificationCard = ({ card, isExpanded, onToggle, onDelete, canSwipe }) => {
+const NotificationCard = ({ card, isExpanded, onToggle, onDelete, onRead, canSwipe }) => {
   const [isOverflowing, setIsOverflowing] = useState(false);
   const textRef = useRef(null);
 
   const x = useMotionValue(0);
   const opacity = useTransform(x, [-60, -20], [1, 0]);
-
- 
 
   useLayoutEffect(() => {
     if (canSwipe && textRef.current) {
@@ -32,15 +29,30 @@ const NotificationCard = ({ card, isExpanded, onToggle, onDelete, canSwipe }) =>
   }, [card.desc, canSwipe]);
 
   const cardContent = (
-    <div className={styles.card} style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+    <div
+      className={styles.card}
+      style={{
+        flexDirection: 'column',
+        alignItems: 'stretch',
+        borderLeft: !card.isRead ? '3px solid #009DFF' : '3px solid transparent',
+      }}
+      onClick={() => !card.isRead && onRead && onRead(card.id)}
+    >
       {/* Верхняя часть: Лого, Имя, Время и Текст */}
       <div style={{ display: 'flex', width: '100%' }}>
         <div className={styles.rankBadge}>
-          <img src={logo} className={styles.rankImg} alt="user" />
+          <img
+            src={card.avatar || logo}
+            className={styles.rankImg}
+            alt="user"
+            onError={(e) => { e.target.src = logo; }}
+          />
         </div>
         <div className={styles.cardInfo} style={{ flex: 1 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <p className={styles.userName}>{card.user}</p>
+            <p className={styles.userName} style={{ color: !card.isRead ? '#fff' : undefined }}>
+              {card.user}
+            </p>
             <p style={{ color: 'gray', fontSize: 'smaller' }}>{card.time}</p>
           </div>
           <p
@@ -82,10 +94,10 @@ const NotificationCard = ({ card, isExpanded, onToggle, onDelete, canSwipe }) =>
       {!canSwipe && (
         <div className={styles.btncont} style={{ marginTop: '12px', display: 'flex', gap: '10px' }}>
           <button style={{ flex: 1 }} onClick={reject}>
-            Reject
+            Отклонить
           </button>
           <button className={styles.active} style={{ flex: 1 }} onClick={accept}>
-            Accept
+            Принять
           </button>
         </div>
       )}
@@ -116,38 +128,92 @@ const NotificationCard = ({ card, isExpanded, onToggle, onDelete, canSwipe }) =>
 
 const Notifications = () => {
   const navigate = useNavigate();
-  const [nav, setNav] = useState(0); 
+  const [nav, setNav] = useState(0);
   const [expandedCards, setExpandedCards] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const [notifications, setNotifications] = useState([
-    { id: 1, user: 'pavel', desc: 'sadfasdfasdfasdfsadfasdfasdfasdfasdfasdfasd', time: '16:00' },
-  ]);
+  const {
+    notifications: storeNotifications,
+    setNotifications,
+    markRead,
+    markAllRead,
+    removeNotification,
+  } = useNotificationStore();
 
-  const [invitations, setInvitations] = useState([
-    { id: 101, user: 'alex', desc: 'asdafsdfasdfasdfasdfa"', time: '14:30' },
-  ]);
+  // Format date for display
+  const formatTime = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diff = now - date;
+    if (diff < 60_000) return 'сейчас';
+    if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} мин.`;
+    if (diff < 86_400_000) return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' });
+  };
 
-   useEffect(() => {
-    const loadAllData = async () => {
+  // Load notifications from API on mount
+  useEffect(() => {
+    const load = async () => {
       try {
-        const data = await noticeApi.getNotifications();
-        console.log("Загруженные данные:", data);
-      } catch (error) {
-        console.error("err", error);
-      } 
+        setLoading(true);
+        const data = await noticeApi.getNotifications(50);
+        if (Array.isArray(data)) setNotifications(data);
+      } catch (err) {
+        console.error('Failed to load notifications:', err);
+      } finally {
+        setLoading(false);
+      }
     };
-    loadAllData();
-  }, []); 
+    load();
+  }, []);
+
+  // Split into general notifications and invitations
+  // "invitation" type → Invitations tab; everything else → Notifications tab
+  const INVITATION_TYPES = ['guild_invite', 'act_invite', 'team_invite', 'invitation'];
+  const generalNotifications = storeNotifications.filter(
+    (n) => !INVITATION_TYPES.includes(n.type)
+  );
+  const invitations = storeNotifications.filter(
+    (n) => INVITATION_TYPES.includes(n.type)
+  );
+
+  const currentData = nav === 0 ? generalNotifications : invitations;
 
   const toggleExpand = (id) => {
-    setExpandedCards(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+    setExpandedCards((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
   };
 
-  const deleteCard = (id) => {
-    setNotifications(prev => prev.filter(c => c.id !== id));
-  };
+  const handleDelete = useCallback(async (id) => {
+    removeNotification(id);
+    try {
+      await noticeApi.deleteNotification(id);
+    } catch (err) {
+      console.error('Delete notification failed:', err);
+    }
+  }, [removeNotification]);
 
-  const currentData = nav === 0 ? notifications : invitations;
+  const handleMarkRead = useCallback(async (id) => {
+    markRead(id);
+    try {
+      await noticeApi.markRead(id);
+    } catch (err) {
+      console.error('Mark read failed:', err);
+    }
+  }, [markRead]);
+
+  const handleMarkAllRead = useCallback(async () => {
+    markAllRead();
+    try {
+      await noticeApi.markAllRead();
+    } catch (err) {
+      console.error('Mark all read failed:', err);
+    }
+  }, [markAllRead]);
+
+  const unreadCount = storeNotifications.filter((n) => !n.isRead).length;
 
   return (
     <div className={styles.container}>
@@ -155,53 +221,80 @@ const Notifications = () => {
         <div className={styles.header_cont}>
           <img src={back} alt="back" onClick={() => navigate('/acts')} style={{ cursor: 'pointer' }} />
           <div className={styles.name}>
-            <h1>{nav === 0 ? "Notifications" : "Invitations"}</h1>
+            <h1>{nav === 0 ? 'Уведомления' : 'Приглашения'}</h1>
           </div>
-          <div style={{ width: '24px' }}></div>
+          {unreadCount > 0 ? (
+            <span
+              onClick={handleMarkAllRead}
+              style={{ fontSize: '11px', color: '#009DFF', cursor: 'pointer', whiteSpace: 'nowrap' }}
+            >
+              Прочитать все
+            </span>
+          ) : (
+            <div style={{ width: '24px' }}></div>
+          )}
         </div>
 
         <div className={styles.btncont}>
-          <button className={nav === 0 ? styles.active : ""} onClick={() => setNav(0)}>
-            Notifications
+          <button className={nav === 0 ? styles.active : ''} onClick={() => setNav(0)}>
+            Уведомления
           </button>
-          <button className={nav === 1 ? styles.active : ""} onClick={() => setNav(1)}>
-            Invitations
+          <button className={nav === 1 ? styles.active : ''} onClick={() => setNav(1)}>
+            Приглашения
           </button>
         </div>
       </div>
 
       <div className={styles.cardcont}>
-        <AnimatePresence mode="wait">
-          {currentData.length > 0 ? (
-            <motion.div
-              key={nav}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-            >
-              {currentData.map((card) => (
-                <NotificationCard 
-                  key={card.id}
-                  card={card}
-                  isExpanded={expandedCards.includes(card.id)}
-                  onToggle={toggleExpand}
-                  onDelete={deleteCard}
-                  canSwipe={nav === 0}
-                />
-              ))}
-            </motion.div>
-          ) : (
-            <motion.div
-              key="empty"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              style={{ display: 'flex', height: '200px', alignItems: 'center', justifyContent: 'center', color: 'whitesmoke' }}
-            >
-              <p>No {nav === 0 ? 'notifications' : 'invitations'}</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {loading ? (
+          <div style={{ display: 'flex', height: '200px', alignItems: 'center', justifyContent: 'center', color: '#555' }}>
+            Загрузка...
+          </div>
+        ) : (
+          <AnimatePresence mode="wait">
+            {currentData.length > 0 ? (
+              <motion.div
+                key={nav}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+              >
+                {currentData.map((n) => {
+                  const card = {
+                    id: n.id,
+                    user: n.title || 'Уведомление',
+                    desc: n.body || '',
+                    time: formatTime(n.createdAt),
+                    avatar: n.imageUrl || null,
+                    isRead: n.isRead,
+                    type: n.type,
+                  };
+                  return (
+                    <NotificationCard
+                      key={card.id}
+                      card={card}
+                      isExpanded={expandedCards.includes(card.id)}
+                      onToggle={toggleExpand}
+                      onDelete={handleDelete}
+                      onRead={handleMarkRead}
+                      canSwipe={nav === 0}
+                    />
+                  );
+                })}
+              </motion.div>
+            ) : (
+              <motion.div
+                key="empty"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                style={{ display: 'flex', height: '200px', alignItems: 'center', justifyContent: 'center', color: 'whitesmoke' }}
+              >
+                <p>{nav === 0 ? 'Нет уведомлений' : 'Нет приглашений'}</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        )}
       </div>
     </div>
   );

@@ -44,6 +44,13 @@ const useChat = (actId) => {
         setError(null);
         console.log(`Присоединение к комнате акта ${actId}...`);
         s.emit("joinStream", { actId: parseInt(actId) });
+        // Надёжный HTTP-fallback: загружаем историю сразу после подключения
+        api.get(`/chat/${actId}/messages`, { params: { limit: 50, offset: 0 } })
+          .then(res => {
+            const msgs = (res.data || []).filter(m => (m.content || m.message || '').trim());
+            if (msgs.length > 0) setMessages(msgs);
+          })
+          .catch(() => {});
       });
 
       s.on("disconnect", (reason) => {

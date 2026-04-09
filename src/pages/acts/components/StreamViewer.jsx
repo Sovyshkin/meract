@@ -63,6 +63,8 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const [isTasksModalOpen, setIsTasksModalOpen] = useState(false);
   const [tasks, setTasks] = useState([]);
   const [loadingTasks, setLoadingTasks] = useState(false);
+  const [completedTaskIds, setCompletedTaskIds] = useState(new Set());
+  const [taskPositions, setTaskPositions] = useState({});
   const [routeCoordinates, setRouteCoordinates] = useState(null);
   const [startLocation, setStartLocation] = useState(null);
   const [destinationLocation, setDestinationLocation] = useState(null);
@@ -95,7 +97,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   // Use chat hook
   const actId = streamData?.id || channelName?.replace("act_", "");
   const { user } = useAuthStore();
-  const { messages: chatMessages, sendMessage: sendChatMessage, sending } = useChat(actId);
+  const { messages: chatMessages, sendMessage: sendChatMessage, sending, fetchMessages: fetchChatMessages } = useChat(actId);
 
   // Spot Agent state
   const {
@@ -514,7 +516,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       setLocalAudioTrack(audioTrack);
 
       if (localVideoRef.current) {
-        videoTrack.play(localVideoRef.current);
+        videoTrack.play(localVideoRef.current, { mirror: false });
       }
 
       await client.publish([videoTrack, audioTrack]);
@@ -553,7 +555,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
       // Показываем превью стримеру
       if (localVideoRef.current) {
-        videoTrack.play(localVideoRef.current);
+        videoTrack.play(localVideoRef.current, { mirror: false });
       }
 
       // Публикуем стрим
@@ -828,6 +830,13 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     }
   }, [canSpeak]);
 
+  // При открытии панели чата — принудительно загрузить историю
+  useEffect(() => {
+    if (showChatPanel && chatMessages.length === 0) {
+      fetchChatMessages();
+    }
+  }, [showChatPanel]);
+
   // Auto-show chat overlay for streamer when publishing starts
   useEffect(() => {
     if (isStreamer && (isPublishing || isStreamActive)) {
@@ -845,6 +854,47 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     if (!actualStreamData) return;
     const teamTasks = (actualStreamData.teams ?? []).flatMap(t => t.tasks ?? []);
     setTasks(teamTasks);
+    // Build positions map directly from lat/lng (no geocoding needed)
+    const positions = {};
+    teamTasks.forEach(task => {
+      if (task.lat != null && task.lng != null) {
+        positions[task.id] = [task.lat, task.lng];
+      }
+    });
+    setTaskPositions(positions);
+    // Sync server isCompleted into local set
+    setCompletedTaskIds(new Set(teamTasks.filter(t => t.isCompleted).map(t => t.id)));
+  };
+
+  const toggleTaskLocal = async (taskId) => {
+    // Optimistic update
+    setCompletedTaskIds(prev => {
+      const next = new Set(prev);
+      if (next.has(taskId)) next.delete(taskId); else next.add(taskId);
+      return next;
+    });
+    setTasks(prev => prev.map(t =>
+      t.id === taskId
+        ? { ...t, isCompleted: !t.isCompleted, completedAt: !t.isCompleted ? new Date().toISOString() : null }
+        : t
+    ));
+    try {
+      const updated = await api.patch(`/act/${actId}/team-tasks/${taskId}/toggle`);
+      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updated.data } : t));
+    } catch (err) {
+      // Rollback on error
+      setCompletedTaskIds(prev => {
+        const next = new Set(prev);
+        if (next.has(taskId)) next.delete(taskId); else next.add(taskId);
+        return next;
+      });
+      setTasks(prev => prev.map(t =>
+        t.id === taskId
+          ? { ...t, isCompleted: !t.isCompleted, completedAt: !t.isCompleted ? new Date().toISOString() : null }
+          : t
+      ));
+      toast.error('Не удалось обновить статус задания');
+    }
   };
 
   useEffect(() => {
@@ -1392,8 +1442,8 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                 attributionControl={false}
               >
                 <TileLayer
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                  url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
                 />
                 {startLocation && (
                   <Circle
@@ -1417,6 +1467,31 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                     }}
                   />
                 )}
+                {Object.entries(taskPositions).map(([taskId, pos]) => {
+                  const task = tasks.find(t => t.id === parseInt(taskId));
+                  const done = completedTaskIds.has(parseInt(taskId));
+                  const taskIcon = L.divIcon({
+                    className: 'custom-marker-icon',
+                    html: `<div style="
+                      background-color: ${done ? '#888' : '#0092FE'};
+                      color: white;
+                      border-radius: 6px;
+                      padding: 3px 7px;
+                      font-size: 11px;
+                      font-weight: bold;
+                      border: 2px solid white;
+                      white-space: nowrap;
+                      max-width: 120px;
+                      overflow: hidden;
+                      text-overflow: ellipsis;
+                    ">${done ? '✓ ' : ''}${task?.description?.slice(0, 20) || 'Задание'}</div>`,
+                    iconAnchor: [0, 0],
+                  });
+                  return (
+                    <Marker key={`task-marker-${taskId}`} position={pos} icon={taskIcon} />
+                  );
+                })}
+
                 {actualStreamData?.routePoints &&
                   actualStreamData.routePoints.length > 0 &&
                   actualStreamData.routePoints
@@ -1483,19 +1558,36 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                   <div className={styles.noTasks}>No tasks available</div>
                 ) : (
                   <div className={styles.cardcont} style={{marginTop:'100px'}}>
-                    {tasks.map((task) => (
-                      <div
-                        key={task.id}
-                        className={`${styles.taskItem} ${styles.card}`}
-                      >
-                        <div className={styles.taskContent}>
-                          <div className={styles.taskTitle}>{task.description}</div>
-                          {task.address && (
-                            <div className={styles.taskCompletedTime}>📍 {task.address}</div>
-                          )}
+                    {tasks.map((task) => {
+                      const done = completedTaskIds.has(task.id);
+                      return (
+                        <div
+                          key={task.id}
+                          className={`${styles.taskItem} ${styles.card}`}
+                          style={{ opacity: done ? 0.6 : 1 }}
+                          onClick={(e) => { e.stopPropagation(); toggleTaskLocal(task.id); }}
+                        >
+                          <div className={styles.taskCheckbox}>
+                            <input
+                              type="checkbox"
+                              checked={done}
+                              onChange={() => toggleTaskLocal(task.id)}
+                              onClick={e => e.stopPropagation()}
+                              style={{ width: 18, height: 18, accentColor: '#0092FE', cursor: 'pointer', flexShrink: 0 }}
+                            />
+                          </div>
+                          <div className={styles.taskContent}>
+                            <div className={styles.taskTitle} style={{ textDecoration: done ? 'line-through' : 'none' }}>{task.description}</div>
+                            {task.address && (
+                              <div className={styles.taskCompletedTime}>📍 {task.address}</div>
+                            )}
+                            {taskPositions[task.id] && (
+                              <div className={styles.taskCompletedTime} style={{color:'#0092FE'}}>🗺 На карте</div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

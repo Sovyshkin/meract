@@ -6,6 +6,9 @@ import "react-toastify/dist/ReactToastify.css";
 
 import PasswordProtection from "../features/Auth/PasswordProtection/PasswordProtection";
 import { useAuthStore } from "../shared/stores/authStore";
+import { useNotificationStore } from "../shared/stores/notificationStore";
+import { notificationSocket } from "../shared/utils/notificationSocket";
+import { noticeApi } from "../shared/api/notifications";
 import AchievementNotificationContainer from "../shared/ui/AchievementNotificationContainer/AchievementNotificationContainer";
 import "./App.css";
 import { router, technicalRouter } from "./router/Routers";
@@ -16,7 +19,8 @@ function getCookie(name) {
 }
 
 function App() {
-  const { logout, isAuthenticated, setLocation } = useAuthStore();
+  const { logout, isAuthenticated, setLocation, user } = useAuthStore();
+  const { setNotifications } = useNotificationStore();
   const isMaintenance = false;
   useEffect(() => {
     const accessToken = getCookie("access_token");
@@ -28,6 +32,19 @@ function App() {
       window.location.href = "/login";
     }
   }, [isAuthenticated, logout]);
+
+  // Connect notification socket and load initial notifications
+  useEffect(() => {
+    if (isAuthenticated && user?.id) {
+      notificationSocket.connect(user.id);
+      noticeApi.getNotifications(50).then((data) => {
+        if (Array.isArray(data)) setNotifications(data);
+      }).catch(() => {});
+    } else {
+      notificationSocket.disconnect();
+    }
+    return () => {};
+  }, [isAuthenticated, user?.id]);
 
   useEffect(() => {
     if (isAuthenticated && navigator.geolocation) {

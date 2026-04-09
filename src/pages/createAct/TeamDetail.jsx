@@ -835,7 +835,7 @@ const TeamDetail = () => {
                                 zoom={taskFormData.lat != null ? 14 : 4}
                                 style={{ height: '100%', width: '100%' }}
                             >
-                                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                                <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" attribution='&copy; OpenStreetMap &copy; CARTO' />
                                 <MapClickHandler onPick={handleTaskMapPick} />
                                 {taskFormData.lat != null && (
                                     <Marker position={[taskFormData.lat, taskFormData.lng]} />

@@ -85,6 +85,8 @@ const transformTeamsForApi = (teams) => {
       tasks: (team.tasks || []).map((task) => ({
         description: task.description,
         address: task.address || null,
+        lat: task.lat ?? null,
+        lng: task.lng ?? null,
       })),
     };
   });

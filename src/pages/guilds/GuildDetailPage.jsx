@@ -28,6 +28,7 @@ export default function GuildDetailPage() {
   const [guild, setGuild] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isMember, setIsMember] = useState(false);
+  const [hasPendingRequest, setHasPendingRequest] = useState(false);
   
   const [navMethod, setNavMethod] = useState(1);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -122,7 +123,17 @@ useEffect(() => {
 }, [id]);
 
   const requestGuild = async() => {
-    await guildApi.joinGuild(id);
+    try {
+      await guildApi.joinGuild(id);
+      setHasPendingRequest(true);
+    } catch (err) {
+      const msg = err?.response?.data?.message || '';
+      if (err?.response?.status === 400 && msg.toLowerCase().includes('pending')) {
+        setHasPendingRequest(true);
+      } else {
+        console.error('Failed to submit guild request:', err);
+      }
+    }
   }
 
   useEffect(() => {
@@ -292,8 +303,12 @@ useEffect(() => {
           </div>
           {!isMember &&
             <div className={styles.savebutton}>
-            <button className={styles.active} onClick={() => requestGuild()}>Submit a request</button>
-          </div>
+              {hasPendingRequest ? (
+                <button disabled style={{ opacity: 0.5, cursor: 'default' }}>Request sent</button>
+              ) : (
+                <button className={styles.active} onClick={requestGuild}>Submit a request</button>
+              )}
+            </div>
           }
         </div>
 

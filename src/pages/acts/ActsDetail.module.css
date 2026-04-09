@@ -514,7 +514,9 @@ flex-direction: column;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  flex: 1; 
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .userName {
@@ -522,6 +524,9 @@ flex-direction: column;
   font-weight: 600;
   color: #fff;
   margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pointsWrapper {

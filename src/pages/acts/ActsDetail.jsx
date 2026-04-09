@@ -18,13 +18,22 @@ import { profileApi } from "../../shared/api/profile";
 import { useSoundStore } from "../../shared/stores/soundStore";
 import { toast } from "react-toastify";
 
-function buildRoleInfo(roleType, actTeams, apiData, fallbackImg) {
+function buildRoleInfo(roleType, actTeams, apiData, fallbackImg, currentUserId) {
   let method = null;
   const presetList = [];
+  let votingDeadline = null;
+  let votingStartAt = null;
 
   for (const team of actTeams) {
     for (const rc of (team.roleConfigs || [])) {
       if (rc.role !== roleType) continue;
+      // Дедлайн из roleConfig (есть в ответе getActById)
+      if (rc.votingStartAt && !votingStartAt) {
+        votingStartAt = new Date(rc.votingStartAt);
+        if (rc.votingDurationHours) {
+          votingDeadline = new Date(votingStartAt.getTime() + rc.votingDurationHours * 3600 * 1000);
+        }
+      }
       if (rc.openVoting) {
         method = 'open_voting';
       } else if (!method && rc.candidates?.length === 1) {
@@ -61,10 +70,45 @@ function buildRoleInfo(roleType, actTeams, apiData, fallbackImg) {
         if (totalVotes > 0) pc.percent = (((match._count?.votes || 0) / totalVotes) * 100).toFixed(0);
       }
     });
+    // Дедлайн также доступен через config первого teamCandidate
+    if (!votingDeadline && teamCandidatesApi[0]?.config?.votingStartAt) {
+      const tStart = new Date(teamCandidatesApi[0].config.votingStartAt);
+      const tHours = teamCandidatesApi[0].config.votingDurationHours;
+      if (!votingStartAt) votingStartAt = tStart;
+      if (tHours) votingDeadline = new Date(tStart.getTime() + tHours * 3600 * 1000);
+    }
   }
 
   const roleCands = apiObj.roleCandidates || [];
   const totalRoleVotes = roleCands.reduce((s, c) => s + (c._count?.votes || 0), 0);
+
+  // Определяем, за кого голосовал текущий пользователь
+  let myVotedCandidateId = null;
+  let myVotedCandidateName = null;
+  if (currentUserId) {
+    // Для open_voting: votes[] есть в roleCandidates (roleCandidateId)
+    for (const cand of roleCands) {
+      if (cand.votes?.some(v => v.voterId === currentUserId)) {
+        myVotedCandidateId = cand.id;
+        myVotedCandidateName = cand.user?.login || cand.user?.email || null;
+        break;
+      }
+    }
+
+    // Для voting_candidates: votes[] теперь есть в teamCandidates (teamCandidateId)
+    if (!myVotedCandidateId && method === 'voting_candidates') {
+      for (const tc of teamCandidatesApi) {
+        if (tc.votes?.some(v => v.voterId === currentUserId)) {
+          myVotedCandidateId = tc.id; // teamCandidateId
+          // Имя из presetList (уже обогащено) или напрямую из API
+          const matched = presetList.find(p => p.teamCandidateId === tc.id);
+          myVotedCandidateName = matched?.name || tc.user?.login || tc.user?.email || null;
+          break;
+        }
+      }
+    }
+  }
+
   const openList = roleCands.map((item, idx) => {
     const uid = item.user?.id ?? `v${idx}`;
     return {
@@ -79,6 +123,10 @@ function buildRoleInfo(roleType, actTeams, apiData, fallbackImg) {
   return {
     method: method || 'voting_candidates',
     candidates: method === 'open_voting' ? openList : presetList,
+    votingDeadline,
+    votingStartAt,
+    myVotedCandidateId,
+    myVotedCandidateName,
   };
 }
 
@@ -201,11 +249,13 @@ export default function ActDetail() {
           actTeams.flatMap(t => (t.roleConfigs || []).map(rc => rc.role))
         )];
 
+        const currentUserId = user?.id || user?.sub;
+
         const results = await Promise.all(
           uniqueRoles.map(async (role) => {
             const apiData = await actApi.getRole(id, role)
               .catch(() => ({ teamCandidates: [], roleCandidates: [] }));
-            return { role, roleInfo: buildRoleInfo(role, actTeams, apiData, userimg) };
+            return { role, roleInfo: buildRoleInfo(role, actTeams, apiData, userimg, currentUserId) };
           })
         );
 
@@ -238,6 +288,17 @@ export default function ActDetail() {
         }
 
         setRoleCandidates(map);
+
+        // Если для open_voting уже голосовали — восстанавливаем из данных API
+        const autoVoted = {};
+        Object.entries(map).forEach(([role, ri]) => {
+          if (ri.myVotedCandidateId && ri.myVotedCandidateName) {
+            autoVoted[role] = { candidateName: ri.myVotedCandidateName };
+          }
+        });
+        if (Object.keys(autoVoted).length > 0) {
+          setVotedRoles(prev => ({ ...prev, ...autoVoted }));
+        }
       } catch (error) {
         console.error('❌ Ошибка загрузки ролей:', error);
       } finally {
@@ -276,29 +337,40 @@ export default function ActDetail() {
   };
 
   const handleRoleClick = (role, candidate) => {
-    if (!isAdmin) return;
+    if (isOwner || votedRoles[role]) return;
     setSelectedRoles(prev => ({
       ...prev,
       [role]: prev[role]?.id === candidate.id ? null : candidate,
     }));
   };
 
+  const handleVoteSelected = async (role, method) => {
+    const selected = selectedRoles[role];
+    if (!selected || votedRoles[role]) return;
+    if (method === 'open_voting') {
+      await handleVoteOpenCandidate(role, selected.roleCandidateId, selected.name);
+    } else {
+      await handleVoteTeamCandidate(role, selected.teamCandidateId, selected.name);
+    }
+  };
+
   const refetchRole = async (role) => {
     try {
+      const currentUserId = user?.id || user?.sub;
       const apiData = await actApi.getRole(id, role)
         .catch(() => ({ teamCandidates: [], roleCandidates: [] }));
-      const roleInfo = buildRoleInfo(role, actTeams, apiData, userimg);
+      const roleInfo = buildRoleInfo(role, actTeams, apiData, userimg, currentUserId);
       setRoleCandidates(prev => ({ ...prev, [role]: roleInfo }));
     } catch (e) {
       console.error('refetchRole error:', e);
     }
   };
 
-  const handleVoteTeamCandidate = async (role, teamCandidateId) => {
+  const handleVoteTeamCandidate = async (role, teamCandidateId, candidateName) => {
     if (votedRoles[role] || !teamCandidateId) return;
     try {
       await actApi.voteTeamCandidate(id, teamCandidateId);
-      setVotedRoles(prev => ({ ...prev, [role]: true }));
+      setVotedRoles(prev => ({ ...prev, [role]: { candidateName } }));
       await refetchRole(role);
     } catch (err) {
       const msg = err?.response?.data?.message || '';
@@ -307,11 +379,11 @@ export default function ActDetail() {
     }
   };
 
-  const handleVoteOpenCandidate = async (role, roleCandidateId) => {
+  const handleVoteOpenCandidate = async (role, roleCandidateId, candidateName) => {
     if (votedRoles[role] || !roleCandidateId) return;
     try {
       await actApi.voteOpenCandidate(id, roleCandidateId);
-      setVotedRoles(prev => ({ ...prev, [role]: true }));
+      setVotedRoles(prev => ({ ...prev, [role]: { candidateName } }));
       await refetchRole(role);
     } catch (err) {
       const msg = err?.response?.data?.message || '';
@@ -577,19 +649,33 @@ const copyShareLink = () => {
         {/* Секции ролей — fixed / voting_candidates / open_voting */}
         {(() => {
           const ROLE_LABELS = {
-            navigator:  { title: 'Select the act navigator', subtitle: 'We need to decide who will be the navigator in the act.' },
-            hero:       { title: 'Select an Act Hero',        subtitle: 'We need to decide who will be the hero in the act.' },
-            spot_agent: { title: 'Select a Spot Agent',       subtitle: 'We need to decide who will be the spot agent in the act.' },
+            navigator:  { title: 'Navigator voting', subtitle: 'Choose who will be the navigator for this act.' },
+            hero:       { title: 'Hero voting',      subtitle: 'Choose who will be the hero for this act.' },
+            spot_agent: { title: 'Spot agent voting', subtitle: 'Choose who will be the spot agent for this act.' },
           };
+
+          const formatDeadline = (date) => date.toLocaleString('en-GB', {
+            day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+          });
+
+          const getVotingStatus = (votingStartAt, votingDeadline) => {
+            if (!votingStartAt && !votingDeadline) return null;
+            const now = Date.now();
+            if (votingDeadline && now > votingDeadline.getTime()) return 'closed';
+            if (votingStartAt && now < votingStartAt.getTime()) return 'not_started';
+            return 'open';
+          };
+
           const uniqueRoles = [...new Set(
             actTeams.flatMap(t => (t.roleConfigs || []).map(rc => rc.role))
           )];
           return uniqueRoles.map(role => {
             const roleInfo = roleCandidates[role] || { method: null, candidates: [] };
-            const { method, candidates } = roleInfo;
-            const label = ROLE_LABELS[role] || { title: `Select ${role}`, subtitle: '' };
-            const selected = selectedRoles[role] || null;
+            const { method, candidates, votingDeadline, votingStartAt } = roleInfo;
+            const label = ROLE_LABELS[role] || { title: `Vote: ${role}`, subtitle: '' };
             const maxPct = candidates.length > 0 ? Math.max(...candidates.map(c => parseFloat(c.percent) || 0)) : 0;
+            const votingStatus = getVotingStatus(votingStartAt, votingDeadline);
+            const votedInfo = votedRoles[role]; // { candidateName } | undefined
 
             // Fixed: one pre-assigned person, no voting
             if (method === 'fixed') {
@@ -618,6 +704,9 @@ const copyShareLink = () => {
             // Voting (creator's candidates) or open voting
             const isOpenVoting = method === 'open_voting';
             const hasVotedThisRole = !!votedRoles[role];
+            const selectedCandidate = selectedRoles[role] || null;
+            // Голосование заблокировано если статус != open или нет статуса но дедлайн прошёл
+            const votingBlocked = votingStatus === 'closed' || votingStatus === 'not_started';
             return (
               <div key={role} className={styles.parentnav}>
                 <div className={styles.navigators}>
@@ -628,12 +717,67 @@ const copyShareLink = () => {
                     </p>
                     <p className={styles.subtitle} style={{ fontSize: '14px', margin: '0px', color: 'rgb(181, 179, 179)' }}>
                       {isOpenVoting
-                        ? 'Open voting — anyone can apply, viewers choose the winner.'
+                        ? 'Open voting — anyone can apply, the audience chooses the winner.'
                         : label.subtitle}
                     </p>
 
+                    {/* Дедлайн голосования */}
+                    {(votingStatus || votingDeadline) && (
+                      <div style={{
+                        marginTop: '10px',
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        fontSize: '13px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        background: votingStatus === 'closed'
+                          ? 'rgba(239,68,68,0.1)'
+                          : votingStatus === 'not_started'
+                            ? 'rgba(251,191,36,0.1)'
+                            : 'rgba(34,197,94,0.1)',
+                        border: votingStatus === 'closed'
+                          ? '1px solid rgba(239,68,68,0.3)'
+                          : votingStatus === 'not_started'
+                            ? '1px solid rgba(251,191,36,0.3)'
+                            : '1px solid rgba(34,197,94,0.3)',
+                        color: votingStatus === 'closed'
+                          ? '#ef4444'
+                          : votingStatus === 'not_started'
+                            ? '#fbbf24'
+                            : '#22c55e',
+                      }}>
+                        <span style={{ fontSize: '16px' }}>
+                          {votingStatus === 'closed' ? '🔒' : votingStatus === 'not_started' ? '⏳' : '🗳️'}
+                        </span>
+                        <span>
+                          {votingStatus === 'closed' && `Voting ended · ${votingDeadline ? formatDeadline(votingDeadline) : ''}`}
+                          {votingStatus === 'not_started' && `Voting starts ${votingStartAt ? formatDeadline(votingStartAt) : ''}`}
+                          {votingStatus === 'open' && votingDeadline && `Voting open until ${formatDeadline(votingDeadline)}`}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Показываем за кого проголосовал */}
+                    {!isOwner && hasVotedThisRole && votedInfo?.candidateName && (
+                      <div style={{
+                        marginTop: '10px',
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        fontSize: '13px',
+                        background: 'rgba(0,157,255,0.08)',
+                        border: '1px solid rgba(0,157,255,0.25)',
+                        color: '#009DFF',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}>
+                        ✓ Your vote: <strong>{votedInfo.candidateName}</strong>
+                      </div>
+                    )}
+
                     {/* Apply button for open_voting */}
-                    {isOpenVoting && !isOwner && (
+                    {isOpenVoting && !isOwner && !votingBlocked && (
                       <div
                         role="button"
                         onClick={() => !appliedRoles[role] && handleApplyForRole(role)}
@@ -654,60 +798,94 @@ const copyShareLink = () => {
 
                     {candidates.length === 0 ? (
                       <p style={{ color: '#555', fontSize: '13px', marginTop: '8px' }}>
-                        {isOpenVoting ? 'No applicants yet' : 'No candidates'}
+                        {isOpenVoting ? 'No applications yet' : 'No candidates'}
                       </p>
-                    ) : candidates.map((candidate) => {
-                      const isMax = parseFloat(candidate.percent) === maxPct && maxPct > 0;
-                      const isSelected = selected?.id === candidate.id;
-                      return (
-                        <div
-                          key={candidate.id}
-                          className={`${styles.members} ${isSelected ? styles.selected : ''}`}
-                          onClick={() => handleRoleClick(role, candidate)}
-                          style={{
-                            transform: isSelected ? 'translateY(-8px)' : 'none',
-                            transition: 'transform 0.2s ease',
-                            border: isSelected ? '1px solid #009DFF' : 'none',
-                            cursor: isAdmin ? 'pointer' : 'default',
-                          }}
-                        >
-                          <div className={styles.rankBadge}>
-                            <img src={candidate.avatar} alt="avatar" className={styles.rankImg} />
-                          </div>
-                          <div className={styles.cardInfo}>
-                            <p className={styles.userName}>{candidate.name}</p>
-                          </div>
-                          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                            {maxPct > 0 && (
-                              <p style={{ fontWeight: 'bold', color: isMax ? '#009DFF' : '#FFFFFFB2', margin: 0 }}>
-                                {candidate.percent}%
-                              </p>
-                            )}
-                            {!isOwner && (
-                              <div
-                                role="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (isOpenVoting) handleVoteOpenCandidate(role, candidate.roleCandidateId);
-                                  else handleVoteTeamCandidate(role, candidate.teamCandidateId);
-                                }}
-                                style={{
-                                  padding: '5px 12px',
-                                  background: hasVotedThisRole ? 'rgba(255,255,255,0.05)' : 'rgba(0,157,255,0.15)',
-                                  color: hasVotedThisRole ? '#555' : '#009DFF',
-                                  borderRadius: '6px', fontSize: '12px',
-                                  cursor: hasVotedThisRole ? 'default' : 'pointer',
-                                  border: '1px solid rgba(0,157,255,0.2)',
-                                  userSelect: 'none',
-                                }}
-                              >
-                                {hasVotedThisRole ? 'Voted' : 'Vote'}
+                    ) : (
+                      <>
+                        {!isOwner && !hasVotedThisRole && !votingBlocked && (
+                          <p style={{ color: '#888', fontSize: '12px', marginTop: '10px', marginBottom: '2px' }}>
+                            Select a participant to vote
+                          </p>
+                        )}
+                        {candidates.map((candidate) => {
+                          const isMax = parseFloat(candidate.percent) === maxPct && maxPct > 0;
+                          const isSelected = selectedCandidate?.id === candidate.id;
+                          const isMyVote = hasVotedThisRole && votedInfo?.candidateName === candidate.name;
+                          const canSelect = !isOwner && !hasVotedThisRole && !votingBlocked;
+                          return (
+                            <div
+                              key={candidate.id}
+                              className={`${styles.members} ${isSelected ? styles.selected : ''}`}
+                              onClick={() => canSelect && handleRoleClick(role, candidate)}
+                              style={{
+                                transform: isSelected ? 'translateY(-4px)' : 'none',
+                                transition: 'transform 0.2s ease, border 0.2s ease, background 0.2s ease',
+                                border: isMyVote
+                                  ? '1.5px solid #009DFF'
+                                  : isSelected
+                                    ? '1.5px solid #009DFF'
+                                    : '1px solid rgba(255,255,255,0.07)',
+                                cursor: canSelect ? 'pointer' : 'default',
+                                background: isMyVote
+                                  ? 'rgba(0,157,255,0.06)'
+                                  : isSelected
+                                    ? 'rgba(0,157,255,0.08)'
+                                    : undefined,
+                              }}
+                            >
+                              <div className={styles.rankBadge}>
+                                <img src={candidate.avatar} alt="avatar" className={styles.rankImg} />
                               </div>
-                            )}
+                              <div className={styles.cardInfo}>
+                                <p className={styles.userName}>{candidate.name}</p>
+                              </div>
+                              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                {maxPct > 0 && (
+                                  <p style={{ fontWeight: 'bold', color: isMax ? '#009DFF' : '#FFFFFFB2', margin: 0 }}>
+                                    {candidate.percent}%
+                                  </p>
+                                )}
+                                {isMyVote && (
+                                  <span style={{ color: '#009DFF', fontSize: '12px', whiteSpace: 'nowrap', flexShrink: 0 }}>✓ My vote</span>
+                                )}
+                                {isSelected && !hasVotedThisRole && (
+                                  <span style={{ color: '#009DFF', fontSize: '12px', whiteSpace: 'nowrap', flexShrink: 0 }}>✓ Selected</span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {/* Кнопка голосования */}
+                        {!isOwner && !votingBlocked && (
+                          <div
+                            role="button"
+                            onClick={() => !hasVotedThisRole && selectedCandidate && handleVoteSelected(role, method)}
+                            style={{
+                              marginTop: '14px',
+                              padding: '13px',
+                              background: hasVotedThisRole
+                                ? 'rgba(255,255,255,0.04)'
+                                : selectedCandidate
+                                  ? 'rgba(0,157,255,0.18)'
+                                  : 'rgba(255,255,255,0.04)',
+                              color: hasVotedThisRole ? '#555' : selectedCandidate ? '#009DFF' : '#444',
+                              borderRadius: '10px',
+                              fontSize: '15px',
+                              fontWeight: '600',
+                              textAlign: 'center',
+                              cursor: hasVotedThisRole || !selectedCandidate ? 'default' : 'pointer',
+                              border: selectedCandidate && !hasVotedThisRole
+                                ? '1px solid rgba(0,157,255,0.4)'
+                                : '1px solid rgba(255,255,255,0.07)',
+                              userSelect: 'none',
+                              transition: 'all 0.2s ease',
+                            }}
+                          >
+                            {hasVotedThisRole ? '✓ Vote cast' : 'Vote'}
                           </div>
-                        </div>
-                      );
-                    })}
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

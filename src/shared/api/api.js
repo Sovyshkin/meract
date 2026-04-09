@@ -6,6 +6,50 @@ let isRefreshing = false;
 let failedQueue = [];
 let isLoggingOut = false;
 
+// ── Proactive token refresh ────────────────────────────────────────────────
+let proactiveRefreshTimer = null;
+
+const parseTokenExp = (token) => {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return payload.exp ? payload.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+};
+
+const scheduleProactiveRefresh = (token) => {
+  if (proactiveRefreshTimer) clearTimeout(proactiveRefreshTimer);
+  const expMs = parseTokenExp(token);
+  if (!expMs) return;
+  const delay = expMs - Date.now() - 60_000; // обновляем за 1 мин до истечения
+  if (delay <= 0) return;
+  proactiveRefreshTimer = setTimeout(async () => {
+    try {
+      // Используем чистый axios (не наш api) чтобы не триггерить интерсептор
+      const res = await axios.post(
+        `${import.meta.env.VITE_API_URL}/auth/refresh`,
+        {},
+        { withCredentials: true },
+      );
+      const newToken = res.data?.token || res.data?.accessToken;
+      if (newToken) {
+        useAuthStore.getState().setToken(newToken);
+        scheduleProactiveRefresh(newToken);
+      }
+    } catch {
+      // Если проактивный refresh не удался — реактивный интерсептор справится при 401
+    }
+  }, delay);
+};
+
+// Запланировать refresh для уже имеющегося токена (после перезагрузки страницы)
+const _initialToken = typeof window !== "undefined"
+  ? (useAuthStore.getState().getToken?.() || localStorage.getItem("authToken"))
+  : null;
+if (_initialToken) scheduleProactiveRefresh(_initialToken);
+// ──────────────────────────────────────────────────────────────────────────
+
 const processQueue = (error, token = null) => {
   failedQueue.forEach(({ resolve, reject }) => {
     if (error) reject(error);
@@ -65,9 +109,9 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // Для запросов авторизации — сразу выходим
+    // Для sign-in/refresh — не делаем logout, просто отклоняем промис
+    // (компонент логина сам обработает ошибку и покажет сообщение)
     if (!originalRequest || originalRequest.url?.includes("/auth/")) {
-      logoutAndRedirect();
       return Promise.reject(error);
     }
 
@@ -102,6 +146,7 @@ api.interceptors.response.use(
       if (!token) throw new Error("No token in refresh response");
 
       useAuthStore.getState().setToken(token);
+      scheduleProactiveRefresh(token);
       processQueue(null, token);
       originalRequest.headers.Authorization = `Bearer ${token}`;
       return api(originalRequest);

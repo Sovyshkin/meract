@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 import api from "../../api/api";
 import styles from "./NavBar.module.css";
+import { useNotificationStore } from "../../stores/notificationStore";
 
 function ActIcon(props) {
   return (
@@ -64,6 +65,7 @@ export default function NavBar() {
   const location = useLocation();
   const navigate = useNavigate();
   const [guildId, setGuildId] = useState(null);
+  const chatUnreadCount = useNotificationStore((s) => s.chatUnreadCount);
 
   const navItems = [
     { label: "Acts", icon: ActIcon, path: "/acts" },
@@ -104,14 +106,40 @@ export default function NavBar() {
   const renderNavItem = (item) => {
   const isActive = location.pathname.startsWith(item.path);
   const Icon = item.icon;
+  const isChat = item.path === '/chats';
+  const badge = isChat && chatUnreadCount > 0 ? chatUnreadCount : 0;
   return (
     <div
       key={item.label}
       className={`${styles.item} ${isActive ? styles.active : styles.inactive}`}
       onClick={() => handleNavClick(item)}
-      style={{ cursor: "pointer" }}
+      style={{ cursor: "pointer", position: "relative" }}
     >
-      <Icon style={{ fill: isActive ? "#fff" : "#bdbdbd" }} />
+      <div style={{ position: "relative", display: "inline-flex" }}>
+        <Icon style={{ fill: isActive ? "#fff" : "#bdbdbd" }} />
+        {badge > 0 && (
+          <span style={{
+            position: "absolute",
+            top: "-4px",
+            right: "-6px",
+            background: "#FF3B57",
+            color: "#fff",
+            borderRadius: "50%",
+            minWidth: "16px",
+            height: "16px",
+            fontSize: "10px",
+            fontWeight: "700",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "0 3px",
+            lineHeight: 1,
+            pointerEvents: "none",
+          }}>
+            {badge > 99 ? "99+" : badge}
+          </span>
+        )}
+      </div>
       <p style={{ color: isActive ? "#fff" : "#bdbdbd" }}>{item.label}</p>
     </div>
   );

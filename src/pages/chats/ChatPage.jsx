@@ -11,6 +11,8 @@ import NavBar from "../../shared/ui/NavBar/NavBar";
 import userimg from '../../images/user.png';
 import { chatApi } from "../../shared/api/chat.js";
 import api from "../../shared/api/api.js";
+import { useNotificationStore } from "../../shared/stores/notificationStore.js";
+import { noticeApi } from "../../shared/api/notifications.js";
 
 const getPreviewText = (msg) => {
   if (!msg) return 'No messages';
@@ -39,6 +41,13 @@ export default function ChatPage() {
   const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'acts' | 'contacts'
   const [userResults, setUserResults] = useState([]);
   const [userSearchLoading, setUserSearchLoading] = useState(false);
+  const { markAllRead } = useNotificationStore();
+
+  // Сбрасываем счётчик непрочитанных чат-уведомлений при открытии страницы чата
+  useEffect(() => {
+    noticeApi.markAllRead().catch(() => {});
+    markAllRead();
+  }, []);
 
   // Поиск пользователей по username с debounce
   useEffect(() => {
@@ -113,8 +122,7 @@ export default function ChatPage() {
           <div className={styles.name}>
             <h1>Chat</h1>
           </div>
-          <img src={notification} alt="notifications" onClick={() => navigate('/notifications')} style={{ cursor: 'pointer' }} />
-        </div>
+          <img src={notification} alt="notifications" onClick={() => navigate('/notifications')} style={{ cursor: 'pointer' }} />        </div>
 
         <div className={styles.nav}>
           <div className={styles.searchWrapper}>
