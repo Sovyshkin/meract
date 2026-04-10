@@ -17,6 +17,7 @@ import adduser from '../../images/adduser.png';
 import guildsetting from '../../images/guildsetting.png';
 import { guildApi } from "../../shared/api/guild";
 import { profileApi } from "../../shared/api/profile";
+import { toast } from "react-toastify";
 
 export default function GuildDetailPage() {
   const { id } = useParams();
@@ -133,12 +134,17 @@ useEffect(() => {
       await guildApi.joinGuild(id);
       setHasPendingRequest(true);
       localStorage.setItem(`guild_pending_${id}_${userid}`, 'true');
+      toast.success('Request submitted successfully!');
     } catch (err) {
       const msg = err?.response?.data?.message || '';
       if (err?.response?.status === 400 && msg.toLowerCase().includes('pending')) {
         setHasPendingRequest(true);
         localStorage.setItem(`guild_pending_${id}_${userid}`, 'true');
+        toast.info('Your request has already been submitted');
+      } else if (err?.response?.status === 400 && msg.toLowerCase().includes('already a member')) {
+        setIsMember(true);
       } else {
+        toast.error('Failed to submit request. Please try again.');
         console.error('Failed to submit guild request:', err);
       }
     }
