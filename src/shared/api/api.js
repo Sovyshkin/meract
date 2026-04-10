@@ -23,30 +23,36 @@ const getCookieValue = (name) => {
   return match ? match[2] : null;
 };
 
+const doProactiveRefresh = async () => {
+  try {
+    // Используем чистый axios (не наш api) чтобы не триггерить интерсептор
+    const res = await axios.post(
+      `${import.meta.env.VITE_API_URL}/auth/refresh`,
+      {},
+      { withCredentials: true },
+    );
+    // Бэкенд возвращает только { message }, токен устанавливается через cookie
+    const newToken = res.data?.token || res.data?.accessToken || getCookieValue('access_token');
+    if (newToken) {
+      useAuthStore.getState().setToken(newToken);
+      scheduleProactiveRefresh(newToken);
+    }
+  } catch {
+    // Если проактивный refresh не удался — реактивный интерсептор справится при 401
+  }
+};
+
 const scheduleProactiveRefresh = (token) => {
   if (proactiveRefreshTimer) clearTimeout(proactiveRefreshTimer);
   const expMs = parseTokenExp(token);
   if (!expMs) return;
   const delay = expMs - Date.now() - 60_000; // обновляем за 1 мин до истечения
-  if (delay <= 0) return;
-  proactiveRefreshTimer = setTimeout(async () => {
-    try {
-      // Используем чистый axios (не наш api) чтобы не триггерить интерсептор
-      const res = await axios.post(
-        `${import.meta.env.VITE_API_URL}/auth/refresh`,
-        {},
-        { withCredentials: true },
-      );
-      // Бэкенд возвращает только { message }, токен устанавливается через cookie
-      const newToken = res.data?.token || res.data?.accessToken || getCookieValue('access_token');
-      if (newToken) {
-        useAuthStore.getState().setToken(newToken);
-        scheduleProactiveRefresh(newToken);
-      }
-    } catch {
-      // Если проактивный refresh не удался — реактивный интерсептор справится при 401
-    }
-  }, delay);
+  if (delay <= 0) {
+    // Токен уже истёк или истекает менее чем через минуту — рефрешим немедленно
+    proactiveRefreshTimer = setTimeout(doProactiveRefresh, 100);
+    return;
+  }
+  proactiveRefreshTimer = setTimeout(doProactiveRefresh, delay);
 };
 
 // Запланировать refresh для уже имеющегося токена (после перезагрузки страницы)
@@ -105,13 +111,14 @@ api.interceptors.request.use(
   (error) => Promise.reject(error),
 );
 
-// Обработка 401
+// Обработка 401 / 403 (refresh token mismatch при параллельных сессиях)
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    const status = error.response?.status;
 
-    if (!error.response || error.response.status !== 401) {
+    if (!error.response || (status !== 401 && status !== 403)) {
       return Promise.reject(error);
     }
 
