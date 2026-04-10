@@ -12,8 +12,8 @@ export default function GuildCard({ guild }) {
    const isLive = guild.status;
    const title = guild.name || 'no name';
    const description = guild.description;
-   const acts = guild.actsCount || 'none'; 
-   const users = guild.membersCount || 'none';
+   const acts = guild.actsCount ?? 0; 
+   const users = guild.membersCount ?? 0;
    const tags = guild.tags.join(', ');
    let rawImageUrl = guild.logoFileName || guild_default;
    let finalImage;
