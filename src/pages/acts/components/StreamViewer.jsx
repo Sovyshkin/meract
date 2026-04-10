@@ -4,6 +4,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import {
   Circle,
+  CircleMarker,
   MapContainer,
   Marker,
   Polyline,
@@ -16,7 +17,6 @@ import api from "../../../shared/api/api";
 import { useSpotAgent } from "../../../shared/hooks/useSpotAgent";
 import { useAuthStore } from "../../../shared/stores/authStore";
 import useChat from "../hooks/useChat";
-import { useNavigatorVoice } from "../hooks/useNavigatorVoice";
 import EmojiPicker from "./EmojiPicker";
 import styles from "./StreamViewer.module.css";
 import menu from '../../../images/guildmenu.png';
@@ -60,18 +60,28 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showMap, setShowMap] = useState(false);
   const [userPosition, setUserPosition] = useState([55.751244, 37.618423]);
+  const [locationGranted, setLocationGranted] = useState(false);
+  const locationWatchRef = useRef(null);
   const [isTasksModalOpen, setIsTasksModalOpen] = useState(false);
   const [tasks, setTasks] = useState([]);
   const [loadingTasks, setLoadingTasks] = useState(false);
   const [completedTaskIds, setCompletedTaskIds] = useState(new Set());
   const [taskPositions, setTaskPositions] = useState({});
   const [routeCoordinates, setRouteCoordinates] = useState(null);
+  const [selectedTaskRouteId, setSelectedTaskRouteId] = useState(null);
   const [startLocation, setStartLocation] = useState(null);
   const [destinationLocation, setDestinationLocation] = useState(null);
 
   const [chatid, setChatId] = useState();
   const [showChatPanel, setShowChatPanel] = useState(false);
   const chatEndRef = useRef(null);
+  // Team chat state
+  const [teamChatId, setTeamChatId] = useState(null);
+  const [teamMessages, setTeamMessages] = useState([]);
+  const [teamChatMessage, setTeamChatMessage] = useState('');
+  const [activeChat, setActiveChat] = useState('general');
+  const teamChatSocketRef = useRef(null);
+  const teamChatEndRef = useRef(null);
   // Состояния для записей
   const [recordings, setRecordings] = useState([]);
   const [loadingRecordings, setLoadingRecordings] = useState(false);
@@ -119,9 +129,6 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const spotAgentCount = actualStreamData?.spotAgentCount || 0;
   const hasApplied = candidates.some((c) => c.userId === currentUserId);
 
-  // Navigator Voice Switch
-  const { canSpeak, speakReason, voiceState, switchVoice } = useNavigatorVoice(actId);
-
   // Проверяем, является ли текущий пользователь навигатором
   const isNavigator = useMemo(() => {
     if (!currentUserId || !actualStreamData?.teams) return false;
@@ -133,6 +140,28 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     );
   }, [currentUserId, actualStreamData?.teams]);
 
+  const isHero = useMemo(() => {
+    if (!currentUserId || !actualStreamData?.teams) return false;
+    return actualStreamData.teams.some(team =>
+      (team.roleConfigs || []).some(rc =>
+        rc.role === 'hero' &&
+        (rc.candidates || []).some(c => (c.user?.id ?? c.userId) === currentUserId)
+      )
+    );
+  }, [currentUserId, actualStreamData?.teams]);
+
+  const isSpotAgent = useMemo(() => {
+    if (!currentUserId || !actualStreamData?.teams) return false;
+    return actualStreamData.teams.some(team =>
+      (team.roleConfigs || []).some(rc =>
+        rc.role === 'spot_agent' &&
+        (rc.candidates || []).some(c => (c.user?.id ?? c.userId) === currentUserId)
+      )
+    );
+  }, [currentUserId, actualStreamData?.teams]);
+
+  const isTeamMember = isHero || isNavigator || isSpotAgent || isInitiator;
+
   const remoteVideoRef = useRef(null);
   const localVideoRef = useRef(null);
   const clientRef = useRef(null);
@@ -142,7 +171,6 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const localAudioTrackRef = useRef(null);
 
   const [isopenmenu, setisopenmenu] = useState(false);
-  const [showVoicePanel, setShowVoicePanel] = useState(false);
   // Extract user ID
   const baseUserId = useMemo(() => {
     if (user?.id) {
@@ -244,6 +272,19 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       }
     });
 
+    socket.on('taskToggled', ({ taskId, isCompleted }) => {
+      setCompletedTaskIds(prev => {
+        const next = new Set(prev);
+        if (isCompleted) next.add(taskId); else next.delete(taskId);
+        return next;
+      });
+      setTasks(prev => prev.map(t =>
+        t.id === taskId
+          ? { ...t, isCompleted, completedAt: isCompleted ? new Date().toISOString() : null }
+          : t
+      ));
+    });
+
     socket.on('error', (error) => {
       console.error('❌ WebSocket error:', error);
     });
@@ -333,21 +374,61 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     });
   }, []);
 
-  // Get user location
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserPosition([
-            position.coords.latitude,
-            position.coords.longitude,
-          ]);
-        },
-        (error) => {
-          console.error("Geolocation error:", error);
-        },
-      );
+  // Функция запроса геолокации — должна вызываться по действию пользователя (user gesture)
+  // чтобы браузер показал диалог разрешения
+  const requestLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser');
+      return;
     }
+
+    const applyPosition = (position) => {
+      const coords = [position.coords.latitude, position.coords.longitude];
+      setUserPosition(coords);
+      setLocationGranted(true);
+      if (locationWatchRef.current !== null) {
+        navigator.geolocation.clearWatch(locationWatchRef.current);
+      }
+      // watchPosition без высокой точности — работает везде
+      locationWatchRef.current = navigator.geolocation.watchPosition(
+        (pos) => {
+          setUserPosition([pos.coords.latitude, pos.coords.longitude]);
+        },
+        (err) => console.error('Watch error:', err),
+        { enableHighAccuracy: false, maximumAge: 10000 }
+      );
+    };
+
+    // Сначала пробуем без GPS (быстро, работает на всех устройствах)
+    navigator.geolocation.getCurrentPosition(
+      applyPosition,
+      (error) => {
+        console.error('Geolocation error code:', error.code, error.message);
+        if (error.code === 1 /* PERMISSION_DENIED */) {
+          toast.error('Location access denied. Please allow location in your browser settings.');
+        } else {
+          // Пробуем ещё раз без высокой точности и без таймаута
+          navigator.geolocation.getCurrentPosition(
+            applyPosition,
+            (err2) => {
+              console.error('Geolocation retry error code:', err2.code, err2.message);
+              toast.error(`Location error (${err2.code}): ${err2.message}`);
+            },
+            { enableHighAccuracy: false, timeout: 30000, maximumAge: 60000 }
+          );
+        }
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
+  // Очистка watchPosition при размонтировании
+  useEffect(() => {
+    return () => {
+      if (locationWatchRef.current !== null) {
+        navigator.geolocation.clearWatch(locationWatchRef.current);
+      }
+    };
   }, []);
 
   // Функция для начала стрима (только для стримера)
@@ -823,12 +904,73 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     loadViewerChatId();
   }, [actId, isStreamer]);
 
-  // Синхронизируем navigator:voice:permission → Agora аудио трек
+  // Настраиваем командный чат (только для членов команды)
   useEffect(() => {
-    if (localAudioTrackRef.current) {
-      localAudioTrackRef.current.setEnabled(canSpeak);
-    }
-  }, [canSpeak]);
+    if (!isTeamMember || !actId || !actualStreamData) return;
+    const setupTeamChat = async () => {
+      try {
+        const chats = await chatApi.getAll();
+        const existing = chats.find(c => c.actId == actId && c.type === 'group');
+        if (existing) {
+          setTeamChatId(existing.id);
+          return;
+        }
+        // Собираем ID участников команды
+        const memberSet = new Set([currentUserId]);
+        if (actualStreamData.userId) memberSet.add(actualStreamData.userId);
+        (actualStreamData.teams || []).forEach(team => {
+          (team.roleConfigs || []).forEach(rc => {
+            if (['hero', 'navigator', 'spot_agent'].includes(rc.role)) {
+              (rc.candidates || []).forEach(c => {
+                const uid = c.user?.id ?? c.userId;
+                if (uid) memberSet.add(uid);
+              });
+            }
+          });
+        });
+        const otherIds = [...memberSet].filter(uid => uid !== currentUserId);
+        const chat = await chatApi.createChatGroup('Team Chat', otherIds, null, String(actId));
+        setTeamChatId(chat.id);
+      } catch (err) {
+        console.error('Error setting up team chat:', err);
+      }
+    };
+    setupTeamChat();
+  }, [isTeamMember, actId, actualStreamData?.userId]);
+
+  // WebSocket для командного чата
+  useEffect(() => {
+    if (!teamChatId) return;
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const wsBase = apiUrl.replace(/\/api$/, '');
+    const token = useAuthStore.getState().getToken();
+    const socket = io(`${wsBase}/chat`, {
+      path: '/socket.io',
+      transports: ['websocket', 'polling'],
+      query: token ? { token } : {},
+    });
+    teamChatSocketRef.current = socket;
+    socket.on('connect', () => {
+      socket.emit('chat:join', { chatId: teamChatId });
+      api.get(`/chat/${teamChatId}/messages`, { params: { limit: 50 } })
+        .then(res => {
+          const msgs = (res.data?.messages || []).filter(m => (m.text || '').trim());
+          setTeamMessages(msgs);
+        })
+        .catch(() => {});
+    });
+    socket.on('chat:message', (message) => {
+      if (message.chatId !== teamChatId) return;
+      setTeamMessages(prev => {
+        if (prev.some(m => m.id === message.id)) return prev;
+        return [...prev, message];
+      });
+    });
+    return () => {
+      socket.disconnect();
+      teamChatSocketRef.current = null;
+    };
+  }, [teamChatId]);
 
   // При открытии панели чата — принудительно загрузить историю
   useEffect(() => {
@@ -849,7 +991,43 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
 
-  // Fetch tasks when modal is opened — use team tasks from already loaded act data
+  // Auto-scroll team chat overlay to bottom on new messages
+  useEffect(() => {
+    teamChatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [teamMessages]);
+
+  // Построение маршрута до задания через OSRM
+  const buildRouteToTask = async (taskId) => {
+    const pos = taskPositions[taskId];
+    if (!pos) return;
+    // Тоггл: клик по уже выбранному маркеру снимает маршрут
+    if (selectedTaskRouteId === taskId) {
+      setSelectedTaskRouteId(null);
+      setRouteCoordinates(null);
+      return;
+    }
+
+    const currentPosition = userPosition;
+    const [fromLat, fromLng] = currentPosition;
+    const [toLat, toLng] = pos;
+    try {
+      const res = await fetch(
+        `https://router.project-osrm.org/route/v1/driving/${fromLng},${fromLat};${toLng},${toLat}?overview=full&geometries=geojson`
+      );
+      const data = await res.json();
+      if (data.routes && data.routes.length > 0) {
+        const coords = data.routes[0].geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+        setRouteCoordinates(coords);
+        setSelectedTaskRouteId(taskId);
+      }
+    } catch {
+      // Фолбэк: прямая линия
+      setRouteCoordinates([[...currentPosition], [...pos]]);
+      setSelectedTaskRouteId(taskId);
+    }
+  };
+
+  // Fetch tasks when modal is opened
   const fetchTasks = () => {
     if (!actualStreamData) return;
     const teamTasks = (actualStreamData.teams ?? []).flatMap(t => t.tasks ?? []);
@@ -867,6 +1045,8 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   };
 
   const toggleTaskLocal = async (taskId) => {
+    // Только герой, навигатор или инициатор акта могут менять статус задания
+    if (!isHero && !isNavigator && !isInitiator) return;
     // Optimistic update
     setCompletedTaskIds(prev => {
       const next = new Set(prev);
@@ -881,6 +1061,10 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     try {
       const updated = await api.patch(`/act/${actId}/team-tasks/${taskId}/toggle`);
       setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updated.data } : t));
+      // Оповещаем всех зрителей через WebSocket
+      if (socketRef.current?.connected) {
+        socketRef.current.emit('taskToggle', { actId: parseInt(actId), taskId, isCompleted: updated.data.isCompleted });
+      }
     } catch (err) {
       // Rollback on error
       setCompletedTaskIds(prev => {
@@ -963,6 +1147,12 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       sendChatMessage(chatMessage);
       setChatMessage("");
     }
+  };
+
+  const handleSendTeamMessage = () => {
+    if (!teamChatMessage.trim() || !teamChatId || !teamChatSocketRef.current) return;
+    teamChatSocketRef.current.emit('chat:send', { chatId: teamChatId, text: teamChatMessage });
+    setTeamChatMessage('');
   };
 
   const handleKeyPress = (e) => {
@@ -1235,64 +1425,98 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
             <div className={styles.chatContainer}>
               {showChatPanel && (
                 <div className={styles.chatOverlay}>
-                  <div className={styles.chatOverlayMessages}>
-                    {chatMessages.filter(m => (m.message || m.content || '').trim()).map((m, i) => (
-                      <div key={m.id || i} className={styles.chatOverlayMsg}>
-                        <span className={styles.chatOverlayUsername}>{m.user?.username || m.username || 'User'}</span>
-                        <p className={styles.chatOverlayText}>{m.message || m.content}</p>
-                      </div>
-                    ))}
-                    <div ref={chatEndRef} />
-                  </div>
-                  <div className={styles.chatOverlayInput}>
-                    <input
-                      className={styles.messageInput}
-                      value={chatMessage}
-                      onChange={e => setChatMessage(e.target.value)}
-                      onKeyDown={handleKeyPress}
-                      placeholder="Message..."
-                      disabled={sending}
-                    />
-                    <button
-                      className={styles.chatOverlaySendBtn}
-                      onClick={handleSendMessage}
-                      disabled={sending || !chatMessage.trim()}
-                    >
-                      ➤
-                    </button>
-                  </div>
-                </div>
-              )}
-              {/* Панель переключения голоса (только для навигатора) */}
-              {isNavigator && showVoicePanel && (
-                <div className={styles.voicePanel}>
-                  <p className={styles.voicePanelTitle}>Voice Switch</p>
-                  {['initiator', 'hero', 'spot_agent'].map(role => {
-                    const isActive = voiceState?.activeTarget?.role === role;
-                    return (
+                  {/* Таб-переключатель General / Team */}
+                  {isTeamMember && teamChatId && (
+                    <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}>
                       <button
-                        key={role}
-                        className={`${styles.voiceRoleBtn} ${isActive ? styles.voiceRoleBtnActive : ''}`}
-                        onClick={() => switchVoice(role)}
-                      >
-                        {role === 'spot_agent' ? 'Spot Agent' : role.charAt(0).toUpperCase() + role.slice(1)}
-                      </button>
-                    );
-                  })}
+                        onClick={() => setActiveChat('general')}
+                        style={{
+                          flex: 1, padding: '8px 0', border: 'none', cursor: 'pointer', fontSize: '12px',
+                          background: activeChat === 'general' ? 'rgba(0,157,255,0.15)' : 'none',
+                          color: activeChat === 'general' ? '#009DFF' : '#888',
+                          fontWeight: activeChat === 'general' ? 600 : 400,
+                        }}
+                      >General</button>
+                      <button
+                        onClick={() => setActiveChat('team')}
+                        style={{
+                          flex: 1, padding: '8px 0', border: 'none', cursor: 'pointer', fontSize: '12px',
+                          background: activeChat === 'team' ? 'rgba(0,157,255,0.15)' : 'none',
+                          color: activeChat === 'team' ? '#009DFF' : '#888',
+                          fontWeight: activeChat === 'team' ? 600 : 400,
+                        }}
+                      >Team</button>
+                    </div>
+                  )}
+
+                  {/* General chat */}
+                  {activeChat === 'general' && (
+                    <>
+                      <div className={styles.chatOverlayMessages}>
+                        {chatMessages.filter(m => (m.message || m.content || '').trim()).map((m, i) => (
+                          <div key={m.id || i} className={styles.chatOverlayMsg}>
+                            <span className={styles.chatOverlayUsername}>{m.user?.username || m.username || 'User'}</span>
+                            <p className={styles.chatOverlayText}>{m.message || m.content}</p>
+                          </div>
+                        ))}
+                        <div ref={chatEndRef} />
+                      </div>
+                      <div className={styles.chatOverlayInput}>
+                        <input
+                          className={styles.messageInput}
+                          value={chatMessage}
+                          onChange={e => setChatMessage(e.target.value)}
+                          onKeyDown={handleKeyPress}
+                          placeholder="Message..."
+                          disabled={sending}
+                        />
+                        <button
+                          className={styles.chatOverlaySendBtn}
+                          onClick={handleSendMessage}
+                          disabled={sending || !chatMessage.trim()}
+                        >
+                          ➤
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Team chat (только для членов команды) */}
+                  {activeChat === 'team' && isTeamMember && (
+                    <>
+                      <div className={styles.chatOverlayMessages}>
+                        {teamMessages.filter(m => (m.text || '').trim()).map((m, i) => (
+                          <div key={m.id || i} className={styles.chatOverlayMsg}>
+                            <span className={styles.chatOverlayUsername}>{m.sender?.login || m.sender?.email || 'User'}</span>
+                            <p className={styles.chatOverlayText}>{m.text}</p>
+                          </div>
+                        ))}
+                        <div ref={teamChatEndRef} />
+                      </div>
+                      <div className={styles.chatOverlayInput}>
+                        <input
+                          className={styles.messageInput}
+                          value={teamChatMessage}
+                          onChange={e => setTeamChatMessage(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && handleSendTeamMessage()}
+                          placeholder="Team message..."
+                        />
+                        <button
+                          className={styles.chatOverlaySendBtn}
+                          onClick={handleSendTeamMessage}
+                          disabled={!teamChatMessage.trim()}
+                        >
+                          ➤
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
-
-              {/* Микрофон заглушен (для не-навигатора) */}
-              {!isNavigator && !canSpeak && speakReason && (
-                <div className={styles.micMutedBanner}>
-                  🔇 {speakReason}
-                </div>
-              )}
-
               <div className={styles.chatActions}>
                 <button
                   className={styles.actionButton}
-                  onClick={() => setShowMap(true)}
+                  onClick={() => { requestLocation(); setShowMap(true); }}
                 >
                   <img src={geo} alt="Location" />
                 </button>
@@ -1326,27 +1550,24 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                     </button>
                   )}
 
-                {/* Кнопка голосового переключения / мута микрофона */}
-                <button
-                  className={`${styles.actionButton} ${isNavigator && showVoicePanel ? styles.active : ''}`}
-                  onClick={() => {
-                    if (isNavigator) {
-                      setShowVoicePanel(v => !v);
-                    } else if (isStreamer) {
+                {/* Кнопка мута микрофона (только для стримера) */}
+                {isStreamer && (
+                  <button
+                    className={styles.actionButton}
+                    onClick={() => {
                       const newMuted = !isMicMuted;
                       setIsMicMuted(newMuted);
                       if (localAudioTrackRef.current) {
                         localAudioTrackRef.current.setEnabled(!newMuted);
                       }
-                    }
-                  }}
-                  title={isStreamer ? (isMicMuted ? 'Unmute microphone' : 'Mute microphone') : (canSpeak ? (isNavigator ? 'Voice Switch' : 'Microphone active') : speakReason)}
-                  style={(!canSpeak && !isNavigator && !isStreamer) ? { opacity: 0.45 } : {}}
-                >
-                  <span style={{ fontSize: '22px', lineHeight: 1 }}>
-                    {isStreamer ? (isMicMuted ? '🔇' : '🎙️') : (canSpeak ? '🎙️' : '🔇')}
-                  </span>
-                </button>
+                    }}
+                    title={isMicMuted ? 'Unmute microphone' : 'Mute microphone'}
+                  >
+                    <span style={{ fontSize: '22px', lineHeight: 1 }}>
+                      {isMicMuted ? '🔇' : '🎙️'}
+                    </span>
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -1426,6 +1647,15 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                 Back
               </button>
 
+              {!locationGranted && (
+                <button
+                  className={styles.locateMeButton}
+                  onClick={requestLocation}
+                >
+                  📍 Allow my location
+                </button>
+              )}
+
               <MapContainer
                 center={
                   startLocation
@@ -1445,6 +1675,18 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                   url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
                 />
+                {locationGranted && (
+                  <CircleMarker
+                    center={userPosition}
+                    radius={10}
+                    pathOptions={{
+                      color: '#005ce6',
+                      fillColor: '#0080ff',
+                      fillOpacity: 0.9,
+                      weight: 2,
+                    }}
+                  />
+                )}
                 {startLocation && (
                   <Circle
                     center={[startLocation.latitude, startLocation.longitude]}
@@ -1461,34 +1703,43 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                   <Polyline
                     positions={routeCoordinates}
                     pathOptions={{
-                      color: "black",
+                      color: "#0092FE",
                       weight: 4,
-                      opacity: 0.8,
+                      opacity: 0.85,
+                      dashArray: "8 6",
                     }}
                   />
                 )}
                 {Object.entries(taskPositions).map(([taskId, pos]) => {
                   const task = tasks.find(t => t.id === parseInt(taskId));
                   const done = completedTaskIds.has(parseInt(taskId));
+                  const taskIdx = tasks.findIndex(t => t.id === parseInt(taskId)) + 1;
                   const taskIcon = L.divIcon({
                     className: 'custom-marker-icon',
                     html: `<div style="
-                      background-color: ${done ? '#888' : '#0092FE'};
+                      background-color: ${done ? '#555' : (selectedTaskRouteId === parseInt(taskId) ? '#FF6B00' : '#0092FE')};
                       color: white;
-                      border-radius: 6px;
-                      padding: 3px 7px;
-                      font-size: 11px;
+                      border-radius: 50%;
+                      width: 32px;
+                      height: 32px;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
                       font-weight: bold;
+                      font-size: 15px;
                       border: 2px solid white;
-                      white-space: nowrap;
-                      max-width: 120px;
-                      overflow: hidden;
-                      text-overflow: ellipsis;
-                    ">${done ? '✓ ' : ''}${task?.description?.slice(0, 20) || 'Задание'}</div>`,
-                    iconAnchor: [0, 0],
+                      box-sizing: border-box;
+                    ">${done ? '✓' : taskIdx}</div>`,
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 16],
                   });
                   return (
-                    <Marker key={`task-marker-${taskId}`} position={pos} icon={taskIcon} />
+                    <Marker
+                      key={`task-marker-${taskId}`}
+                      position={pos}
+                      icon={taskIcon}
+                      eventHandlers={{ click: () => buildRouteToTask(parseInt(taskId)) }}
+                    />
                   );
                 })}
 
@@ -1567,24 +1818,47 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                           style={{ opacity: done ? 0.6 : 1 }}
                           onClick={(e) => { e.stopPropagation(); toggleTaskLocal(task.id); }}
                         >
-                          <div className={styles.taskCheckbox}>
-                            <input
-                              type="checkbox"
-                              checked={done}
-                              onChange={() => toggleTaskLocal(task.id)}
-                              onClick={e => e.stopPropagation()}
-                              style={{ width: 18, height: 18, accentColor: '#0092FE', cursor: 'pointer', flexShrink: 0 }}
-                            />
-                          </div>
+                          {(isHero || isNavigator || isInitiator) && (
+                            <div className={styles.taskCheckbox}>
+                              <input
+                                type="checkbox"
+                                checked={done}
+                                onChange={() => toggleTaskLocal(task.id)}
+                                onClick={e => e.stopPropagation()}
+                                style={{ width: 18, height: 18, accentColor: '#0092FE', cursor: 'pointer', flexShrink: 0 }}
+                              />
+                            </div>
+                          )}
                           <div className={styles.taskContent}>
                             <div className={styles.taskTitle} style={{ textDecoration: done ? 'line-through' : 'none' }}>{task.description}</div>
                             {task.address && (
                               <div className={styles.taskCompletedTime}>📍 {task.address}</div>
                             )}
-                            {taskPositions[task.id] && (
-                              <div className={styles.taskCompletedTime} style={{color:'#0092FE'}}>🗺 На карте</div>
-                            )}
                           </div>
+                          {taskPositions[task.id] && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                buildRouteToTask(task.id);
+                                setIsTasksModalOpen(false);
+                                setShowMap(true);
+                              }}
+                              style={{
+                                background: selectedTaskRouteId === task.id ? '#FF6B00' : '#0092FE',
+                                border: 'none',
+                                color: 'white',
+                                borderRadius: '8px',
+                                padding: '6px 12px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                flexShrink: 0,
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {selectedTaskRouteId === task.id ? 'Route ✓' : 'Route'}
+                            </button>
+                          )}
                         </div>
                       );
                     })}

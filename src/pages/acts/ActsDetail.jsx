@@ -408,6 +408,16 @@ export default function ActDetail() {
 
   const isOwner = user && actOwnerId && user.id === actOwnerId;
 
+  // Герой акта может его запустить (бэкенд также должен разрешить — см. FRONTEND_FEATURE_BACKEND_REQUIREMENTS.md)
+  const currentUserId = user?.id || user?.sub;
+  const isHero = actTeams.some(team =>
+    (team.roleConfigs || []).some(rc =>
+      rc.role === 'hero' &&
+      (rc.candidates || []).some(c => (c.user?.id ?? c.userId) === currentUserId)
+    )
+  );
+  const canStartAct = (isOwner || isHero) && isLive !== 'ONLINE';
+
   const handleStart = async () => {
     if (isLive === 'ONLINE') {
       navigate(`/stream/${id}`, { state: { act: { id, title, description } } });
@@ -546,7 +556,7 @@ const copyShareLink = () => {
                 )}
               </div>
               <div className={styles.savebutton} style={{ marginTop: '0px' }}>
-                {isOwner && isLive !== 'ONLINE' ? (
+                {canStartAct ? (
                   <button
                     className={styles.active}
                     onClick={handleStart}

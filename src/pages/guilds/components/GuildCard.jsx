@@ -78,17 +78,17 @@ export default function GuildCard({ guild }) {
             )}
             <img src={finalImage} alt="" className={styles.avatar}/>
             <h1 className={styles.title}>{title}</h1>
-            <p className={styles.desc}>{description}</p>
+            {description && <p className={styles.descText}>{description}</p>}
             <div className={styles.cont}>
               <p className={styles.desc}>Guild Acts: <span style={{color:'white', fontSize:'18px',}}>{acts}</span></p>
               <div className={styles.usersdiv}>
                 <img src={user} alt="" />
-                <p className={title}>{users}</p>
+                <p className={styles.membersCount}>{users}</p>
               </div>
             </div>
             {tags != '' &&
 
-              <p className={styles.desc} style={{fontSize:'x-small',}}>Tags: {tags}</p>
+              <p className={styles.tags}>Tags: {tags}</p>
             }
             
           </div>

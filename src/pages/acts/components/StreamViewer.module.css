@@ -8,6 +8,8 @@
   z-index: 1000;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  touch-action: pan-y;
 }
 
 .header {
@@ -294,10 +296,11 @@
   background: transparent;
   border: none;
   color: #ffffff;
-  font-size: 14px;
+  font-size: 16px; /* iOS: prevents zoom on focus */
   outline: none;
   padding: 8px 0;
   font-family: inherit;
+  touch-action: manipulation;
 }
 
 .messageInput::placeholder {
@@ -371,6 +374,28 @@
 
 .closeMapButton:hover {
   background: rgba(0, 0, 0, 0.85);
+}
+
+.locateMeButton {
+  position: absolute;
+  top: 30px;
+  right: 20px;
+  z-index: 2001;
+  background: rgba(0, 128, 255, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: white;
+  border: none;
+  padding: 12px 18px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 500;
+  transition: background 0.2s ease;
+}
+
+.locateMeButton:hover {
+  background: rgba(0, 100, 220, 0.95);
 }
 
 .closeMapButton svg {

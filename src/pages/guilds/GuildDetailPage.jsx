@@ -90,13 +90,19 @@ useEffect(() => {
         setActscount(guildData.actsCount);
         setActs(guildData.acts);
         
-        // Проверка членства
-        const isUserMember = guildData.members.some(m => m.id === profileData.id);
+        // Проверка членства (нестрогое сравнение т.к. id может быть числом или строкой)
+        const isUserMember = guildData.members.some(m => m.id == profileData.id);
         const isUserOwner = guildData.ownerId == profileData.id;
 
         setIsMember(isUserMember);
         setAdmin(isUserOwner);
         setUserid(profileData.id);
+
+        // Проверяем наличие ожидающей заявки из localStorage
+        const pendingKey = `guild_pending_${id}_${profileData.id}`;
+        if (localStorage.getItem(pendingKey) === 'true') {
+          setHasPendingRequest(true);
+        }
       }
 
       // Если владелец, загружаем заявки
@@ -126,10 +132,12 @@ useEffect(() => {
     try {
       await guildApi.joinGuild(id);
       setHasPendingRequest(true);
+      localStorage.setItem(`guild_pending_${id}_${userid}`, 'true');
     } catch (err) {
       const msg = err?.response?.data?.message || '';
       if (err?.response?.status === 400 && msg.toLowerCase().includes('pending')) {
         setHasPendingRequest(true);
+        localStorage.setItem(`guild_pending_${id}_${userid}`, 'true');
       } else {
         console.error('Failed to submit guild request:', err);
       }
@@ -301,7 +309,7 @@ useEffect(() => {
               </p>
             )}
           </div>
-          {!isMember &&
+          {!isMember && !isAdmin &&
             <div className={styles.savebutton}>
               {hasPendingRequest ? (
                 <button disabled style={{ opacity: 0.5, cursor: 'default' }}>Request sent</button>

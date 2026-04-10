@@ -18,6 +18,11 @@ const parseTokenExp = (token) => {
   }
 };
 
+const getCookieValue = (name) => {
+  const match = document.cookie.match(new RegExp('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)'));
+  return match ? match[2] : null;
+};
+
 const scheduleProactiveRefresh = (token) => {
   if (proactiveRefreshTimer) clearTimeout(proactiveRefreshTimer);
   const expMs = parseTokenExp(token);
@@ -32,7 +37,8 @@ const scheduleProactiveRefresh = (token) => {
         {},
         { withCredentials: true },
       );
-      const newToken = res.data?.token || res.data?.accessToken;
+      // Бэкенд возвращает только { message }, токен устанавливается через cookie
+      const newToken = res.data?.token || res.data?.accessToken || getCookieValue('access_token');
       if (newToken) {
         useAuthStore.getState().setToken(newToken);
         scheduleProactiveRefresh(newToken);
@@ -141,7 +147,8 @@ api.interceptors.response.use(
 
     try {
       const response = await api.post("/auth/refresh");
-      const token = response.data?.token || response.data?.accessToken;
+      // Бэкенд возвращает только { message }, токен устанавливается через cookie
+      const token = response.data?.token || response.data?.accessToken || getCookieValue('access_token');
 
       if (!token) throw new Error("No token in refresh response");
 
