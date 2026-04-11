@@ -55,9 +55,15 @@ export const chatApi = {
   return response.data;
 },
   
-    getMessages: async (id) => {
-    const response = await api.get(`/chat/${id}/messages`);
+  joinActTeam: async (actId) => {
+    // Ensure the current user is added to the act team group chat (upsert)
+    const response = await api.post(`/chat/act-team/${actId}`);
     return response.data;
+  },
+
+  getMessages: async (id) => {
+    const response = await api.get(`/chat/${id}/messages`);
+    return response.data;    
   },
  sendMessage: async (id, text, replyToId, forwardedFromId, file) => {
     const token = useAuthStore.getState().getToken();

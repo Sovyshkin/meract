@@ -912,6 +912,13 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
         const chats = await chatApi.getAll();
         const existing = chats.find(c => c.actId == actId && c.type === 'group');
         if (existing) {
+          try {
+            // Ensure current user is a member of the existing team chat on the backend
+            await chatApi.joinActTeam(actId);
+          } catch (joinErr) {
+            console.warn('Failed to join existing act team chat:', joinErr);
+            // proceed anyway; subsequent getMessages will surface 403 if not a member
+          }
           setTeamChatId(existing.id);
           return;
         }

@@ -111,14 +111,14 @@ api.interceptors.request.use(
   (error) => Promise.reject(error),
 );
 
-// Обработка 401 / 403 (refresh token mismatch при параллельных сессиях)
+// Обработка 401 (Unauthorized) — пробуем рефрешить токен
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
     const status = error.response?.status;
 
-    if (!error.response || (status !== 401 && status !== 403)) {
+    if (!error.response || status !== 401) {
       return Promise.reject(error);
     }
 
