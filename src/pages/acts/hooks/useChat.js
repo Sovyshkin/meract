@@ -5,7 +5,7 @@ import { io } from "socket.io-client";
 import api from "../../../shared/api/api";
 import { useAuthStore } from "../../../shared/stores/authStore";
 
-const useChat = (actId) => {
+const useChat = (actId, chatId = null) => {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -45,7 +45,8 @@ const useChat = (actId) => {
         console.log(`Присоединение к комнате акта ${actId}...`);
         s.emit("joinStream", { actId: parseInt(actId) });
         // Надёжный HTTP-fallback: загружаем историю сразу после подключения
-        api.get(`/chat/${actId}/messages`, { params: { limit: 50, offset: 0 } })
+        if (!chatId) return;
+        api.get(`/chat/${chatId}/messages`, { params: { limit: 50, offset: 0 } })
           .then(res => {
             const msgs = (res.data || []).filter(m => (m.content || m.message || '').trim());
             if (msgs.length > 0) setMessages(msgs);
@@ -109,14 +110,14 @@ const useChat = (actId) => {
   // Fetch initial messages (HTTP - для истории)
   const fetchMessages = useCallback(
     async (limit = 50, offset = 0) => {
-      if (!actId) return;
+      if (!actId || !chatId) return;
 
       try {
         setLoading(true);
         setError(null);
 
         console.log(`Загрузка начальных сообщений для акта ${actId}...`);
-        const response = await api.get(`/chat/${actId}/messages`, {
+        const response = await api.get(`/chat/${chatId}/messages`, {
           params: {
             limit,
             offset,
@@ -139,7 +140,7 @@ const useChat = (actId) => {
         setLoading(false);
       }
     },
-    [actId],
+    [actId, chatId],
   );
 
   // Send message через WebSocket
@@ -208,12 +209,12 @@ const useChat = (actId) => {
   // Load more messages (for pagination)
   const loadMoreMessages = useCallback(
     async (offset) => {
-      if (!actId) return;
+      if (!actId || !chatId) return;
 
       try {
         setLoading(true);
 
-        const response = await api.get(`/chat/${actId}/messages`, {
+        const response = await api.get(`/chat/${chatId}/messages`, {
           params: {
             limit: 50,
             offset,
@@ -233,18 +234,18 @@ const useChat = (actId) => {
         setLoading(false);
       }
     },
-    [actId],
+    [actId, chatId],
   );
 
   useEffect(() => {
-    if (actId) {
+    if (actId && chatId) {
       console.log(`🔄 Загрузка истории сообщений для акта ${actId}`);
       fetchMessages();
     }
-  }, [actId]); 
+  }, [actId, chatId]); 
 
   useEffect(() => {
-    if (!actId || !isConnected) return;
+    if (!actId || !chatId || !isConnected) return;
 
     console.log(
       "🔄 Запуск периодической проверки новых сообщений (каждые 5 сек)",
@@ -256,7 +257,7 @@ const useChat = (actId) => {
         console.log(`🔍 Проверка новых сообщений после ID ${lastMessageId}...`);
 
         api
-          .get(`/chat/${actId}/messages`, {
+          .get(`/chat/${chatId}/messages`, {
             params: { limit: 10, offset: 0 },
           })
           .then((response) => {
@@ -286,7 +287,7 @@ const useChat = (actId) => {
       console.log("Остановка периодической проверки сообщений");
       clearInterval(interval);
     };
-  }, [actId, isConnected, messages, setMessages]);
+  }, [actId, chatId, isConnected, messages, setMessages]);
 
   return {
     messages,

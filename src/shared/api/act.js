@@ -153,6 +153,28 @@ export const actApi = {
     return response.data;
   },
 
+  getHeroStreams: async (actId) => {
+    const response = await api.get(`/act/${actId}/hero-streams`);
+    return response.data;
+  },
+
+  startHeroStream: async (actId, heroUserId) => {
+    const response = await api.post(`/act/${actId}/hero-streams/${heroUserId}/start`);
+    return response.data;
+  },
+
+  stopHeroStream: async (actId, heroUserId) => {
+    const response = await api.post(`/act/${actId}/hero-streams/${heroUserId}/stop`);
+    return response.data;
+  },
+
+  getHeroStreamToken: async (actId, heroUserId, role, expiry = 3600) => {
+    const response = await api.get(`/act/${actId}/hero-streams/${heroUserId}/token`, {
+      params: { role, expiry },
+    });
+    return response.data;
+  },
+
   voteTeamCandidate: async (actId, candidateId) => {
     const response = await api.post(`/act/${actId}/vote-team-candidate`, { candidateId });
     return response.data;

@@ -406,15 +406,29 @@ export default function ActDetail() {
     }
   };
 
-  const isOwner = user && actOwnerId && user.id === actOwnerId;
+  const isOwner = Boolean(user && actOwnerId && String(user.id) === String(actOwnerId));
 
   // Герой акта может его запустить (бэкенд также должен разрешить — см. FRONTEND_FEATURE_BACKEND_REQUIREMENTS.md)
   const currentUserId = user?.id || user?.sub;
   const isHero = actTeams.some(team =>
     (team.roleConfigs || []).some(rc =>
       rc.role === 'hero' &&
-      (rc.candidates || []).some(c => (c.user?.id ?? c.userId) === currentUserId)
+      (rc.candidates || []).some(c => String(c.user?.id ?? c.userId) === String(currentUserId))
     )
+  );
+
+  const allHeroes = Array.from(
+    new Set(
+      actTeams.flatMap((team) =>
+        (team.roleConfigs || [])
+          .filter((rc) => rc.role === 'hero')
+          .flatMap((rc) =>
+            (rc.candidates || []).map(
+              (c) => c.user?.login || c.user?.email || `User #${c.user?.id ?? c.userId}`,
+            ),
+          ),
+      ),
+    ),
   );
   const canStartAct = (isOwner || isHero) && isLive !== 'ONLINE';
 
@@ -515,6 +529,11 @@ const copyShareLink = () => {
                 <h1 className={styles.title}>{title}</h1>
               </div>
               <p className={styles.desc}>{description}</p>
+              {allHeroes.length > 0 && (
+                <p className={styles.desc} style={{ color: '#cfcfcf' }}>
+                  Heroes: {allHeroes.join(', ')}
+                </p>
+              )}
               <div style={{ display: 'flex', gap: '15px' }}>
                 <div style={{ display: 'flex', gap: '5px' }}>
                   <img src={star} alt="" style={{ width: '20px', height: '20px' }} />

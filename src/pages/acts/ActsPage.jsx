@@ -22,9 +22,7 @@ export default function ActsPage() {
   const [loading, setLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
 
-  // Категории из админки
   const [categories, setCategories] = useState([]);
-  const [categoryActs, setCategoryActs] = useState({}); // { [categoryId]: Act[] }
 
   // Диапазоны расстояний из бэка
   const [locationRanges, setLocationRanges] = useState([]); // [{ id, label, minKm, maxKm, order }]
@@ -34,7 +32,7 @@ export default function ActsPage() {
   const navigate = useNavigate();
   const unreadCount = useNotificationStore((s) => s.unreadCount);
 
-  const { selectedRangeIdx, minDistanceKm, maxDistanceKm, setDistanceRange } = useFilterStore();
+  const { selectedRangeIdx, setDistanceRange } = useFilterStore();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -42,7 +40,7 @@ export default function ActsPage() {
         const data = await actApi.getAllActs();
         setActs(data);
       } catch (error) {
-        console.error("Ошибка при загрузке актов:", error);
+        console.error("Failed to load acts:", error);
       } finally {
         setLoading(false);
       }
@@ -50,21 +48,14 @@ export default function ActsPage() {
     fetchData();
   }, []);
 
-  // Загрузка категорий и актов по каждой категории
+  // Load active categories for tabs
   useEffect(() => {
     api.get('/admin/categories')
       .then(res => {
-        const cats = Array.isArray(res.data) ? res.data : [];
+        const cats = Array.isArray(res.data)
+          ? res.data.filter((cat) => cat?.isActive === true)
+          : [];
         setCategories(cats);
-        // Загружаем акты для каждой категории
-        cats.forEach(cat => {
-          api.get(`/admin/categories/${cat.id}/acts`)
-            .then(r => {
-              const actsData = r.data?.Act || r.data?.acts || [];
-              setCategoryActs(prev => ({ ...prev, [cat.id]: actsData }));
-            })
-            .catch(() => {});
-        });
       })
       .catch(() => {});
   }, []);
@@ -96,7 +87,7 @@ export default function ActsPage() {
     }
   };
 
-  const filteredActs = useMemo(() => {
+  const searchedActs = useMemo(() => {
     let list = acts;
     const query = searchTerm.toLowerCase().trim();
     if (query) {
@@ -105,32 +96,33 @@ export default function ActsPage() {
     return list;
   }, [searchTerm, acts]);
 
-  // Разбиваем по distanceKm: с расстоянием и без
-  const { inRange, noDistance } = useMemo(() => {
-    if (!activeRange) {
-      return { inRange: filteredActs, noDistance: [] };
-    }
-    const withDist = filteredActs.filter(a => a.distanceKm != null);
-    const noDist = filteredActs.filter(a => a.distanceKm == null);
-    const ranged = withDist.filter(
-      a => a.distanceKm >= activeRange.minKm && a.distanceKm <= activeRange.maxKm
-    );
-    return { inRange: ranged, noDistance: noDist };
-  }, [filteredActs, activeRange]);
-
-  // Фильтрация актов по категориям с учётом поиска
-  const filteredCategoryActs = useMemo(() => {
-    const query = searchTerm.toLowerCase().trim();
-    if (!query) return categoryActs;
-    const result = {};
-    Object.entries(categoryActs).forEach(([catId, catActsList]) => {
-      result[catId] = catActsList.filter(a => (a.title || a.name || '').toLowerCase().includes(query));
+  const visibleActs = useMemo(() => {
+    if (!activeRange) return searchedActs;
+    return searchedActs.filter((act) => {
+      if (act.distanceKm == null) return true;
+      return act.distanceKm >= activeRange.minKm && act.distanceKm <= activeRange.maxKm;
     });
-    return result;
-  }, [categoryActs, searchTerm]);
+  }, [searchedActs, activeRange]);
 
-  // Есть ли хоть одна категория с актами
-  const hasCategoryContent = categories.some(c => (filteredCategoryActs[c.id] || []).length > 0);
+  const groupedCategories = useMemo(() => {
+    const categorizedGroups = categories
+      .map((category) => ({
+        ...category,
+        acts: visibleActs.filter((act) => Number(act.categoryId) === Number(category.id)),
+      }))
+      .filter((group) => group.acts.length > 0);
+
+    const uncategorizedActs = visibleActs.filter((act) => act.categoryId == null);
+    if (uncategorizedActs.length > 0) {
+      categorizedGroups.push({
+        id: 'uncategorized',
+        name: 'Uncategorized',
+        acts: uncategorizedActs,
+      });
+    }
+
+    return categorizedGroups;
+  }, [categories, visibleActs]);
 
   return (
     <div className={styles.container}>
@@ -247,53 +239,24 @@ export default function ActsPage() {
           )}
         </div>
 
-        {/* КАТЕГОРИИ с горизонтальной прокруткой */}
-        {hasCategoryContent && (
-          <div className={styles.contentWrapper}>
-            {categories.map(cat => {
-              const catActsList = filteredCategoryActs[cat.id] || [];
-              if (catActsList.length === 0) return null;
-              return (
-                <div key={cat.id} className={styles.categorySection}>
-                  <h2 className={styles.categoryTitle}>{cat.name}</h2>
-                  <div className={styles.horizontalScroll}>
-                    {catActsList.map((act, index) => (
-                      <div key={act.id || index} className={styles.horizontalCard}>
-                        <ActCard act={act} titleact={true} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* CONTENT — акты без категорий / фильтр по расстоянию */}
         <div className={styles.contentWrapper}>
-          <div className={styles.streamsList}>
-            {inRange.map((act, index) => (
-              <ActCard key={act.id || index} act={act} titleact={true} />
-            ))}
-          </div>
-
-          {activeRange && noDistance.length > 0 && (
-            <>
-              <p style={{ color: '#888', fontSize: '13px', marginTop: '20px', marginBottom: '8px' }}>
-                Without distance data
-              </p>
-              <div className={styles.streamsList}>
-                {noDistance.map((act, index) => (
-                  <ActCard key={`nd-${act.id || index}`} act={act} titleact={true} />
+          {groupedCategories.map((group) => (
+            <div key={group.id} className={styles.categorySection}>
+              <h2 className={styles.categoryTitle}>{group.name}</h2>
+              <div className={styles.horizontalScroll}>
+                {group.acts.map((act, index) => (
+                  <div key={act.id || index} className={styles.horizontalCard}>
+                    <ActCard act={act} titleact={true} />
+                  </div>
                 ))}
               </div>
-            </>
-          )}
+            </div>
+          ))}
 
-          {inRange.length === 0 && noDistance.length === 0 && !hasCategoryContent && !loading && (
+          {groupedCategories.length === 0 && !loading && (
             <div className="name" style={{ display: 'contents' }}>
               <h1 style={{ textAlign: 'center', marginTop: '20px', opacity: 0.5 }}>
-                {searchTerm ? "No results found" : "No acts"}
+                {searchTerm ? "No results found" : "No acts yet"}
               </h1>
             </div>
           )}

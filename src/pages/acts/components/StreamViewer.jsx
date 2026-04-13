@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AgoraRTC from "agora-rtc-sdk-ng";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -14,6 +14,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { io } from 'socket.io-client';
 import api from "../../../shared/api/api";
+import { actApi } from "../../../shared/api/act";
 import { useSpotAgent } from "../../../shared/hooks/useSpotAgent";
 import { useAuthStore } from "../../../shared/stores/authStore";
 import useChat from "../hooks/useChat";
@@ -72,7 +73,6 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const [startLocation, setStartLocation] = useState(null);
   const [destinationLocation, setDestinationLocation] = useState(null);
 
-  const [chatid, setChatId] = useState();
   const [showChatPanel, setShowChatPanel] = useState(false);
   const chatEndRef = useRef(null);
   // Team chat state
@@ -80,6 +80,9 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const [teamMessages, setTeamMessages] = useState([]);
   const [teamChatMessage, setTeamChatMessage] = useState('');
   const [activeChat, setActiveChat] = useState('general');
+  const [selectedStreamerId, setSelectedStreamerId] = useState(null);
+  const [heroStreams, setHeroStreams] = useState([]);
+  const [showHeroPicker, setShowHeroPicker] = useState(false);
   const teamChatSocketRef = useRef(null);
   const teamChatEndRef = useRef(null);
   // Состояния для записей
@@ -125,7 +128,6 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   // Spot Agent computed values
   const currentUserId = user?.id || user?.sub;
   const isInitiator = currentUserId === actualStreamData?.userId;
-  const isStreamer = currentUserId === actualStreamData?.userId; // Стример = инициатор
   const spotAgentCount = actualStreamData?.spotAgentCount || 0;
   const hasApplied = candidates.some((c) => c.userId === currentUserId);
 
@@ -135,7 +137,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     return actualStreamData.teams.some(team =>
       (team.roleConfigs || []).some(rc =>
         rc.role === 'navigator' &&
-        (rc.candidates || []).some(c => (c.user?.id ?? c.userId) === currentUserId)
+        (rc.candidates || []).some(c => String(c.user?.id ?? c.userId) === String(currentUserId))
       )
     );
   }, [currentUserId, actualStreamData?.teams]);
@@ -145,7 +147,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     return actualStreamData.teams.some(team =>
       (team.roleConfigs || []).some(rc =>
         rc.role === 'hero' &&
-        (rc.candidates || []).some(c => (c.user?.id ?? c.userId) === currentUserId)
+        (rc.candidates || []).some(c => String(c.user?.id ?? c.userId) === String(currentUserId))
       )
     );
   }, [currentUserId, actualStreamData?.teams]);
@@ -155,12 +157,52 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     return actualStreamData.teams.some(team =>
       (team.roleConfigs || []).some(rc =>
         rc.role === 'spot_agent' &&
-        (rc.candidates || []).some(c => (c.user?.id ?? c.userId) === currentUserId)
+        (rc.candidates || []).some(c => String(c.user?.id ?? c.userId) === String(currentUserId))
       )
     );
   }, [currentUserId, actualStreamData?.teams]);
 
   const isTeamMember = isHero || isNavigator || isSpotAgent || isInitiator;
+  const canUseTeamChat = isHero || isNavigator || isSpotAgent;
+  const mergedHeroStreamers = useMemo(
+    () => (heroStreams || []).map((h) => ({ ...h, source: 'backend' })),
+    [heroStreams],
+  );
+
+  const selectedHeroStream = useMemo(
+    () => mergedHeroStreamers.find((h) => String(h.heroUserId) === String(selectedStreamerId)) || null,
+    [mergedHeroStreamers, selectedStreamerId],
+  );
+
+  const selectedHeroStatus = selectedHeroStream?.status || 'OFFLINE';
+  const isSelectedHeroOnline = selectedHeroStatus === 'ONLINE';
+  const isCurrentUserAllowedToStream = Boolean(
+    currentUserId && selectedStreamerId &&
+    (String(currentUserId) === String(selectedStreamerId) || isInitiator),
+  );
+
+  useEffect(() => {
+    if (mergedHeroStreamers.length === 0) {
+      setSelectedStreamerId(null);
+      return;
+    }
+    if (selectedStreamerId && mergedHeroStreamers.some((h) => String(h.heroUserId) === String(selectedStreamerId))) {
+      return;
+    }
+    const selfHero = mergedHeroStreamers.find((h) => String(h.heroUserId) === String(currentUserId));
+    if (selfHero) {
+      setSelectedStreamerId(selfHero.heroUserId);
+      return;
+    }
+    setSelectedStreamerId(mergedHeroStreamers[0].heroUserId);
+  }, [mergedHeroStreamers, currentUserId, selectedStreamerId]);
+
+  const isSelectedStreamer = Boolean(
+    selectedStreamerId &&
+      currentUserId &&
+      String(selectedStreamerId) === String(currentUserId) &&
+      isCurrentUserAllowedToStream,
+  );
 
   const remoteVideoRef = useRef(null);
   const localVideoRef = useRef(null);
@@ -182,27 +224,20 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     return 888888;
   }, [user]);
 
-  // Extract stream ID
-  const streamId = useMemo(() => {
-    return channelName?.replace("act_", "") || streamData?.id || "default";
-  }, [channelName, streamData]);
-
-  // Create UNIQUE UID - для стримера используем фиксированный uid, для зрителей - динамический
+  // Hero-stream token is issued for requesterId on backend, so Agora join UID must match that ID.
   const userIdNum = useMemo(() => {
-    if (isStreamer) {
-      // Для стримера используем предсказуемый uid
-      return parseInt(streamId) * 1000000 + (baseUserId % 100000);
-    } else {
-      // Для зрителей - уникальный uid
-      const randomComponent = Math.floor(Math.random() * 1000);
-      return parseInt(streamId) * 1000000 + (baseUserId % 100000) * 100 + randomComponent;
-    }
-  }, [streamId, baseUserId, isStreamer]);
+    const parsed = Number(baseUserId);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+  }, [baseUserId]);
 
   // Use passed channelName or create from streamData
-  const actualChannelName = channelName?.startsWith("act_")
-    ? channelName
-    : `act_${channelName || streamData?.id || "default"}`;
+  const actualChannelName = selectedHeroStream?.channelName
+    ? selectedHeroStream.channelName
+    : (selectedStreamerId
+      ? `act_${actId}_hero_${selectedStreamerId}`
+    : (channelName?.startsWith("act_")
+      ? channelName
+      : `act_${channelName || streamData?.id || "default"}`));
 
   // ВАЖНО: WebSocket подключение к MainGateway
   useEffect(() => {
@@ -250,7 +285,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       }));
       
       // Если это стример и стрим остановлен
-      if (isStreamer) {
+      if (isSelectedStreamer) {
         setIsStreamActive(false);
         setIsPublishing(false);
       }
@@ -301,7 +336,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
         socketRef.current.disconnect();
       }
     };
-  }, [actId, user?.id, user?.token, isStreamer]);
+  }, [actId, user?.id, user?.token, isSelectedStreamer]);
 
   // Load actual stream data from server
   useEffect(() => {
@@ -322,6 +357,66 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     loadStreamData();
   }, [actId, streamData]);
 
+  const loadHeroStreams = useCallback(async () => {
+    if (!actId) return;
+    try {
+      const data = await actApi.getHeroStreams(actId);
+      setHeroStreams(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Error loading hero streams:', err);
+      setHeroStreams([]);
+    }
+  }, [actId]);
+
+  useEffect(() => {
+    if (!actId) return;
+    loadHeroStreams();
+  }, [actId, loadHeroStreams]);
+
+  const heroStatusSocketRef = useRef(null);
+  useEffect(() => {
+    if (!actId) return;
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const wsBase = apiUrl.replace(/\/api$/, '');
+    const token = useAuthStore.getState().getToken();
+    const socket = io(`${wsBase}/chat`, {
+      path: '/socket.io',
+      transports: ['websocket', 'polling'],
+      query: token ? { token } : {},
+    });
+    heroStatusSocketRef.current = socket;
+
+    socket.on('connect', () => {
+      socket.emit('joinStream', { actId: Number(actId) });
+    });
+
+    const applyHeroStatus = (payload, status) => {
+      const heroUserId = payload?.heroUserId;
+      if (!heroUserId) return;
+      setHeroStreams((prev) =>
+        prev.map((item) =>
+          String(item.heroUserId) === String(heroUserId)
+            ? {
+                ...item,
+                status,
+                channelName: payload?.channelName || item.channelName,
+                startedAt: payload?.startedAt ?? item.startedAt,
+              }
+            : item,
+        ),
+      );
+    };
+
+    socket.on('heroStreamStarted', (payload) => applyHeroStatus(payload, 'ONLINE'));
+    socket.on('heroStreamStopped', (payload) => applyHeroStatus(payload, 'ENDED'));
+    socket.on('heroStreamFailed', (payload) => applyHeroStatus(payload, 'FAILED'));
+
+    return () => {
+      socket.disconnect();
+      heroStatusSocketRef.current = null;
+    };
+  }, [actId]);
+
   // Fetch spot agent data when spotAgentCount > 0
   useEffect(() => {
     if (spotAgentCount > 0) {
@@ -337,7 +432,8 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       
       setLoadingRecordings(true);
       try {
-        const response = await api.get(`/agora-recording/recordings/act/${actId}`);
+        const params = selectedStreamerId ? { heroUserId: selectedStreamerId } : undefined;
+        const response = await api.get(`/agora-recording/recordings/act/${actId}`, { params });
         setRecordings(response.data || []);
       } catch (err) {
         console.error('Error fetching recordings:', err);
@@ -350,7 +446,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     if (actId) {
       fetchRecordings();
     }
-  }, [actId]);
+  }, [actId, selectedStreamerId]);
 
   // Handle apply as spot agent
   const handleApplyAsSpotAgent = async () => {
@@ -433,7 +529,11 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
   // Функция для начала стрима (только для стримера)
   const startStream = async () => {
-    if (!isStreamer) {
+    if (!selectedHeroStream || !selectedStreamerId) {
+      toast.error('Hero stream is unavailable for this account');
+      return;
+    }
+    if (!isSelectedStreamer) {
       toast.error("Only streamer can start the stream");
       return;
     }
@@ -444,19 +544,23 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
     setIsStartingStream(true);
     setError(null);
+    let backendStarted = false;
 
     try {
-      console.log(`🎥 Starting stream for ${isStreamer ? 'publisher' : 'subscriber'}:`, actualChannelName);
-      console.log("🎥 User ID:", userIdNum);
-      const chats = await chatApi.getAll();
-      const currentchat = chats.find(c => c.actId == actId);
-      if (currentchat) setChatId(currentchat.id);
-      const role = 'publisher';
-      const response = await api.get(
-        `/act/token/${actualChannelName}/${role}/uid?uid=0&expiry=3600`
+      await actApi.startHeroStream(actId, selectedStreamerId);
+      backendStarted = true;
+      setHeroStreams((prev) =>
+        prev.map((item) =>
+          String(item.heroUserId) === String(selectedStreamerId)
+            ? { ...item, status: 'ONLINE', startedAt: new Date().toISOString() }
+            : item,
+        ),
       );
-      
-      const token = response.data.token;
+
+      console.log(`🎥 Starting stream for ${isSelectedStreamer ? 'publisher' : 'subscriber'}:`, actualChannelName);
+      console.log("🎥 User ID:", userIdNum);
+      const role = 'publisher';
+      const token = (await actApi.getHeroStreamToken(actId, selectedStreamerId, role, 3600))?.token;
       console.log("🎥 Token received:", token ? "✅" : "❌");
 
       if (!token) {
@@ -504,7 +608,18 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     } catch (err) {
       console.error("🎥 Error starting stream:", err);
       setError(err.response?.data?.message || err.message);
-      toast.error("Failed to start stream: " + (err.response?.data?.message || err.message));
+      if (backendStarted) {
+        try {
+          await actApi.stopHeroStream(actId, selectedStreamerId);
+        } catch (rollbackErr) {
+          console.error('Rollback stop hero stream failed:', rollbackErr);
+        }
+      }
+      if (err?.response?.status === 403) {
+        toast.error('Недостаточно прав');
+      } else {
+        toast.error("Failed to start stream: " + (err.response?.data?.message || err.message));
+      }
     } finally {
       setIsStartingStream(false);
     }
@@ -539,7 +654,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
   // Cleanup стримера при размонтировании (без остановки стрима на бэкенде)
   useEffect(() => {
-    if (!isStreamer) return;
+    if (!isSelectedStreamer) return;
     return () => {
       // Размонтирование: тихо отключаемся от Agora, стрим остаётся ONLINE
       if (localVideoTrackRef.current) {
@@ -555,10 +670,11 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
         clientRef.current = null;
       }
     };
-  }, [isStreamer]);
+  }, [isSelectedStreamer]);
 
   // Переподключение стримера без повторного /act/start-act
   const reconnectAsStreamer = async () => {
+    if (!selectedHeroStream || !selectedStreamerId) return;
     if (isConnectingRef.current || clientRef.current) return;
     isConnectingRef.current = true;
     setIsStartingStream(true);
@@ -566,10 +682,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
     try {
       const role = 'publisher';
-      const response = await api.get(
-        `/act/token/${actualChannelName}/${role}/uid?uid=0&expiry=3600`
-      );
-      const token = response.data.token;
+      const token = (await actApi.getHeroStreamToken(actId, selectedStreamerId, role, 3600))?.token;
       if (!token) throw new Error('No token received');
 
       const client = AgoraRTC.createClient({ mode: 'live', codec: 'vp8' });
@@ -649,14 +762,6 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       
       console.log("🎥 Stream published successfully!");
       
-      // Уведомляем бэкенд о начале стрима
-      await api.post(`/act/start-act?id=${actId}`);
-      
-      // Отправляем событие через WebSocket
-      if (socketRef.current) {
-        socketRef.current.emit('streamStarted', { actId: parseInt(actId) });
-      }
-      
       toast.success("Stream started successfully!");
       
     } catch (err) {
@@ -669,7 +774,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
   // Функция для остановки стрима (для стримера)
   const stopStreaming = async () => {
-    if (!clientRef.current || !isStreamer) return;
+    if (!clientRef.current || !isSelectedStreamer) return;
     
     try {
       console.log("🛑 Stopping stream...");
@@ -698,19 +803,24 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       
       console.log("🛑 Stream stopped successfully");
       
-      // Уведомляем бэкенд
-      await api.post(`/act/stop-act?id=${actId}`);
-      
-      // Отправляем событие через WebSocket
-      if (socketRef.current) {
-        socketRef.current.emit('streamStopped', { actId: parseInt(actId) });
-      }
+      await actApi.stopHeroStream(actId, selectedStreamerId);
+      setHeroStreams((prev) =>
+        prev.map((item) =>
+          String(item.heroUserId) === String(selectedStreamerId)
+            ? { ...item, status: 'ENDED' }
+            : item,
+        ),
+      );
       
       toast.success("Stream stopped");
       
     } catch (err) {
       console.error("Error stopping stream:", err);
-      toast.error("Failed to stop stream");
+      if (err?.response?.status === 403) {
+        toast.error('Недостаточно прав');
+      } else {
+        toast.error("Failed to stop stream");
+      }
     }
   };
 
@@ -718,7 +828,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   useEffect(() => {
     const connectAsViewer = async () => {
       // Только для зрителей и только если стрим онлайн
-      if (isStreamer || !actualStreamData || actualStreamData.status !== 'ONLINE' || isConnectingRef.current) {
+      if (!selectedHeroStream || !selectedStreamerId || isSelectedStreamer || !isSelectedHeroOnline || isConnectingRef.current) {
         return;
       }
 
@@ -730,11 +840,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
         console.log("👀 User ID:", userIdNum);
 
         const role = 'subscriber';
-        const response = await api.get(
-          `/act/token/${actualChannelName}/${role}/uid?uid=0&expiry=3600`
-        );
-        
-        const token = response.data.token;
+        const token = (await actApi.getHeroStreamToken(actId, selectedStreamerId, role, 3600))?.token;
         console.log("👀 Token received:", token ? "✅" : "❌");
 
         if (!token) {
@@ -810,24 +916,24 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     connectAsViewer();
 
     return () => {
-      if (!isStreamer) {
+      if (!isSelectedStreamer) {
         console.log("👀 Cleaning up viewer connection...");
         cleanupAgora();
       }
     };
-  }, [actualStreamData?.status, actualChannelName, userIdNum, isStreamer]);
+  }, [actualChannelName, userIdNum, isSelectedStreamer, selectedStreamerId, isSelectedHeroOnline]);
 
   // Очистка Agora соединения
   const cleanupAgora = () => {
     if (clientRef.current) {
       // Если это стример, сначала останавливаем публикацию
-      if (isStreamer && localVideoTrack && localAudioTrack) {
+      if (isSelectedStreamer && localVideoTrack && localAudioTrack) {
         localVideoTrack.close();
         localAudioTrack.close();
       }
 
       // Для зрителей останавливаем аудио/видео треки удалённых пользователей
-      if (!isStreamer) {
+      if (!isSelectedStreamer) {
         remoteUsers.forEach((u) => {
           u.audioTrack?.stop();
           u.videoTrack?.stop();
@@ -889,63 +995,40 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     }
   }, [isConnected]);
 
-  // Загружаем chatId для зрителей
-  useEffect(() => {
-    if (isStreamer || !actId) return;
-    const loadViewerChatId = async () => {
-      try {
-        const chats = await chatApi.getAll();
-        const currentchat = chats.find((c) => c.actId == actId);
-        if (currentchat) setChatId(currentchat.id);
-      } catch (err) {
-        console.error('Error loading chat ID for viewer:', err);
-      }
-    };
-    loadViewerChatId();
-  }, [actId, isStreamer]);
-
   // Настраиваем командный чат (только для членов команды)
   useEffect(() => {
-    if (!isTeamMember || !actId || !actualStreamData) return;
+    if (!canUseTeamChat || !actId || !actualStreamData) return;
     const setupTeamChat = async () => {
       try {
-        const chats = await chatApi.getAll();
-        const existing = chats.find(c => c.actId == actId && c.type === 'group');
-        if (existing) {
-          try {
-            // Ensure current user is a member of the existing team chat on the backend
-            await chatApi.joinActTeam(actId);
-          } catch (joinErr) {
-            console.warn('Failed to join existing act team chat:', joinErr);
-            // proceed anyway; subsequent getMessages will surface 403 if not a member
-          }
-          setTeamChatId(existing.id);
+        // Always use backend find-or-create to avoid duplicated team chats between users.
+        const teamChat = await chatApi.joinActTeam(actId);
+        if (teamChat?.id) {
+          setTeamChatId(teamChat.id);
           return;
         }
-        // Собираем ID участников команды
-        const memberSet = new Set([currentUserId]);
-        if (actualStreamData.userId) memberSet.add(actualStreamData.userId);
-        (actualStreamData.teams || []).forEach(team => {
-          (team.roleConfigs || []).forEach(rc => {
-            if (['hero', 'navigator', 'spot_agent'].includes(rc.role)) {
-              (rc.candidates || []).forEach(c => {
-                const uid = c.user?.id ?? c.userId;
-                if (uid) memberSet.add(uid);
-              });
-            }
-          });
-        });
-        const otherIds = [...memberSet].filter(uid => uid !== currentUserId);
-        const chat = await chatApi.createChatGroup('Team Chat', otherIds, null, String(actId));
-        setTeamChatId(chat.id);
+        throw new Error('Team chat id is missing in joinActTeam response');
       } catch (err) {
         console.error('Error setting up team chat:', err);
       }
     };
     setupTeamChat();
-  }, [isTeamMember, actId, actualStreamData?.userId]);
+  }, [canUseTeamChat, actId, actualStreamData?.userId]);
 
   // WebSocket для командного чата
+  const fetchTeamMessages = useCallback(async () => {
+    if (!teamChatId) return;
+    try {
+      const res = await api.get(`/chat/${teamChatId}/messages`, { params: { limit: 50 } });
+      const msgs = (res.data?.messages || []).filter((m) => (m.text || '').trim());
+      setTeamMessages((prev) => {
+        if (prev.length === msgs.length) return prev;
+        return msgs;
+      });
+    } catch (_e) {
+      // ignore; user will still see existing messages
+    }
+  }, [teamChatId]);
+
   useEffect(() => {
     if (!teamChatId) return;
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -959,12 +1042,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     teamChatSocketRef.current = socket;
     socket.on('connect', () => {
       socket.emit('chat:join', { chatId: teamChatId });
-      api.get(`/chat/${teamChatId}/messages`, { params: { limit: 50 } })
-        .then(res => {
-          const msgs = (res.data?.messages || []).filter(m => (m.text || '').trim());
-          setTeamMessages(msgs);
-        })
-        .catch(() => {});
+      fetchTeamMessages();
     });
     socket.on('chat:message', (message) => {
       if (message.chatId !== teamChatId) return;
@@ -973,11 +1051,25 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
         return [...prev, message];
       });
     });
+    socket.on('chat:error', (payload) => {
+      const msg = payload?.message || 'Failed to send team message';
+      toast.error(msg);
+    });
+    socket.on('connect_error', () => {
+      toast.error('Team chat connection error');
+    });
+
+    // Fallback sync for cases where backend does not emit group chat events.
+    const pollTimer = setInterval(() => {
+      fetchTeamMessages();
+    }, 1500);
+
     return () => {
+      clearInterval(pollTimer);
       socket.disconnect();
       teamChatSocketRef.current = null;
     };
-  }, [teamChatId]);
+  }, [teamChatId, fetchTeamMessages]);
 
   // При открытии панели чата — принудительно загрузить историю
   useEffect(() => {
@@ -988,10 +1080,10 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
   // Auto-show chat overlay for streamer when publishing starts
   useEffect(() => {
-    if (isStreamer && (isPublishing || isStreamActive)) {
+    if (isSelectedStreamer && (isPublishing || isStreamActive)) {
       setShowChatPanel(true);
     }
-  }, [isStreamer, isPublishing, isStreamActive]);
+  }, [isSelectedStreamer, isPublishing, isStreamActive]);
 
   // Auto-scroll chat overlay to bottom on new messages
   useEffect(() => {
@@ -1121,7 +1213,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     try {
       console.log("Disconnecting from stream:", streamData?.id);
 
-      if (isStreamer) {
+      if (isSelectedStreamer) {
         await stopStreaming();
       } else if (clientRef.current) {
         await clientRef.current.leave();
@@ -1156,10 +1248,29 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     }
   };
 
-  const handleSendTeamMessage = () => {
-    if (!teamChatMessage.trim() || !teamChatId || !teamChatSocketRef.current) return;
-    teamChatSocketRef.current.emit('chat:send', { chatId: teamChatId, text: teamChatMessage });
-    setTeamChatMessage('');
+  const handleSendTeamMessage = async () => {
+    const text = teamChatMessage.trim();
+    if (!text || !teamChatId) return;
+
+    try {
+      // Persist via HTTP (works with current backend), then refresh immediately.
+      const res = await api.post(`/chat/${teamChatId}/messages`, { text });
+      const sent = res?.data;
+      if (sent?.id) {
+        setTeamMessages((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, sent]));
+      }
+      setTeamChatMessage('');
+      fetchTeamMessages();
+    } catch (err) {
+      // Optional socket fallback for environments where chat:send is wired.
+      if (teamChatSocketRef.current?.connected) {
+        teamChatSocketRef.current.emit('chat:send', { chatId: teamChatId, text });
+        setTeamChatMessage('');
+        setTimeout(() => fetchTeamMessages(), 400);
+      } else {
+        toast.error(err?.response?.data?.message || 'Failed to send team message');
+      }
+    }
   };
 
   const handleKeyPress = (e) => {
@@ -1171,9 +1282,13 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   // Автореконнект стримера: если он вернулся на страницу, а стрим уже ONLINE
   const autoReconnectDoneRef = useRef(false);
   useEffect(() => {
+    autoReconnectDoneRef.current = false;
+  }, [selectedStreamerId]);
+
+  useEffect(() => {
     if (
-      isStreamer &&
-      actualStreamData?.status === 'ONLINE' &&
+      isSelectedStreamer &&
+      isSelectedHeroOnline &&
       !isPublishing &&
       !isConnectingRef.current &&
       !autoReconnectDoneRef.current &&
@@ -1182,7 +1297,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       autoReconnectDoneRef.current = true;
       reconnectAsStreamer();
     }
-  }, [isStreamer, actualStreamData?.status, isPublishing]);
+  }, [isSelectedStreamer, isSelectedHeroOnline, isPublishing]);
 
   const handleEmojiClick = () => {
     setShowEmojiPicker(!showEmojiPicker);
@@ -1273,10 +1388,26 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     setisopenmenu(false);
   };
 
+  const handleSelectStreamer = (streamerId) => {
+    if (
+      isPublishing &&
+      isSelectedStreamer &&
+      currentUserId &&
+      String(streamerId) !== String(currentUserId)
+    ) {
+      toast.info('Finish your stream first to switch to another hero');
+      return;
+    }
+    setSelectedStreamerId(streamerId);
+    setShowHeroPicker(false);
+  };
+
+  const shouldShowHeroSwitchIcon = mergedHeroStreamers.length >= 2;
+
   return (
     <div className={styles.container}>
      
-      {isStreamer && actualStreamData?.status == 'ONLINE' && !isPublishing && (
+      {isSelectedStreamer && !isSelectedHeroOnline && !isPublishing && (
         <div className={styles.startstream}>
           <button 
             className={styles.startStreamButton}
@@ -1287,25 +1418,25 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
           </button>
         </div>
       )}
-      {actualStreamData?.status === 'ONLINE' || (isStreamer && (isPublishing || actualStreamData?.status === 'ONLINE')) ? (
+      {(isSelectedHeroOnline || isPublishing || isStreamActive || isCurrentUserAllowedToStream) ? (
         <>
        
           <div className={styles.header}>
             <div className={styles.header_cont}>
               <img src={back} alt="Back" 
                 onClick={async () => {
-                  if (!isStreamer) {
+                  if (!isSelectedStreamer) {
                     await disconnectFromStream();
                   }
                   navigate(`/acts/${actId}`);
                 }}
               />
-              {!isStreamer ?
+              {!isSelectedStreamer ?
                 <div className={styles.online}>
                   <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                     <circle cx="10" cy="10" r="5" fill="white" />
                   </svg>
-                  <p className={styles.live}>LIVE</p>
+                  <p className={styles.live}>{selectedHeroStatus}</p>
                 </div>
               : 
                 <div className={styles.menuContainer}>
@@ -1373,7 +1504,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
           <div className={styles.videoContainer}>
             {/* Для стримера показываем локальное видео */}
-            {isStreamer ? (
+            {isSelectedStreamer ? (
               <div 
                 ref={localVideoRef} 
                 className={styles.videoElement}
@@ -1396,7 +1527,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
               />
             )}
             
-            {!isConnected && !error && !isStreamer && (
+            {!isConnected && !error && !isSelectedStreamer && (
               <div className={styles.connectingOverlay}>
                 <p>Connecting to stream...</p>
               </div>
@@ -1411,7 +1542,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
               </div>
             )}
             
-            {isConnected && !isStreamer && remoteUsers.length === 0 && (
+            {isConnected && !isSelectedStreamer && remoteUsers.length === 0 && (
               <div className={styles.waitingOverlay}>
                 <p>Waiting for streamer...</p>
               </div>
@@ -1419,7 +1550,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
             
             {isConnected && (
               <div className={styles.connectedOverlay}>
-                {isStreamer ? (
+                {isSelectedStreamer ? (
                   <p>Streaming - {remoteUsers.length} viewer(s)</p>
                 ) : (
                   <p>Connected - {remoteUsers.length} publisher(s)</p>
@@ -1428,12 +1559,12 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
             )}
           </div>
           
-          {(isPublishing || isStreamActive || (!isStreamer && isConnected)) && (
+          {(isPublishing || isStreamActive || (!isSelectedStreamer && isConnected)) && (
             <div className={styles.chatContainer}>
               {showChatPanel && (
                 <div className={styles.chatOverlay}>
                   {/* Таб-переключатель General / Team */}
-                  {isTeamMember && teamChatId && (
+                  {canUseTeamChat && teamChatId && (
                     <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}>
                       <button
                         onClick={() => setActiveChat('general')}
@@ -1489,7 +1620,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                   )}
 
                   {/* Team chat (только для членов команды) */}
-                  {activeChat === 'team' && isTeamMember && (
+                  {activeChat === 'team' && canUseTeamChat && (
                     <>
                       <div className={styles.chatOverlayMessages}>
                         {teamMessages.filter(m => (m.text || '').trim()).map((m, i) => (
@@ -1521,6 +1652,15 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                 </div>
               )}
               <div className={styles.chatActions}>
+                {shouldShowHeroSwitchIcon && (
+                  <button
+                    className={styles.actionButton}
+                    onClick={() => setShowHeroPicker(true)}
+                    title="Switch hero stream"
+                  >
+                    <span className={styles.heroSwitchIcon}>🦸</span>
+                  </button>
+                )}
                 <button
                   className={styles.actionButton}
                   onClick={() => { requestLocation(); setShowMap(true); }}
@@ -1541,7 +1681,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                 </button>
                 
                 {/* Кнопка для Spot Agent (только для зрителей, не для стримера) */}
-                {!isStreamer && !isInitiator &&
+                {!isSelectedStreamer && !isInitiator &&
                   spotAgentCount > 0 &&
                   assignedAgents.length < spotAgentCount && (
                     <button
@@ -1558,7 +1698,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                   )}
 
                 {/* Кнопка мута микрофона (только для стримера) */}
-                {isStreamer && (
+                {isSelectedStreamer && (
                   <button
                     className={styles.actionButton}
                     onClick={() => {
@@ -1575,6 +1715,33 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                     </span>
                   </button>
                 )}
+              </div>
+            </div>
+          )}
+
+          {showHeroPicker && shouldShowHeroSwitchIcon && (
+            <div className={styles.heroPickerOverlay} onClick={() => setShowHeroPicker(false)}>
+              <div className={styles.heroPickerModal} onClick={(e) => e.stopPropagation()}>
+                <div className={styles.heroPickerTitle}>Choose Hero Stream</div>
+                <div className={styles.heroPickerList}>
+                  {mergedHeroStreamers.length === 0 && (
+                    <div className={styles.heroPickerEmpty}>
+                      No available hero streams. Hero must be an active participant.
+                    </div>
+                  )}
+                  {mergedHeroStreamers.map((hero) => (
+                    <button
+                      key={hero.heroUserId}
+                      className={`${styles.heroPickerItem} ${String(selectedStreamerId) === String(hero.heroUserId) ? styles.heroPickerItemActive : ''}`}
+                      onClick={() => handleSelectStreamer(hero.heroUserId)}
+                    >
+                      {hero.heroLogin}
+                      <span style={{ marginLeft: 8, opacity: 0.75, fontSize: 12 }}>
+                        {hero.status}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}

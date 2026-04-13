@@ -89,6 +89,71 @@
   color: #ccc;
 }
 
+.heroSwitchIcon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.heroPickerOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 2100;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  padding: 20px;
+}
+
+.heroPickerModal {
+  width: min(420px, 100%);
+  background: rgba(10, 10, 10, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  padding: 14px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.heroPickerTitle {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.heroPickerList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.heroPickerEmpty {
+  color: #c9c9c9;
+  font-size: 13px;
+  padding: 8px 4px;
+}
+
+.heroPickerItem {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.05);
+  color: #e8e8e8;
+  border-radius: 10px;
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.heroPickerItemActive {
+  border-color: rgba(0, 147, 255, 0.9);
+  background: rgba(0, 147, 255, 0.2);
+  color: #fff;
+}
+
 .roleSeparator {
   margin: 0 8px;
 }
