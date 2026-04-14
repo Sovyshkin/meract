@@ -77,6 +77,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const chatEndRef = useRef(null);
   // Team chat state
   const [teamChatId, setTeamChatId] = useState(null);
+  const [hasTeamChatAccess, setHasTeamChatAccess] = useState(false);
   const [teamMessages, setTeamMessages] = useState([]);
   const [teamChatMessage, setTeamChatMessage] = useState('');
   const [activeChat, setActiveChat] = useState('general');
@@ -163,7 +164,6 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   }, [currentUserId, actualStreamData?.teams]);
 
   const isTeamMember = isHero || isNavigator || isSpotAgent || isInitiator;
-  const canUseTeamChat = isHero || isNavigator || isSpotAgent;
   const mergedHeroStreamers = useMemo(
     () => (heroStreams || []).map((h) => ({ ...h, source: 'backend' })),
     [heroStreams],
@@ -997,22 +997,27 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
   // Настраиваем командный чат (только для членов команды)
   useEffect(() => {
-    if (!canUseTeamChat || !actId || !actualStreamData) return;
+    if (!actId || !actualStreamData) return;
     const setupTeamChat = async () => {
       try {
         // Always use backend find-or-create to avoid duplicated team chats between users.
         const teamChat = await chatApi.joinActTeam(actId);
         if (teamChat?.id) {
           setTeamChatId(teamChat.id);
+          setHasTeamChatAccess(true);
           return;
         }
         throw new Error('Team chat id is missing in joinActTeam response');
       } catch (err) {
+        setHasTeamChatAccess(false);
+        setTeamChatId(null);
+        setTeamMessages([]);
+        setActiveChat((prev) => (prev === 'team' ? 'general' : prev));
         console.error('Error setting up team chat:', err);
       }
     };
     setupTeamChat();
-  }, [canUseTeamChat, actId, actualStreamData?.userId]);
+  }, [actId, actualStreamData]);
 
   // WebSocket для командного чата
   const fetchTeamMessages = useCallback(async () => {
@@ -1564,7 +1569,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
               {showChatPanel && (
                 <div className={styles.chatOverlay}>
                   {/* Таб-переключатель General / Team */}
-                  {canUseTeamChat && teamChatId && (
+                  {hasTeamChatAccess && teamChatId && (
                     <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}>
                       <button
                         onClick={() => setActiveChat('general')}
@@ -1620,7 +1625,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                   )}
 
                   {/* Team chat (только для членов команды) */}
-                  {activeChat === 'team' && canUseTeamChat && (
+                  {activeChat === 'team' && hasTeamChatAccess && (
                     <>
                       <div className={styles.chatOverlayMessages}>
                         {teamMessages.filter(m => (m.text || '').trim()).map((m, i) => (

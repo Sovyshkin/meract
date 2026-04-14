@@ -16,8 +16,8 @@ const [navigator, setNavigator] = useState('no navigators');
 const [location, setLocation] = useState('no location');
 const [distance, setDistance] = useState('no distance');
 const [rating, setRating] = useState(0.0);
-let finalImage;
-const [rawImageUrl, setRawImageUrl] = useState(null);
+const [rawImageUrl, setRawImageUrl] = useState(act.previewFileName || null);
+const [displayImage, setDisplayImage] = useState(default_back);
 const [achivemenets, setAchivemenets] = useState([]); 
 const [navMethod, setNavMethod] = useState(1);
 const [loading, setLoading] = useState(true);
@@ -49,8 +49,7 @@ useEffect(() => {
 
         setDistance(actsdata.distanceKm || null);
         setRating(actsdata.rating || 0.0);
-        setRawImageUrl(actsdata.previewFileName);
-        console.log(actsdata, '!!!!!!!!!!!!!!!!!!!!!')
+        setRawImageUrl(actsdata.previewFileName || act.previewFileName || null);
         if (actsdata.tasks) {
           setAchivemenets(actsdata.tasks); 
         }
@@ -71,24 +70,55 @@ useEffect(() => {
   }
 }, [id]);
 
+ const resolvePreviewUrl = (value) => {
+  if (!value) return default_back;
 
+  if (value.startsWith('http://') || value.startsWith('https://')) {
+    return value;
+  }
 
+  const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/api\/?$/, '');
 
- if (!rawImageUrl) {
-  finalImage = default_back;
-} else if (rawImageUrl.startsWith('http://') || rawImageUrl.startsWith('https://')) {
-  // Если сервер уже прислал полный URL (как в вашем логе), используем его как есть
-  finalImage = rawImageUrl;
-} else {
-  // Если пришел относительный путь (начинается с /uploads), клеим базовый URL
-  // Убедитесь, что здесь правильный домен (meract.com или localhost)
-  const baseUrl = import.meta.env.VITE_API_URL || 'https://meract.com'; 
-  finalImage = `${baseUrl}${rawImageUrl.startsWith('/') ? '' : '/'}${rawImageUrl}`;
-}
+  let path = String(value).trim();
+  if (!path) return default_back;
+
+  if (path.startsWith('uploads/')) {
+    path = `/${path}`;
+  } else if (path.startsWith('acts/')) {
+    path = `/uploads/${path}`;
+  } else if (!path.startsWith('/uploads/')) {
+    path = `/uploads/acts/${path.replace(/^\/+/, '')}`;
+  }
+
+  return `${apiBase}${path}`;
+ };
+
+ const resolvedPreviewUrl = resolvePreviewUrl(rawImageUrl);
+
+ useEffect(() => {
+  if (!resolvedPreviewUrl || resolvedPreviewUrl === default_back) {
+    setDisplayImage(default_back);
+    return;
+  }
+
+  let isActive = true;
+  const image = new Image();
+  image.onload = () => {
+    if (isActive) setDisplayImage(resolvedPreviewUrl);
+  };
+  image.onerror = () => {
+    if (isActive) setDisplayImage(default_back);
+  };
+  image.src = resolvedPreviewUrl;
+
+  return () => {
+    isActive = false;
+  };
+ }, [resolvedPreviewUrl]);
 
 
   const cardStyle = {
-    backgroundImage: `url(${finalImage})`,
+    backgroundImage: `url(${displayImage})`,
     backgroundSize: "cover",
     backgroundPosition: "center",
     backgroundRepeat: "no-repeat",
