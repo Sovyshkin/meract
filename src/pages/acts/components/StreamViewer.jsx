@@ -194,8 +194,24 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       setSelectedStreamerId(selfHero.heroUserId);
       return;
     }
+    const onlineHero = mergedHeroStreamers.find((h) => h.status === 'ONLINE');
+    if (onlineHero) {
+      setSelectedStreamerId(onlineHero.heroUserId);
+      return;
+    }
     setSelectedStreamerId(mergedHeroStreamers[0].heroUserId);
   }, [mergedHeroStreamers, currentUserId, selectedStreamerId]);
+
+  useEffect(() => {
+    if (isSelectedStreamer || mergedHeroStreamers.length === 0) return;
+    const current = mergedHeroStreamers.find((h) => String(h.heroUserId) === String(selectedStreamerId));
+    if (current?.status === 'ONLINE') return;
+
+    const onlineHero = mergedHeroStreamers.find((h) => h.status === 'ONLINE');
+    if (onlineHero && String(onlineHero.heroUserId) !== String(selectedStreamerId)) {
+      setSelectedStreamerId(onlineHero.heroUserId);
+    }
+  }, [isSelectedStreamer, mergedHeroStreamers, selectedStreamerId]);
 
   const isSelectedStreamer = Boolean(
     selectedStreamerId &&
@@ -371,6 +387,10 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   useEffect(() => {
     if (!actId) return;
     loadHeroStreams();
+    const timer = setInterval(() => {
+      loadHeroStreams();
+    }, 2500);
+    return () => clearInterval(timer);
   }, [actId, loadHeroStreams]);
 
   const heroStatusSocketRef = useRef(null);
@@ -803,7 +823,17 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       
       console.log("🛑 Stream stopped successfully");
       
-      await actApi.stopHeroStream(actId, selectedStreamerId);
+      const primaryHeroId = selectedStreamerId;
+      try {
+        await actApi.stopHeroStream(actId, primaryHeroId);
+      } catch (primaryErr) {
+        const fallbackHeroId = currentUserId;
+        if (!fallbackHeroId || String(fallbackHeroId) === String(primaryHeroId)) {
+          throw primaryErr;
+        }
+        // Fallback for stale selected hero id on UI side.
+        await actApi.stopHeroStream(actId, fallbackHeroId);
+      }
       setHeroStreams((prev) =>
         prev.map((item) =>
           String(item.heroUserId) === String(selectedStreamerId)
@@ -816,8 +846,11 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       
     } catch (err) {
       console.error("Error stopping stream:", err);
-      if (err?.response?.status === 403) {
-        toast.error('Недостаточно прав');
+      const backendMessage = err?.response?.data?.message;
+      if (backendMessage) {
+        toast.error(Array.isArray(backendMessage) ? backendMessage.join(', ') : String(backendMessage));
+      } else if (err?.response?.status === 403) {
+        toast.error('Not enough permissions to stop this stream');
       } else {
         toast.error("Failed to stop stream");
       }
@@ -828,7 +861,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   useEffect(() => {
     const connectAsViewer = async () => {
       // Только для зрителей и только если стрим онлайн
-      if (!selectedHeroStream || !selectedStreamerId || isSelectedStreamer || !isSelectedHeroOnline || isConnectingRef.current) {
+      if (!selectedHeroStream || !selectedStreamerId || isSelectedStreamer || isConnectingRef.current) {
         return;
       }
 
@@ -921,7 +954,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
         cleanupAgora();
       }
     };
-  }, [actualChannelName, userIdNum, isSelectedStreamer, selectedStreamerId, isSelectedHeroOnline]);
+  }, [actualChannelName, userIdNum, isSelectedStreamer, selectedStreamerId, selectedHeroStream]);
 
   // Очистка Agora соединения
   const cleanupAgora = () => {
