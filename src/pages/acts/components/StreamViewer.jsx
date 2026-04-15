@@ -181,6 +181,13 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     (String(currentUserId) === String(selectedStreamerId) || isInitiator),
   );
 
+  const isSelectedStreamer = Boolean(
+    selectedStreamerId &&
+      currentUserId &&
+      String(selectedStreamerId) === String(currentUserId) &&
+      isCurrentUserAllowedToStream,
+  );
+
   useEffect(() => {
     if (mergedHeroStreamers.length === 0) {
       setSelectedStreamerId(null);
@@ -212,13 +219,6 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       setSelectedStreamerId(onlineHero.heroUserId);
     }
   }, [isSelectedStreamer, mergedHeroStreamers, selectedStreamerId]);
-
-  const isSelectedStreamer = Boolean(
-    selectedStreamerId &&
-      currentUserId &&
-      String(selectedStreamerId) === String(currentUserId) &&
-      isCurrentUserAllowedToStream,
-  );
 
   const remoteVideoRef = useRef(null);
   const localVideoRef = useRef(null);
