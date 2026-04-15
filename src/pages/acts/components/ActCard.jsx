@@ -23,6 +23,10 @@ const [navMethod, setNavMethod] = useState(1);
 const [loading, setLoading] = useState(true);
 
 useEffect(() => {
+  setRawImageUrl(act.previewFileName || null);
+}, [act.previewFileName]);
+
+useEffect(() => {
   const loadAllData = async () => {
     try {
       setLoading(true);
@@ -49,7 +53,10 @@ useEffect(() => {
 
         setDistance(actsdata.distanceKm || null);
         setRating(actsdata.rating || 0.0);
-        setRawImageUrl(actsdata.previewFileName || act.previewFileName || null);
+        // Keep list endpoint preview as source of truth; use detail preview only when list has none.
+        if (!act.previewFileName && actsdata.previewFileName) {
+          setRawImageUrl(actsdata.previewFileName);
+        }
         if (actsdata.tasks) {
           setAchivemenets(actsdata.tasks); 
         }
@@ -68,7 +75,7 @@ useEffect(() => {
   if (id) {
     loadAllData();
   }
-}, [id]);
+}, [id, act.previewFileName]);
 
  const resolvePreviewUrl = (value) => {
   if (!value) return default_back;
@@ -93,7 +100,14 @@ useEffect(() => {
   return `${apiBase}${path}`;
  };
 
- const resolvedPreviewUrl = resolvePreviewUrl(rawImageUrl);
+ const addCacheBuster = (url) => {
+  if (!url || url === default_back) return url;
+  const separator = url.includes('?') ? '&' : '?';
+  const fingerprint = encodeURIComponent(`${id}-${String(rawImageUrl || '')}`);
+  return `${url}${separator}cb=${fingerprint}`;
+ };
+
+ const resolvedPreviewUrl = addCacheBuster(resolvePreviewUrl(rawImageUrl));
 
  useEffect(() => {
   if (!resolvedPreviewUrl || resolvedPreviewUrl === default_back) {

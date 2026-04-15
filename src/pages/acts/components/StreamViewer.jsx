@@ -176,6 +176,18 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     [mergedHeroStreamers, selectedStreamerId],
   );
 
+  const isCurrentUserAllowedToStream = Boolean(
+    currentUserId && selectedStreamerId &&
+    (String(currentUserId) === String(selectedStreamerId) || isInitiator),
+  );
+
+  const isSelectedStreamer = Boolean(
+    selectedStreamerId &&
+      currentUserId &&
+      String(selectedStreamerId) === String(currentUserId) &&
+      isCurrentUserAllowedToStream,
+  );
+
   const getHeroDisplayStatus = useCallback((hero) => {
     if (!hero) return 'OFFLINE';
 
@@ -197,17 +209,6 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
   const selectedHeroStatus = getHeroDisplayStatus(selectedHeroStream);
   const isSelectedHeroOnline = selectedHeroStatus === 'ONLINE';
-  const isCurrentUserAllowedToStream = Boolean(
-    currentUserId && selectedStreamerId &&
-    (String(currentUserId) === String(selectedStreamerId) || isInitiator),
-  );
-
-  const isSelectedStreamer = Boolean(
-    selectedStreamerId &&
-      currentUserId &&
-      String(selectedStreamerId) === String(currentUserId) &&
-      isCurrentUserAllowedToStream,
-  );
 
   const {
     items: recordings,
