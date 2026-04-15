@@ -34,6 +34,17 @@ import streaminfo from '../../../images/streaminfo.png';
 import video_slash from '../../../images/video-slash.png';
 import share from '../../../images/streamshare.png';
 
+const SHOULD_DEBUG_STREAM_LOGS =
+  import.meta.env.DEV &&
+  (import.meta.env.VITE_DEBUG_STREAMS === 'true' ||
+    (typeof window !== 'undefined' && window.localStorage?.getItem('debug-streams') === '1'));
+
+const debugLog = (...args) => {
+  if (SHOULD_DEBUG_STREAM_LOGS) {
+    console.log(...args);
+  }
+};
+
 // Function to extract data from JWT token
 const parseJWT = (token) => {
   try {
@@ -108,7 +119,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const [wsConnected, setWsConnected] = useState(false);
   const socketRef = useRef(null);
 
-  console.log("StreamViewer - Initial streamData:", streamData);
+  debugLog("StreamViewer - Initial streamData:", streamData);
 
   // Use chat hook
   const actId = streamData?.id || channelName?.replace("act_", "");
@@ -219,9 +230,9 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
   useEffect(() => {
     if (mergedHeroStreamers.length === 0) {
-      // Do not drop selected hero while stream is starting/active.
-      if (!isStartingStream && !isPublishing && !isStreamActive) {
-        setSelectedStreamerId(null);
+      // Keep selected hero stable to avoid fallback to waiting screen.
+      if (!selectedStreamerId && currentUserId && (isHero || isInitiator)) {
+        setSelectedStreamerId(currentUserId);
       }
       return;
     }
@@ -239,7 +250,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       return;
     }
     setSelectedStreamerId(mergedHeroStreamers[0].heroUserId);
-  }, [mergedHeroStreamers, currentUserId, selectedStreamerId, isStartingStream, isPublishing, isStreamActive]);
+  }, [mergedHeroStreamers, currentUserId, selectedStreamerId, isStartingStream, isPublishing, isStreamActive, isHero, isInitiator]);
 
   const remoteVideoRef = useRef(null);
   const localVideoRef = useRef(null);
@@ -279,11 +290,11 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   // ВАЖНО: WebSocket подключение к MainGateway
   useEffect(() => {
     if (!actId || !user?.id) {
-      console.log("Waiting for actId and userId...");
+      debugLog("Waiting for actId and userId...");
       return;
     }
 
-    console.log("🔌 Connecting to MainGateway WebSocket...");
+    debugLog("🔌 Connecting to MainGateway WebSocket...");
     
     const socket = io('http://localhost:3000', {
       transports: ['websocket'],
@@ -298,7 +309,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     socketRef.current = socket;
 
     socket.on('connect', () => {
-      console.log('✅ Connected to MainGateway');
+      debugLog('✅ Connected to MainGateway');
       setWsConnected(true);
       
       // Присоединяемся к комнате акта
@@ -306,7 +317,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     });
 
     socket.on('streamStarted', (data) => {
-      console.log('📡 Stream started event:', data);
+      debugLog('📡 Stream started event:', data);
       setActualStreamData(prev => ({ 
         ...prev, 
         status: 'ONLINE',
@@ -315,7 +326,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     });
 
     socket.on('streamStopped', (data) => {
-      console.log('📡 Stream stopped event:', data);
+      debugLog('📡 Stream stopped event:', data);
       setActualStreamData(prev => ({ 
         ...prev, 
         status: 'OFFLINE' 
@@ -329,16 +340,16 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     });
 
     socket.on('publisherJoined', (data) => {
-      console.log('📡 Publisher joined:', data);
+      debugLog('📡 Publisher joined:', data);
     });
 
     socket.on('streamUpdate', (data) => {
-      console.log('📡 Stream update:', data);
+      debugLog('📡 Stream update:', data);
       setActualStreamData(prev => ({ ...prev, ...data }));
     });
 
     socket.on('actUpdate', (data) => {
-      console.log('📡 Act update:', data);
+      debugLog('📡 Act update:', data);
       if (data.status) {
         setActualStreamData(prev => ({ ...prev, status: data.status }));
       }
@@ -349,12 +360,12 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     });
 
     socket.on('disconnect', (reason) => {
-      console.log('❌ Disconnected from MainGateway:', reason);
+      debugLog('❌ Disconnected from MainGateway:', reason);
       setWsConnected(false);
     });
 
     return () => {
-      console.log('🔌 Cleaning up WebSocket...');
+      debugLog('🔌 Cleaning up WebSocket...');
       if (socketRef.current) {
         socketRef.current.emit('leaveAct', { actId: parseInt(actId) });
         socketRef.current.disconnect();
@@ -368,9 +379,9 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       if (!actId) return;
 
       try {
-        console.log("StreamViewer - Loading stream data for actId:", actId);
+        debugLog("StreamViewer - Loading stream data for actId:", actId);
         const response = await api.get(`/act/find-by-id/${actId}`);
-        console.log("StreamViewer - Loaded stream data:", response.data);
+        debugLog("StreamViewer - Loaded stream data:", response.data);
         setActualStreamData(response.data);
       } catch (error) {
         console.error("Error loading stream data:", error);
@@ -557,7 +568,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
   // Функция для начала стрима (только для стримера)
   const startStream = async () => {
-    if (!selectedHeroStream || !selectedStreamerId) {
+    if (!selectedStreamerId) {
       toast.error('Hero stream is unavailable for this account');
       return;
     }
@@ -590,17 +601,17 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
         ),
       );
 
-      console.log(`🎥 Starting stream for ${isSelectedStreamer ? 'publisher' : 'subscriber'}:`, actualChannelName);
-      console.log("🎥 User ID:", userIdNum);
+      debugLog(`🎥 Starting stream for ${isSelectedStreamer ? 'publisher' : 'subscriber'}:`, actualChannelName);
+      debugLog("🎥 User ID:", userIdNum);
       const role = 'publisher';
       const token = (await actApi.getHeroStreamToken(actId, selectedStreamerId, role, 3600))?.token;
-      console.log("🎥 Token received:", token ? "✅" : "❌");
+      debugLog("🎥 Token received:", token ? "✅" : "❌");
 
       if (!token) {
         throw new Error("No token received");
       }
 
-      console.log("🎥 Creating Agora client...");
+      debugLog("🎥 Creating Agora client...");
       const client = AgoraRTC.createClient({ 
         mode: "live", 
         codec: "vp8" 
@@ -612,19 +623,19 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
       // Обработчики событий
       client.on("user-published", async (user, mediaType) => {
-        console.log("🎥 User published:", user.uid, mediaType);
+        debugLog("🎥 User published:", user.uid, mediaType);
         
         // Стример не подписывается на других
-        console.log("Streamer ignoring other publishers");
+        debugLog("Streamer ignoring other publishers");
         return;
       });
 
       client.on("user-unpublished", (user) => {
-        console.log("🎥 User unpublished:", user.uid);
+        debugLog("🎥 User unpublished:", user.uid);
         setRemoteUsers((prev) => prev.filter((u) => u.uid !== user.uid));
       });
 
-      console.log("🎥 Joining channel with App ID:", import.meta.env.VITE_AGORA_APP_ID);
+      debugLog("🎥 Joining channel with App ID:", import.meta.env.VITE_AGORA_APP_ID);
       
       await client.join(
         import.meta.env.VITE_AGORA_APP_ID,
@@ -633,7 +644,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
         userIdNum
       );
 
-      console.log("🎥 Successfully joined channel!");
+      debugLog("🎥 Successfully joined channel!");
       
       // Начинаем публикацию
       await startPublishing(client);
@@ -753,7 +764,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       setIsConnected(true);
       streamStartTimeRef.current = Date.now();
 
-      console.log('✅ Стример переподключился!');
+      debugLog('✅ Стример переподключился!');
     } catch (err) {
       console.error('Ошибка переподключения стримера:', err);
       setError(err.message);
@@ -767,7 +778,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   // Функция для начала публикации стрима (для стримера)
   const startPublishing = async (client) => {
     try {
-      console.log("🎥 Starting to publish stream...");
+      debugLog("🎥 Starting to publish stream...");
       
       // Захватываем камеру и микрофон
       const videoTrack = await AgoraRTC.createCameraVideoTrack();
@@ -793,7 +804,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       setIsConnected(true);
       streamStartTimeRef.current = Date.now();
       
-      console.log("🎥 Stream published successfully!");
+      debugLog("🎥 Stream published successfully!");
       
       toast.success("Stream started successfully!");
       
@@ -810,7 +821,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     if (!isSelectedStreamer) return;
     
     try {
-      console.log("🛑 Stopping stream...");
+      debugLog("🛑 Stopping stream...");
 
       let localCleanupError = null;
 
@@ -855,7 +866,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       setIsConnected(false);
       streamStartTimeRef.current = null;
       
-      console.log("🛑 Stream stopped successfully");
+      debugLog("🛑 Stream stopped successfully");
 
       const primaryHeroId = selectedStreamerId;
       let stoppedHeroId = primaryHeroId;
@@ -932,18 +943,18 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       setError(null);
 
       try {
-        console.log("👀 Connecting as viewer to channel:", actualChannelName);
-        console.log("👀 User ID:", userIdNum);
+        debugLog("👀 Connecting as viewer to channel:", actualChannelName);
+        debugLog("👀 User ID:", userIdNum);
 
         const role = 'subscriber';
         const token = (await actApi.getHeroStreamToken(actId, selectedStreamerId, role, 3600))?.token;
-        console.log("👀 Token received:", token ? "✅" : "❌");
+        debugLog("👀 Token received:", token ? "✅" : "❌");
 
         if (!token) {
           throw new Error("No token received");
         }
 
-        console.log("👀 Creating Agora client...");
+        debugLog("👀 Creating Agora client...");
         const client = AgoraRTC.createClient({ 
           mode: "live", 
           codec: "vp8" 
@@ -955,22 +966,22 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
         // Обработчики событий
         client.on("user-published", async (user, mediaType) => {
-          console.log("👀 User published:", user.uid, mediaType);
+          debugLog("👀 User published:", user.uid, mediaType);
           
           try {
             await client.subscribe(user, mediaType);
-            console.log("👀 Subscribed to", mediaType);
+            debugLog("👀 Subscribed to", mediaType);
 
             if (mediaType === "video") {
               if (remoteVideoRef.current) {
                 user.videoTrack?.play(remoteVideoRef.current);
-                console.log("👀 Playing video");
+                debugLog("👀 Playing video");
               }
             }
             
             if (mediaType === "audio") {
               user.audioTrack?.play();
-              console.log("👀 Playing audio");
+              debugLog("👀 Playing audio");
             }
 
             setRemoteUsers((prev) => [
@@ -983,11 +994,11 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
         });
 
         client.on("user-unpublished", (user) => {
-          console.log("👀 User unpublished:", user.uid);
+          debugLog("👀 User unpublished:", user.uid);
           setRemoteUsers((prev) => prev.filter((u) => u.uid !== user.uid));
         });
 
-        console.log("👀 Joining channel with App ID:", import.meta.env.VITE_AGORA_APP_ID);
+        debugLog("👀 Joining channel with App ID:", import.meta.env.VITE_AGORA_APP_ID);
         
         await client.join(
           import.meta.env.VITE_AGORA_APP_ID,
@@ -996,7 +1007,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
           userIdNum
         );
 
-        console.log("👀 Successfully joined channel as viewer!");
+        debugLog("👀 Successfully joined channel as viewer!");
         setIsConnected(true);
         setIsSelectedHeroEnded(false);
         streamStartTimeRef.current = Date.now();
@@ -1014,7 +1025,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
     return () => {
       if (!isSelectedStreamer) {
-        console.log("👀 Cleaning up viewer connection...");
+        debugLog("👀 Cleaning up viewer connection...");
         cleanupAgora();
       }
     };
@@ -1321,7 +1332,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
   const disconnectFromStream = async () => {
     try {
-      console.log("Disconnecting from stream:", streamData?.id);
+      debugLog("Disconnecting from stream:", streamData?.id);
 
       if (isSelectedStreamer) {
         await stopStreaming();
@@ -1334,7 +1345,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       setRemoteUsers([]);
       streamStartTimeRef.current = null;
 
-      console.log("Disconnected from stream successfully");
+      debugLog("Disconnected from stream successfully");
     } catch (err) {
       console.error("Error disconnecting from stream:", err);
       setError("Failed to disconnect from stream: " + err.message);
@@ -1536,7 +1547,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
           </button>
         </div>
       )}
-      {(isSelectedHeroOnline || isPublishing || isStreamActive || isStartingStream || isCurrentUserAllowedToStream) ? (
+      {(isSelectedHeroOnline || isPublishing || isStreamActive || isStartingStream || isCurrentUserAllowedToStream || (Boolean(currentUserId) && (isHero || isInitiator))) ? (
         <>
        
           <div className={styles.header}>
