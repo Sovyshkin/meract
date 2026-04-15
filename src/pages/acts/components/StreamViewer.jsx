@@ -190,7 +190,10 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
   useEffect(() => {
     if (mergedHeroStreamers.length === 0) {
-      setSelectedStreamerId(null);
+      // Do not drop selected hero while stream is starting/active.
+      if (!isStartingStream && !isPublishing && !isStreamActive) {
+        setSelectedStreamerId(null);
+      }
       return;
     }
     if (selectedStreamerId && mergedHeroStreamers.some((h) => String(h.heroUserId) === String(selectedStreamerId))) {
@@ -207,7 +210,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       return;
     }
     setSelectedStreamerId(mergedHeroStreamers[0].heroUserId);
-  }, [mergedHeroStreamers, currentUserId, selectedStreamerId]);
+  }, [mergedHeroStreamers, currentUserId, selectedStreamerId, isStartingStream, isPublishing, isStreamActive]);
 
   useEffect(() => {
     if (isSelectedStreamer || mergedHeroStreamers.length === 0) return;
@@ -380,7 +383,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       setHeroStreams(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error loading hero streams:', err);
-      setHeroStreams([]);
+      // Keep last known state to avoid UI fallback to "Stream will start soon".
     }
   }, [actId]);
 
@@ -560,6 +563,11 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
     if (isStartingStream || isStreamActive) {
       return;
+    }
+
+    // Pin to current hero while starting to prevent unintended switch to waiting state.
+    if (currentUserId) {
+      setSelectedStreamerId(currentUserId);
     }
 
     setIsStartingStream(true);
@@ -1456,7 +1464,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
           </button>
         </div>
       )}
-      {(isSelectedHeroOnline || isPublishing || isStreamActive || isCurrentUserAllowedToStream) ? (
+      {(isSelectedHeroOnline || isPublishing || isStreamActive || isStartingStream || isCurrentUserAllowedToStream) ? (
         <>
        
           <div className={styles.header}>
