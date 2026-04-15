@@ -16,7 +16,10 @@ import { io } from 'socket.io-client';
 import api from "../../../shared/api/api";
 import { actApi } from "../../../shared/api/act";
 import { useSpotAgent } from "../../../shared/hooks/useSpotAgent";
+import { useRecordings } from "../../../shared/hooks/useRecordings";
 import { useAuthStore } from "../../../shared/stores/authStore";
+import { stopHeroStreamRequest } from "../../../shared/api/recordings";
+import { parseApiError } from "../../../shared/utils/apiError";
 import useChat from "../hooks/useChat";
 import EmojiPicker from "./EmojiPicker";
 import styles from "./StreamViewer.module.css";
@@ -84,11 +87,10 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const [selectedStreamerId, setSelectedStreamerId] = useState(null);
   const [heroStreams, setHeroStreams] = useState([]);
   const [showHeroPicker, setShowHeroPicker] = useState(false);
+  const [isSelectedHeroEnded, setIsSelectedHeroEnded] = useState(false);
   const teamChatSocketRef = useRef(null);
   const teamChatEndRef = useRef(null);
   // Состояния для записей
-  const [recordings, setRecordings] = useState([]);
-  const [loadingRecordings, setLoadingRecordings] = useState(false);
   const [showRecordingPlayer, setShowRecordingPlayer] = useState(false);
   const [recordingUrl, setRecordingUrl] = useState("");
   const [selectedRecording, setSelectedRecording] = useState(null);
@@ -174,7 +176,26 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     [mergedHeroStreamers, selectedStreamerId],
   );
 
-  const selectedHeroStatus = selectedHeroStream?.status || 'OFFLINE';
+  const getHeroDisplayStatus = useCallback((hero) => {
+    if (!hero) return 'OFFLINE';
+
+    const isHeroCurrentUser = currentUserId && String(hero.heroUserId) === String(currentUserId);
+    const isHeroSelected = selectedStreamerId && String(hero.heroUserId) === String(selectedStreamerId);
+
+    // Local publishing state is the most reliable source for current streamer.
+    if (isHeroCurrentUser && (isStartingStream || isPublishing || isStreamActive)) {
+      return 'ONLINE';
+    }
+
+    // If viewer is connected to selected hero channel, treat it as online even when backend status lags.
+    if (!isSelectedStreamer && isHeroSelected && isConnected) {
+      return 'ONLINE';
+    }
+
+    return hero.status || 'OFFLINE';
+  }, [currentUserId, selectedStreamerId, isStartingStream, isPublishing, isStreamActive, isSelectedStreamer, isConnected]);
+
+  const selectedHeroStatus = getHeroDisplayStatus(selectedHeroStream);
   const isSelectedHeroOnline = selectedHeroStatus === 'ONLINE';
   const isCurrentUserAllowedToStream = Boolean(
     currentUserId && selectedStreamerId &&
@@ -187,6 +208,13 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       String(selectedStreamerId) === String(currentUserId) &&
       isCurrentUserAllowedToStream,
   );
+
+  const {
+    items: recordings,
+    loading: loadingRecordings,
+    error: recordingsError,
+    reload: reloadRecordings,
+  } = useRecordings(actId, selectedStreamerId ? Number(selectedStreamerId) : undefined);
 
   useEffect(() => {
     if (mergedHeroStreamers.length === 0) {
@@ -211,17 +239,6 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     }
     setSelectedStreamerId(mergedHeroStreamers[0].heroUserId);
   }, [mergedHeroStreamers, currentUserId, selectedStreamerId, isStartingStream, isPublishing, isStreamActive]);
-
-  useEffect(() => {
-    if (isSelectedStreamer || mergedHeroStreamers.length === 0) return;
-    const current = mergedHeroStreamers.find((h) => String(h.heroUserId) === String(selectedStreamerId));
-    if (current?.status === 'ONLINE') return;
-
-    const onlineHero = mergedHeroStreamers.find((h) => h.status === 'ONLINE');
-    if (onlineHero && String(onlineHero.heroUserId) !== String(selectedStreamerId)) {
-      setSelectedStreamerId(onlineHero.heroUserId);
-    }
-  }, [isSelectedStreamer, mergedHeroStreamers, selectedStreamerId]);
 
   const remoteVideoRef = useRef(null);
   const localVideoRef = useRef(null);
@@ -401,6 +418,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     });
 
     const applyHeroStatus = (payload, status) => {
+      if (payload?.actId && String(payload.actId) !== String(actId)) return;
       const heroUserId = payload?.heroUserId;
       if (!heroUserId) return;
       setHeroStreams((prev) =>
@@ -415,6 +433,15 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
             : item,
         ),
       );
+
+      if (selectedStreamerId && String(selectedStreamerId) === String(heroUserId)) {
+        if (status === 'ENDED' || status === 'FAILED') {
+          setIsSelectedHeroEnded(true);
+        }
+        if (status === 'ONLINE') {
+          setIsSelectedHeroEnded(false);
+        }
+      }
     };
 
     socket.on('heroStreamStarted', (payload) => applyHeroStatus(payload, 'ONLINE'));
@@ -438,7 +465,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       socket.disconnect();
       heroStatusSocketRef.current = null;
     };
-  }, [actId]);
+  }, [actId, selectedStreamerId]);
 
   // Fetch spot agent data when spotAgentCount > 0
   useEffect(() => {
@@ -447,29 +474,6 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       fetchAssigned();
     }
   }, [spotAgentCount, fetchCandidates, fetchAssigned]);
-
-  // Загрузка записей
-  useEffect(() => {
-    const fetchRecordings = async () => {
-      if (!actId) return;
-      
-      setLoadingRecordings(true);
-      try {
-        const params = selectedStreamerId ? { heroUserId: selectedStreamerId } : undefined;
-        const response = await api.get(`/agora-recording/recordings/act/${actId}`, { params });
-        setRecordings(response.data || []);
-      } catch (err) {
-        console.error('Error fetching recordings:', err);
-        setRecordings([]);
-      } finally {
-        setLoadingRecordings(false);
-      }
-    };
-
-    if (actId) {
-      fetchRecordings();
-    }
-  }, [actId, selectedStreamerId]);
 
   // Handle apply as spot agent
   const handleApplyAsSpotAgent = async () => {
@@ -855,21 +859,43 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       const primaryHeroId = selectedStreamerId;
       let stoppedHeroId = primaryHeroId;
       try {
-        await actApi.stopHeroStream(actId, primaryHeroId);
+        const stopResult = await stopHeroStreamRequest(actId, primaryHeroId);
+        setHeroStreams((prev) =>
+          prev.map((item) =>
+            String(item.heroUserId) === String(primaryHeroId)
+              ? {
+                  ...item,
+                  status: stopResult?.status || 'ENDED',
+                  endedAt: stopResult?.endedAt ?? item.endedAt,
+                }
+              : item,
+          ),
+        );
       } catch (primaryErr) {
         const fallbackHeroId = currentUserId;
         if (!fallbackHeroId || String(fallbackHeroId) === String(primaryHeroId)) {
           throw primaryErr;
         }
         // Fallback for stale selected hero id on UI side.
-        await actApi.stopHeroStream(actId, fallbackHeroId);
+        const stopResult = await stopHeroStreamRequest(actId, fallbackHeroId);
+        setHeroStreams((prev) =>
+          prev.map((item) =>
+            String(item.heroUserId) === String(fallbackHeroId)
+              ? {
+                  ...item,
+                  status: stopResult?.status || 'ENDED',
+                  endedAt: stopResult?.endedAt ?? item.endedAt,
+                }
+              : item,
+          ),
+        );
         stoppedHeroId = fallbackHeroId;
       }
 
       setHeroStreams((prev) =>
         prev.map((item) =>
           String(item.heroUserId) === String(stoppedHeroId)
-            ? { ...item, status: 'ENDED' }
+            ? { ...item, status: item.status || 'ENDED' }
             : item,
         ),
       );
@@ -881,10 +907,11 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       
     } catch (err) {
       console.error("Error stopping stream:", err);
-      const backendMessage = err?.response?.data?.message;
+      const apiErr = parseApiError(err);
+      const backendMessage = apiErr?.message;
       if (backendMessage) {
         toast.error(Array.isArray(backendMessage) ? backendMessage.join(', ') : String(backendMessage));
-      } else if (err?.response?.status === 403) {
+      } else if (apiErr?.status === 403) {
         toast.error('Not enough permissions to stop this stream');
       } else {
         toast.error("Failed to stop stream");
@@ -970,6 +997,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
         console.log("👀 Successfully joined channel as viewer!");
         setIsConnected(true);
+        setIsSelectedHeroEnded(false);
         streamStartTimeRef.current = Date.now();
 
       } catch (err) {
@@ -1423,7 +1451,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     
     try {
       await api.delete(`/agora-recording/recordings/${recording.key}`);
-      setRecordings(prev => prev.filter(r => r.key !== recording.key));
+      await reloadRecordings();
       toast.success('Recording deleted');
     } catch (err) {
       console.error('Error deleting recording:', err);
@@ -1479,6 +1507,14 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       toast.info('Finish your stream first to switch to another hero');
       return;
     }
+
+    if (!isSelectedStreamer) {
+      // Explicitly leave previous viewer channel before switching hero.
+      cleanupAgora();
+      setIsConnected(false);
+    }
+
+    setIsSelectedHeroEnded(false);
     setSelectedStreamerId(streamerId);
     setShowHeroPicker(false);
   };
@@ -1626,6 +1662,12 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
             {isConnected && !isSelectedStreamer && remoteUsers.length === 0 && (
               <div className={styles.waitingOverlay}>
                 <p>Waiting for streamer...</p>
+              </div>
+            )}
+
+            {!isSelectedStreamer && isSelectedHeroEnded && (
+              <div className={styles.waitingOverlay}>
+                <p>Stream ended</p>
               </div>
             )}
             
@@ -1818,7 +1860,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                     >
                       {hero.heroLogin}
                       <span style={{ marginLeft: 8, opacity: 0.75, fontSize: 12 }}>
-                        {hero.status}
+                        {getHeroDisplayStatus(hero)}
                       </span>
                     </button>
                   ))}
@@ -1828,7 +1870,29 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
           )}
           
           {/* Блок записей (доступен всем) */}
-          {!loadingRecordings && recordings.length > 0 && (
+          {recordingsError && (
+            <div className={styles.recordingsContainer}>
+              <div className={styles.recordingsHeader}>
+                <span>{recordingsError.message || 'Ошибка загрузки записей'}</span>
+                <button
+                  className={styles.recordingButton}
+                  onClick={reloadRecordings}
+                  type="button"
+                >
+                  Повторить
+                </button>
+              </div>
+              {!recordingsError.retryable && (
+                <div className={styles.recordingsList}>
+                  <div className={styles.recordingItem}>
+                    Проверьте доступ к S3 (ключи/IAM)
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {!recordingsError && !loadingRecordings && recordings.length > 0 && (
             <div className={styles.recordingsContainer}>
               <div 
                 className={styles.recordingsHeader}
