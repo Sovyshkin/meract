@@ -326,19 +326,6 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       }
     });
 
-    socket.on('taskToggled', ({ taskId, isCompleted }) => {
-      setCompletedTaskIds(prev => {
-        const next = new Set(prev);
-        if (isCompleted) next.add(taskId); else next.delete(taskId);
-        return next;
-      });
-      setTasks(prev => prev.map(t =>
-        t.id === taskId
-          ? { ...t, isCompleted, completedAt: isCompleted ? new Date().toISOString() : null }
-          : t
-      ));
-    });
-
     socket.on('error', (error) => {
       console.error('❌ WebSocket error:', error);
     });
@@ -433,6 +420,19 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     socket.on('heroStreamStarted', (payload) => applyHeroStatus(payload, 'ONLINE'));
     socket.on('heroStreamStopped', (payload) => applyHeroStatus(payload, 'ENDED'));
     socket.on('heroStreamFailed', (payload) => applyHeroStatus(payload, 'FAILED'));
+
+    socket.on('taskToggled', ({ taskId, isCompleted, completedAt }) => {
+      setCompletedTaskIds((prev) => {
+        const next = new Set(prev);
+        if (isCompleted) next.add(taskId); else next.delete(taskId);
+        return next;
+      });
+      setTasks((prev) => prev.map((t) =>
+        t.id === taskId
+          ? { ...t, isCompleted, completedAt: completedAt ?? (isCompleted ? new Date().toISOString() : null) }
+          : t,
+      ));
+    });
 
     return () => {
       socket.disconnect();
@@ -802,27 +802,48 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
   // Функция для остановки стрима (для стримера)
   const stopStreaming = async () => {
-    if (!clientRef.current || !isSelectedStreamer) return;
+    if (!isSelectedStreamer) return;
     
     try {
       console.log("🛑 Stopping stream...");
 
+      let localCleanupError = null;
+
       const vTrack = localVideoTrackRef.current || localVideoTrack;
       const aTrack = localAudioTrackRef.current || localAudioTrack;
-      
-      if (vTrack || aTrack) {
+
+      if (clientRef.current && (vTrack || aTrack)) {
         const toUnpublish = [vTrack, aTrack].filter(Boolean);
-        await clientRef.current.unpublish(toUnpublish);
+        try {
+          await clientRef.current.unpublish(toUnpublish);
+        } catch (unpublishErr) {
+          localCleanupError = unpublishErr;
+          console.warn('Stream unpublish failed:', unpublishErr);
+        }
+      }
+
+      try {
         vTrack?.close();
         aTrack?.close();
-        localVideoTrackRef.current = null;
-        localAudioTrackRef.current = null;
-        setLocalVideoTrack(null);
-        setLocalAudioTrack(null);
+      } catch (closeErr) {
+        if (!localCleanupError) localCleanupError = closeErr;
+        console.warn('Track close failed:', closeErr);
       }
-      
-      await clientRef.current.leave();
-      clientRef.current = null;
+
+      localVideoTrackRef.current = null;
+      localAudioTrackRef.current = null;
+      setLocalVideoTrack(null);
+      setLocalAudioTrack(null);
+
+      if (clientRef.current) {
+        try {
+          await clientRef.current.leave();
+        } catch (leaveErr) {
+          if (!localCleanupError) localCleanupError = leaveErr;
+          console.warn('Client leave failed:', leaveErr);
+        }
+        clientRef.current = null;
+      }
       
       setIsPublishing(false);
       setIsStreamActive(false);
@@ -830,8 +851,9 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       streamStartTimeRef.current = null;
       
       console.log("🛑 Stream stopped successfully");
-      
+
       const primaryHeroId = selectedStreamerId;
+      let stoppedHeroId = primaryHeroId;
       try {
         await actApi.stopHeroStream(actId, primaryHeroId);
       } catch (primaryErr) {
@@ -841,15 +863,20 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
         }
         // Fallback for stale selected hero id on UI side.
         await actApi.stopHeroStream(actId, fallbackHeroId);
+        stoppedHeroId = fallbackHeroId;
       }
+
       setHeroStreams((prev) =>
         prev.map((item) =>
-          String(item.heroUserId) === String(selectedStreamerId)
+          String(item.heroUserId) === String(stoppedHeroId)
             ? { ...item, status: 'ENDED' }
             : item,
         ),
       );
-      
+
+      if (localCleanupError) {
+        toast.warning('Stream stopped on server, but local device cleanup had an issue');
+      }
       toast.success("Stream stopped");
       
     } catch (err) {
@@ -1173,13 +1200,25 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   };
 
   // Fetch tasks when modal is opened
-  const fetchTasks = () => {
-    if (!actualStreamData) return;
-    const teamTasks = (actualStreamData.teams ?? []).flatMap(t => t.tasks ?? []);
+  const fetchTasks = async () => {
+    if (!actId) return;
+    let teamTasks = [];
+    try {
+      const response = await api.get(`/act/find-by-id/${actId}`);
+      const freshAct = response?.data;
+      if (freshAct) {
+        setActualStreamData(freshAct);
+        teamTasks = (freshAct.teams ?? []).flatMap((t) => t.tasks ?? []);
+      }
+    } catch (err) {
+      // fallback to local snapshot
+      teamTasks = (actualStreamData?.teams ?? []).flatMap((t) => t.tasks ?? []);
+    }
+
     setTasks(teamTasks);
     // Build positions map directly from lat/lng (no geocoding needed)
     const positions = {};
-    teamTasks.forEach(task => {
+    teamTasks.forEach((task) => {
       if (task.lat != null && task.lng != null) {
         positions[task.id] = [task.lat, task.lng];
       }
@@ -1191,7 +1230,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
   const toggleTaskLocal = async (taskId) => {
     // Только герой, навигатор или инициатор акта могут менять статус задания
-    if (!isHero && !isNavigator && !isInitiator) return;
+    if (!isHero && !isNavigator && !isSpotAgent && !isInitiator) return;
     // Optimistic update
     setCompletedTaskIds(prev => {
       const next = new Set(prev);
@@ -1206,10 +1245,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     try {
       const updated = await api.patch(`/act/${actId}/team-tasks/${taskId}/toggle`);
       setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updated.data } : t));
-      // Оповещаем всех зрителей через WebSocket
-      if (socketRef.current?.connected) {
-        socketRef.current.emit('taskToggle', { actId: parseInt(actId), taskId, isCompleted: updated.data.isCompleted });
-      }
+      // Server emits taskToggled to chat room on successful toggle.
     } catch (err) {
       // Rollback on error
       setCompletedTaskIds(prev => {
@@ -1227,9 +1263,8 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   };
 
   useEffect(() => {
-    if (isTasksModalOpen) {
-      fetchTasks();
-    }
+    if (!isTasksModalOpen) return;
+    fetchTasks();
   }, [isTasksModalOpen, actId]);
 
   // Fetch route data from actualStreamData
