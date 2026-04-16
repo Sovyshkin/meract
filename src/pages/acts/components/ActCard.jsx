@@ -33,7 +33,23 @@ useEffect(() => {
       setLoading(true);
       const actsdata = await actApi.getAct(id);
       if (actsdata) {
-        setIsLive(actsdata.status);
+        let effectiveStatus = actsdata.status;
+        if (actsdata.status === 'ONLINE') {
+          try {
+            const heroStreams = await actApi.getHeroStreams(id);
+            const hasStreams = Array.isArray(heroStreams) && heroStreams.length > 0;
+            const hasOnlineHero = Array.isArray(heroStreams)
+              ? heroStreams.some((s) => s?.status === 'ONLINE')
+              : false;
+            if (hasStreams && !hasOnlineHero) {
+              effectiveStatus = 'OFFLINE';
+            }
+          } catch (_e) {
+            // Keep backend status if hero-stream endpoint is temporarily unavailable.
+          }
+        }
+
+        setIsLive(effectiveStatus);
         setTitle(actsdata.title || actsdata.name || 'Untitled');
         setDescription(actsdata.description || 'No description');
         

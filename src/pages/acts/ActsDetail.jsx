@@ -184,7 +184,23 @@ export default function ActDetail() {
         console.log("Act data:", data);
 
         if (data) {
-          setIsLive(data.status);
+          let effectiveStatus = data.status;
+          if (data.status === 'ONLINE') {
+            try {
+              const heroStreams = await actApi.getHeroStreams(id);
+              const hasStreams = Array.isArray(heroStreams) && heroStreams.length > 0;
+              const hasOnlineHero = Array.isArray(heroStreams)
+                ? heroStreams.some((s) => s?.status === 'ONLINE')
+                : false;
+              if (hasStreams && !hasOnlineHero) {
+                effectiveStatus = 'OFFLINE';
+              }
+            } catch (_e) {
+              // Keep backend status if hero-stream endpoint is temporarily unavailable.
+            }
+          }
+
+          setIsLive(effectiveStatus);
           setTitle(data.title || 'Untitled');
           setDescription(data.description || 'No description available');
           

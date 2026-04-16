@@ -229,16 +229,20 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   } = useRecordings(actId, selectedStreamerId ? Number(selectedStreamerId) : undefined);
 
   useEffect(() => {
+    // Never auto-switch after a hero has already been selected.
+    // Stream switch for viewers must remain manual only.
+    if (selectedStreamerId) {
+      return;
+    }
+
     if (mergedHeroStreamers.length === 0) {
       // Keep selected hero stable to avoid fallback to waiting screen.
-      if (!selectedStreamerId && currentUserId && (isHero || isInitiator)) {
+      if (currentUserId && (isHero || isInitiator)) {
         setSelectedStreamerId(currentUserId);
       }
       return;
     }
-    if (selectedStreamerId && mergedHeroStreamers.some((h) => String(h.heroUserId) === String(selectedStreamerId))) {
-      return;
-    }
+
     const selfHero = mergedHeroStreamers.find((h) => String(h.heroUserId) === String(currentUserId));
     if (selfHero) {
       setSelectedStreamerId(selfHero.heroUserId);
@@ -260,6 +264,15 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const localVideoTrackRef = useRef(null);
   const localAudioTrackRef = useRef(null);
   const retryStartTimerRef = useRef(null);
+  const startRetryCountRef = useRef(0);
+  const MAX_START_RETRIES = 3;
+  const reconnectRetryTimerRef = useRef(null);
+  const reconnectRetryCountRef = useRef(0);
+  const MAX_RECONNECT_RETRIES = 4;
+  const viewerRetryTimerRef = useRef(null);
+  const viewerRetryCountRef = useRef(0);
+  const MAX_VIEWER_CONNECT_RETRIES = 4;
+  const viewerSubscribeInFlightRef = useRef(new Set());
 
   const [isopenmenu, setisopenmenu] = useState(false);
   const forceResetAgoraClient = useCallback(async () => {
@@ -291,13 +304,20 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   }, []);
   // Extract user ID
   const baseUserId = useMemo(() => {
-    if (user?.id) {
-      return user.id;
-    } else if (user?.token) {
-      const tokenData = useAuthStore.getState().getToken();
-      return tokenData?.sub || tokenData?.id || 888888;
+    if (user?.id || user?.sub) {
+      return user.id || user.sub;
     }
-    return 888888;
+
+    const token = useAuthStore.getState().getToken();
+    if (typeof token === 'string' && token) {
+      const payload = parseJWT(token);
+      const tokenUserId = payload?.sub || payload?.id || payload?.userId;
+      if (tokenUserId) {
+        return tokenUserId;
+      }
+    }
+
+    return null;
   }, [user]);
 
   // Hero-stream token is issued for requesterId on backend, so Agora join UID must match that ID.
@@ -617,6 +637,17 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
         clearTimeout(retryStartTimerRef.current);
         retryStartTimerRef.current = null;
       }
+      if (reconnectRetryTimerRef.current) {
+        clearTimeout(reconnectRetryTimerRef.current);
+        reconnectRetryTimerRef.current = null;
+      }
+      if (viewerRetryTimerRef.current) {
+        clearTimeout(viewerRetryTimerRef.current);
+        viewerRetryTimerRef.current = null;
+      }
+      startRetryCountRef.current = 0;
+      reconnectRetryCountRef.current = 0;
+      viewerRetryCountRef.current = 0;
       if (locationWatchRef.current !== null) {
         navigator.geolocation.clearWatch(locationWatchRef.current);
       }
@@ -634,7 +665,19 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       return;
     }
 
-    if (isStartingStream || isStreamActive) {
+    if (isStartingStream || isStreamActive || isConnectingRef.current) {
+      return;
+    }
+
+    // Cancel stale scheduled retry before a fresh start attempt.
+    if (retryStartTimerRef.current) {
+      clearTimeout(retryStartTimerRef.current);
+      retryStartTimerRef.current = null;
+    }
+
+    // If backend already marks selected hero stream as online, reconnect without creating a new session.
+    if (selectedHeroStream?.status === 'ONLINE' && !isPublishing && !clientRef.current) {
+      await reconnectAsStreamer();
       return;
     }
 
@@ -644,6 +687,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     }
 
     setIsStartingStream(true);
+    isConnectingRef.current = true;
     setError(null);
     let backendStarted = false;
 
@@ -651,13 +695,6 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       await forceResetAgoraClient();
       await actApi.startHeroStream(actId, selectedStreamerId);
       backendStarted = true;
-      setHeroStreams((prev) =>
-        prev.map((item) =>
-          String(item.heroUserId) === String(selectedStreamerId)
-            ? { ...item, status: 'ONLINE', startedAt: new Date().toISOString() }
-            : item,
-        ),
-      );
 
       debugLog(`🎥 Starting stream for ${isSelectedStreamer ? 'publisher' : 'subscriber'}:`, actualChannelName);
       debugLog("🎥 User ID:", userIdNum);
@@ -707,11 +744,33 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       // Начинаем публикацию
       await startPublishing(client);
 
+      setHeroStreams((prev) =>
+        prev.map((item) =>
+          String(item.heroUserId) === String(selectedStreamerId)
+            ? { ...item, status: 'ONLINE', startedAt: new Date().toISOString() }
+            : item,
+        ),
+      );
+
+      // Successful start clears retry state.
+      startRetryCountRef.current = 0;
+
     } catch (err) {
       console.error("🎥 Error starting stream:", err);
       await forceResetAgoraClient();
-      setError(err.response?.data?.message || err.message);
-      if (backendStarted) {
+
+      const errorCode = err?.response?.data?.errorCode;
+      const errorMessage = String(err?.response?.data?.message || err?.message || '');
+      const isUidConflict = errorMessage.includes('UID_CONFLICT');
+      const isRestartInProgress = errorCode === 'STREAM_RESTART_IN_PROGRESS';
+      const isTransientStartConflict = isUidConflict || isRestartInProgress;
+
+      // Do not show blocking overlay for transient restart/uid conflict cases.
+      if (!isTransientStartConflict) {
+        setError(err.response?.data?.message || err.message);
+      }
+
+      if (backendStarted && !isTransientStartConflict) {
         try {
           await actApi.stopHeroStream(actId, selectedStreamerId);
         } catch (rollbackErr) {
@@ -720,7 +779,17 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       }
       if (err?.response?.status === 403) {
         toast.error('Недостаточно прав');
-      } else if (err?.response?.data?.errorCode === 'STREAM_RESTART_IN_PROGRESS') {
+      } else if (isRestartInProgress) {
+        startRetryCountRef.current += 1;
+        if (startRetryCountRef.current > MAX_START_RETRIES) {
+          if (retryStartTimerRef.current) {
+            clearTimeout(retryStartTimerRef.current);
+            retryStartTimerRef.current = null;
+          }
+          startRetryCountRef.current = 0;
+          toast.error('Failed to restart stream automatically. Please try again.');
+          return;
+        }
         const retryAfterSec = Number(err?.response?.data?.retryAfterSec ?? 2);
         const delayMs = Number.isFinite(retryAfterSec) && retryAfterSec > 0 ? retryAfterSec * 1000 : 2000;
         if (retryStartTimerRef.current) {
@@ -728,16 +797,48 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
         }
         retryStartTimerRef.current = setTimeout(() => {
           retryStartTimerRef.current = null;
-          startStream();
+          if (backendStarted) {
+            void reconnectAsStreamer();
+            return;
+          }
+          void startStream();
         }, delayMs);
         toast.info(`Restart in progress, retrying in ${Math.round(delayMs / 1000)}s`);
-      } else if (String(err?.message || '').includes('UID_CONFLICT')) {
-        toast.error('Previous stream session is still closing. Please retry in 1-2 seconds.');
+      } else if (isUidConflict) {
+        startRetryCountRef.current += 1;
+        if (startRetryCountRef.current > MAX_START_RETRIES) {
+          if (retryStartTimerRef.current) {
+            clearTimeout(retryStartTimerRef.current);
+            retryStartTimerRef.current = null;
+          }
+          startRetryCountRef.current = 0;
+          toast.error('UID conflict persists. Please wait a few seconds and try again.');
+          return;
+        }
+        const delayMs = 1500;
+        if (retryStartTimerRef.current) {
+          clearTimeout(retryStartTimerRef.current);
+        }
+        retryStartTimerRef.current = setTimeout(() => {
+          retryStartTimerRef.current = null;
+          if (backendStarted) {
+            void reconnectAsStreamer();
+            return;
+          }
+          void startStream();
+        }, delayMs);
+        toast.info('Previous stream session is still closing. Retrying...');
       } else {
+        if (retryStartTimerRef.current) {
+          clearTimeout(retryStartTimerRef.current);
+          retryStartTimerRef.current = null;
+        }
+        startRetryCountRef.current = 0;
         toast.error("Failed to start stream: " + (err.response?.data?.message || err.message));
       }
     } finally {
       setIsStartingStream(false);
+      isConnectingRef.current = false;
     }
   };
 
@@ -792,11 +893,20 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const reconnectAsStreamer = async () => {
     if (!selectedHeroStream || !selectedStreamerId) return;
     if (isConnectingRef.current || clientRef.current) return;
+
+    if (reconnectRetryTimerRef.current) {
+      clearTimeout(reconnectRetryTimerRef.current);
+      reconnectRetryTimerRef.current = null;
+    }
+
     isConnectingRef.current = true;
     setIsStartingStream(true);
     setError(null);
 
     try {
+      // Ensure local old client/tracks are fully dropped before rejoin with same UID.
+      await forceResetAgoraClient();
+
       const role = 'publisher';
       const token = (await actApi.getHeroStreamToken(actId, selectedStreamerId, role, 3600))?.token;
       if (!token) throw new Error('No token received');
@@ -835,12 +945,35 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       setIsStreamActive(true);
       setIsConnected(true);
       streamStartTimeRef.current = Date.now();
+      reconnectRetryCountRef.current = 0;
 
       debugLog('✅ Стример переподключился!');
     } catch (err) {
       console.error('Ошибка переподключения стримера:', err);
-      setError(err.message);
-      toast.error('Failed to reconnect to stream: ' + err.message);
+      await forceResetAgoraClient();
+
+      const errorMessage = String(err?.response?.data?.message || err?.message || '');
+      const isUidConflict = errorMessage.includes('UID_CONFLICT');
+
+      if (isUidConflict) {
+        reconnectRetryCountRef.current += 1;
+        if (reconnectRetryCountRef.current > MAX_RECONNECT_RETRIES) {
+          reconnectRetryCountRef.current = 0;
+          setError('UID conflict persists while reconnecting. Please close duplicate stream sessions and try again.');
+          toast.error('Reconnect failed: duplicate stream session is still active');
+        } else {
+          const delayMs = 2000;
+          reconnectRetryTimerRef.current = setTimeout(() => {
+            reconnectRetryTimerRef.current = null;
+            void reconnectAsStreamer();
+          }, delayMs);
+          toast.info(`Reconnecting in ${Math.round(delayMs / 1000)}s...`);
+        }
+      } else {
+        reconnectRetryCountRef.current = 0;
+        setError(err.message);
+        toast.error('Failed to reconnect to stream: ' + err.message);
+      }
     } finally {
       setIsStartingStream(false);
       isConnectingRef.current = false;
@@ -940,6 +1073,20 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       
       debugLog("🛑 Stream stopped successfully");
 
+      const activeStatus = selectedHeroStream?.status;
+      if (activeStatus && activeStatus !== 'ONLINE') {
+        // Stream is already ended/failed on backend state; skip stop endpoint call.
+        setHeroStreams((prev) =>
+          prev.map((item) =>
+            String(item.heroUserId) === String(selectedStreamerId)
+              ? { ...item, status: item.status === 'FAILED' ? 'FAILED' : 'ENDED' }
+              : item,
+          ),
+        );
+        toast.success('Stream already stopped');
+        return;
+      }
+
       const primaryHeroId = selectedStreamerId;
       let stoppedHeroId = primaryHeroId;
       try {
@@ -992,6 +1139,21 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     } catch (err) {
       console.error("Error stopping stream:", err);
       const apiErr = parseApiError(err);
+      const msg = String(apiErr?.message || '').toLowerCase();
+      const stopAsEnded = apiErr?.status === 400 && (msg.includes('404') || msg.includes('not found') || msg.includes('already'));
+
+      if (stopAsEnded) {
+        setHeroStreams((prev) =>
+          prev.map((item) =>
+            String(item.heroUserId) === String(selectedStreamerId)
+              ? { ...item, status: 'ENDED' }
+              : item,
+          ),
+        );
+        toast.success('Stream stopped');
+        return;
+      }
+
       const backendMessage = apiErr?.message;
       if (backendMessage) {
         toast.error(Array.isArray(backendMessage) ? backendMessage.join(', ') : String(backendMessage));
@@ -1005,10 +1167,59 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
   // Подключение к стриму для зрителей
   useEffect(() => {
+    let isViewerEffectActive = true;
+
+    const subscribeWithRetry = async (client, user, mediaType) => {
+      const maxAttempts = 3;
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        if (!isViewerEffectActive || clientRef.current !== client) {
+          return false;
+        }
+
+        try {
+          await client.subscribe(user, mediaType);
+          return true;
+        } catch (err) {
+          const message = String(err?.message || '');
+          const isExchangeSdpFailed =
+            message.includes('EXCHANGE_SDP_FAILED') ||
+            message.includes('remoteSDP created');
+
+          if (!isExchangeSdpFailed || attempt === maxAttempts) {
+            throw err;
+          }
+
+          await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
+        }
+      }
+
+      return false;
+    };
+
     const connectAsViewer = async () => {
-      // Только для зрителей и только если стрим онлайн
-      if (!selectedHeroStream || !selectedStreamerId || isSelectedStreamer || isConnectingRef.current) {
+      if (!isViewerEffectActive) {
         return;
+      }
+
+      // Только для зрителей и только если стрим онлайн
+      if (
+        !selectedHeroStream ||
+        !selectedStreamerId ||
+        !isSelectedHeroOnline ||
+        isSelectedStreamer ||
+        isConnectingRef.current ||
+        clientRef.current
+      ) {
+        return;
+      }
+
+      if (userIdNum <= 0) {
+        return;
+      }
+
+      if (viewerRetryTimerRef.current) {
+        clearTimeout(viewerRetryTimerRef.current);
+        viewerRetryTimerRef.current = null;
       }
 
       isConnectingRef.current = true;
@@ -1039,9 +1250,18 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
         // Обработчики событий
         client.on("user-published", async (user, mediaType) => {
           debugLog("👀 User published:", user.uid, mediaType);
+
+          const subscribeKey = `${String(user.uid)}:${mediaType}`;
+          if (viewerSubscribeInFlightRef.current.has(subscribeKey)) {
+            return;
+          }
+          viewerSubscribeInFlightRef.current.add(subscribeKey);
           
           try {
-            await client.subscribe(user, mediaType);
+            const subscribed = await subscribeWithRetry(client, user, mediaType);
+            if (!subscribed || !isViewerEffectActive || clientRef.current !== client) {
+              return;
+            }
             debugLog("👀 Subscribed to", mediaType);
 
             if (mediaType === "video") {
@@ -1062,6 +1282,8 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
             ]);
           } catch (err) {
             console.error("👀 Error subscribing:", err);
+          } finally {
+            viewerSubscribeInFlightRef.current.delete(subscribeKey);
           }
         });
 
@@ -1080,13 +1302,38 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
         );
 
         debugLog("👀 Successfully joined channel as viewer!");
+        viewerRetryCountRef.current = 0;
         setIsConnected(true);
         setIsSelectedHeroEnded(false);
         streamStartTimeRef.current = Date.now();
 
       } catch (err) {
         console.error("👀 Connection error:", err);
-        setError(err.response?.data?.message || err.message);
+        const errorMessage = String(err?.response?.data?.message || err?.message || '');
+        const isUidConflict = errorMessage.includes('UID_CONFLICT');
+
+        if (isUidConflict) {
+          await forceResetAgoraClient();
+          viewerRetryCountRef.current += 1;
+
+          if (viewerRetryCountRef.current > MAX_VIEWER_CONNECT_RETRIES) {
+            viewerRetryCountRef.current = 0;
+            setError('Failed to connect as viewer: duplicate session conflict');
+            toast.error('Viewer connection conflict persists. Try reloading the page.');
+          } else {
+            const delayMs = 1800;
+            viewerRetryTimerRef.current = setTimeout(() => {
+              viewerRetryTimerRef.current = null;
+              if (isViewerEffectActive) {
+                void connectAsViewer();
+              }
+            }, delayMs);
+          }
+        } else {
+          viewerRetryCountRef.current = 0;
+          setError(err.response?.data?.message || err.message);
+        }
+
         setIsConnected(false);
       } finally {
         isConnectingRef.current = false;
@@ -1096,12 +1343,23 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     connectAsViewer();
 
     return () => {
+      isViewerEffectActive = false;
       if (!isSelectedStreamer) {
+        if (viewerRetryTimerRef.current) {
+          clearTimeout(viewerRetryTimerRef.current);
+          viewerRetryTimerRef.current = null;
+        }
         debugLog("👀 Cleaning up viewer connection...");
         cleanupAgora();
       }
     };
-  }, [actualChannelName, userIdNum, isSelectedStreamer, selectedStreamerId, selectedHeroStream]);
+  }, [
+    actualChannelName,
+    userIdNum,
+    isSelectedStreamer,
+    selectedStreamerId,
+    isSelectedHeroOnline,
+  ]);
 
   // Очистка Agora соединения
   const cleanupAgora = () => {
@@ -1177,7 +1435,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
   // Настраиваем командный чат (только для членов команды)
   useEffect(() => {
-    if (!actId || !actualStreamData) return;
+    if (!actId) return;
     const setupTeamChat = async () => {
       try {
         // Always use backend find-or-create to avoid duplicated team chats between users.
@@ -1197,7 +1455,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       }
     };
     setupTeamChat();
-  }, [actId, actualStreamData]);
+  }, [actId]);
 
   // WebSocket для командного чата
   const fetchTeamMessages = useCallback(async () => {
@@ -1244,24 +1502,26 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       toast.error('Team chat connection error');
     });
 
-    // Fallback sync only when team tab is visible.
-    const shouldPoll = showChatPanel && activeChat === 'team';
-    const pollTimer = shouldPoll
-      ? setInterval(() => {
-          fetchTeamMessages();
-        }, 8000)
-      : null;
-
     return () => {
-      if (pollTimer) clearInterval(pollTimer);
       socket.disconnect();
       teamChatSocketRef.current = null;
     };
-  }, [teamChatId, fetchTeamMessages, showChatPanel, activeChat]);
+  }, [teamChatId, fetchTeamMessages]);
 
   useEffect(() => {
     if (!teamChatId || !showChatPanel || activeChat !== 'team') return;
     fetchTeamMessages();
+  }, [teamChatId, showChatPanel, activeChat, fetchTeamMessages]);
+
+  useEffect(() => {
+    if (!teamChatId || !showChatPanel || activeChat !== 'team') return;
+
+    // Very light fallback in case WS message delivery is temporarily unstable.
+    const pollTimer = setInterval(() => {
+      fetchTeamMessages();
+    }, 30000);
+
+    return () => clearInterval(pollTimer);
   }, [teamChatId, showChatPanel, activeChat, fetchTeamMessages]);
 
   // При открытии панели чата — принудительно загрузить историю
@@ -1501,6 +1761,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       isSelectedStreamer &&
       isSelectedHeroOnline &&
       !isPublishing &&
+      !isStartingStream &&
       !isConnectingRef.current &&
       !autoReconnectDoneRef.current &&
       !clientRef.current
@@ -1508,7 +1769,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       autoReconnectDoneRef.current = true;
       reconnectAsStreamer();
     }
-  }, [isSelectedStreamer, isSelectedHeroOnline, isPublishing]);
+  }, [isSelectedStreamer, isSelectedHeroOnline, isPublishing, isStartingStream]);
 
   const handleEmojiClick = () => {
     setShowEmojiPicker(!showEmojiPicker);
@@ -1972,29 +2233,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
           )}
           
           {/* Блок записей (доступен всем) */}
-          {recordingsError && (
-            <div className={styles.recordingsContainer}>
-              <div className={styles.recordingsHeader}>
-                <span>{recordingsError.message || 'Ошибка загрузки записей'}</span>
-                <button
-                  className={styles.recordingButton}
-                  onClick={reloadRecordings}
-                  type="button"
-                >
-                  Повторить
-                </button>
-              </div>
-              {!recordingsError.retryable && (
-                <div className={styles.recordingsList}>
-                  <div className={styles.recordingItem}>
-                    Проверьте доступ к S3 (ключи/IAM)
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {!recordingsError && !loadingRecordings && recordings.length > 0 && (
+          {!loadingRecordings && recordings.length > 0 && (
             <div className={styles.recordingsContainer}>
               <div 
                 className={styles.recordingsHeader}
