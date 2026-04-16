@@ -15,6 +15,7 @@ import share from'../../images/sharewhite.png';
 import { actApi } from "../../shared/api/act";
 import { pollApi } from "../../shared/api/pollApi";
 import { profileApi } from "../../shared/api/profile";
+import { buildPreviewUrl } from "../../shared/utils/previewUrl";
 import { useSoundStore } from "../../shared/stores/soundStore";
 import { toast } from "react-toastify";
 
@@ -630,9 +631,7 @@ const copyShareLink = () => {
                 const isCurrent = ep.id === Number(id);
                 const statusColor = ep.status === 'ONLINE' ? '#00F300' : ep.status === 'PLANNED' ? '#FFA500' : '#555';
                 const statusLabel = ep.status === 'ONLINE' ? 'Live' : ep.status === 'PLANNED' ? 'Scheduled' : 'Ended';
-                const thumb = ep.previewFileName
-                  ? `${import.meta.env.VITE_API_URL}/uploads/${ep.previewFileName}`
-                  : null;
+                const thumb = buildPreviewUrl(ep.previewFileName);
                 return (
                   <div key={ep.id}
                     onClick={() => !isCurrent && navigate(`/acts/${ep.id}`)}

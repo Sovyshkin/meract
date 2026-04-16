@@ -259,8 +259,36 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const streamStartTimeRef = useRef(null);
   const localVideoTrackRef = useRef(null);
   const localAudioTrackRef = useRef(null);
+  const retryStartTimerRef = useRef(null);
 
   const [isopenmenu, setisopenmenu] = useState(false);
+  const forceResetAgoraClient = useCallback(async () => {
+    try {
+      if (localVideoTrackRef.current) {
+        localVideoTrackRef.current.stop();
+        localVideoTrackRef.current.close();
+        localVideoTrackRef.current = null;
+      }
+      if (localAudioTrackRef.current) {
+        localAudioTrackRef.current.stop();
+        localAudioTrackRef.current.close();
+        localAudioTrackRef.current = null;
+      }
+
+      if (clientRef.current) {
+        await clientRef.current.leave();
+        clientRef.current = null;
+      }
+    } catch (e) {
+      debugLog('forceResetAgoraClient failed:', e);
+    } finally {
+      setLocalVideoTrack(null);
+      setLocalAudioTrack(null);
+      setIsConnected(false);
+      setRemoteUsers([]);
+      isConnectingRef.current = false;
+    }
+  }, []);
   // Extract user ID
   const baseUserId = useMemo(() => {
     if (user?.id) {
@@ -460,24 +488,49 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     socket.on('heroStreamStopped', (payload) => applyHeroStatus(payload, 'ENDED'));
     socket.on('heroStreamFailed', (payload) => applyHeroStatus(payload, 'FAILED'));
 
-    socket.on('taskToggled', ({ taskId, isCompleted, completedAt }) => {
+    socket.on('taskToggled', async ({ actId: payloadActId, taskId, isCompleted, completedAt, updatedBy }) => {
+      void updatedBy;
+      if (payloadActId && String(payloadActId) !== String(actId)) return;
+      const normalizedTaskId = Number(taskId);
+      const normalizedCompleted = Boolean(isCompleted);
+
       setCompletedTaskIds((prev) => {
         const next = new Set(prev);
-        if (isCompleted) next.add(taskId); else next.delete(taskId);
+        if (normalizedCompleted) next.add(normalizedTaskId); else next.delete(normalizedTaskId);
         return next;
       });
       setTasks((prev) => prev.map((t) =>
-        t.id === taskId
-          ? { ...t, isCompleted, completedAt: completedAt ?? (isCompleted ? new Date().toISOString() : null) }
+        Number(t.id) === normalizedTaskId
+          ? { ...t, isCompleted: normalizedCompleted, completedAt: completedAt ?? (normalizedCompleted ? new Date().toISOString() : null) }
           : t,
       ));
+
+      // Ensure viewers see fresh status even if backend emits partial payload.
+      if (isTasksModalOpen) {
+        try {
+          const response = await api.get(`/act/find-by-id/${actId}`);
+          const freshAct = response?.data;
+          const teamTasks = (freshAct?.teams ?? []).flatMap((t) => t.tasks ?? []);
+          setTasks(teamTasks);
+          setCompletedTaskIds(new Set(teamTasks.filter(t => t.isCompleted).map(t => t.id)));
+        } catch (_e) {
+          // no-op: keep optimistic state
+        }
+      }
+    });
+
+    socket.on('tasksSnapshotUpdated', ({ actId: payloadActId, tasks: snapshotTasks }) => {
+      if (String(payloadActId) !== String(actId)) return;
+      const nextTasks = Array.isArray(snapshotTasks) ? snapshotTasks : [];
+      setTasks(nextTasks);
+      setCompletedTaskIds(new Set(nextTasks.filter((t) => t.isCompleted).map((t) => t.id)));
     });
 
     return () => {
       socket.disconnect();
       heroStatusSocketRef.current = null;
     };
-  }, [actId, selectedStreamerId]);
+  }, [actId, selectedStreamerId, isTasksModalOpen]);
 
   // Fetch spot agent data when spotAgentCount > 0
   useEffect(() => {
@@ -560,6 +613,10 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   // Очистка watchPosition при размонтировании
   useEffect(() => {
     return () => {
+      if (retryStartTimerRef.current) {
+        clearTimeout(retryStartTimerRef.current);
+        retryStartTimerRef.current = null;
+      }
       if (locationWatchRef.current !== null) {
         navigator.geolocation.clearWatch(locationWatchRef.current);
       }
@@ -591,6 +648,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     let backendStarted = false;
 
     try {
+      await forceResetAgoraClient();
       await actApi.startHeroStream(actId, selectedStreamerId);
       backendStarted = true;
       setHeroStreams((prev) =>
@@ -651,6 +709,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
     } catch (err) {
       console.error("🎥 Error starting stream:", err);
+      await forceResetAgoraClient();
       setError(err.response?.data?.message || err.message);
       if (backendStarted) {
         try {
@@ -661,6 +720,19 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       }
       if (err?.response?.status === 403) {
         toast.error('Недостаточно прав');
+      } else if (err?.response?.data?.errorCode === 'STREAM_RESTART_IN_PROGRESS') {
+        const retryAfterSec = Number(err?.response?.data?.retryAfterSec ?? 2);
+        const delayMs = Number.isFinite(retryAfterSec) && retryAfterSec > 0 ? retryAfterSec * 1000 : 2000;
+        if (retryStartTimerRef.current) {
+          clearTimeout(retryStartTimerRef.current);
+        }
+        retryStartTimerRef.current = setTimeout(() => {
+          retryStartTimerRef.current = null;
+          startStream();
+        }, delayMs);
+        toast.info(`Restart in progress, retrying in ${Math.round(delayMs / 1000)}s`);
+      } else if (String(err?.message || '').includes('UID_CONFLICT')) {
+        toast.error('Previous stream session is still closing. Please retry in 1-2 seconds.');
       } else {
         toast.error("Failed to start stream: " + (err.response?.data?.message || err.message));
       }
@@ -1172,17 +1244,25 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       toast.error('Team chat connection error');
     });
 
-    // Fallback sync for cases where backend does not emit group chat events.
-    const pollTimer = setInterval(() => {
-      fetchTeamMessages();
-    }, 1500);
+    // Fallback sync only when team tab is visible.
+    const shouldPoll = showChatPanel && activeChat === 'team';
+    const pollTimer = shouldPoll
+      ? setInterval(() => {
+          fetchTeamMessages();
+        }, 8000)
+      : null;
 
     return () => {
-      clearInterval(pollTimer);
+      if (pollTimer) clearInterval(pollTimer);
       socket.disconnect();
       teamChatSocketRef.current = null;
     };
-  }, [teamChatId, fetchTeamMessages]);
+  }, [teamChatId, fetchTeamMessages, showChatPanel, activeChat]);
+
+  useEffect(() => {
+    if (!teamChatId || !showChatPanel || activeChat !== 'team') return;
+    fetchTeamMessages();
+  }, [teamChatId, showChatPanel, activeChat, fetchTeamMessages]);
 
   // При открытии панели чата — принудительно загрузить историю
   useEffect(() => {
@@ -1306,6 +1386,16 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     if (!isTasksModalOpen) return;
     fetchTasks();
   }, [isTasksModalOpen, actId]);
+
+  useEffect(() => {
+    if (!isTasksModalOpen) return;
+
+    const syncTimer = setInterval(() => {
+      fetchTasks();
+    }, 5000);
+
+    return () => clearInterval(syncTimer);
+  }, [isTasksModalOpen, actId, actualStreamData]);
 
   // Fetch route data from actualStreamData
   useEffect(() => {

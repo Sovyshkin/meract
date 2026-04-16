@@ -3,6 +3,7 @@ import default_back from '../../../images/act_back_default.png';
 import styles from "./ActCard.module.css";
 import star from '../../../images/star.png';
 import { actApi } from "../../../shared/api/act";
+import { buildPreviewUrl } from "../../../shared/utils/previewUrl";
 import { useEffect, useState } from "react";
 export default function ActCard({ act, titleact }) {
   const navigate = useNavigate();
@@ -77,29 +78,6 @@ useEffect(() => {
   }
 }, [id, act.previewFileName]);
 
- const resolvePreviewUrl = (value) => {
-  if (!value) return default_back;
-
-  if (value.startsWith('http://') || value.startsWith('https://')) {
-    return value;
-  }
-
-  const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/api\/?$/, '');
-
-  let path = String(value).trim();
-  if (!path) return default_back;
-
-  if (path.startsWith('uploads/')) {
-    path = `/${path}`;
-  } else if (path.startsWith('acts/')) {
-    path = `/uploads/${path}`;
-  } else if (!path.startsWith('/uploads/')) {
-    path = `/uploads/acts/${path.replace(/^\/+/, '')}`;
-  }
-
-  return `${apiBase}${path}`;
- };
-
  const addCacheBuster = (url) => {
   if (!url || url === default_back) return url;
   const separator = url.includes('?') ? '&' : '?';
@@ -107,7 +85,7 @@ useEffect(() => {
   return `${url}${separator}cb=${fingerprint}`;
  };
 
- const resolvedPreviewUrl = addCacheBuster(resolvePreviewUrl(rawImageUrl));
+ const resolvedPreviewUrl = addCacheBuster(buildPreviewUrl(rawImageUrl) || default_back);
 
  useEffect(() => {
   if (!resolvedPreviewUrl || resolvedPreviewUrl === default_back) {

@@ -17,8 +17,6 @@ const useChat = (actId, chatId = null) => {
   useEffect(() => {
     if (!actId) return;
 
-    console.log(`Подключение к чату для акта ${actId}...`);
-
     // VITE_API_URL может содержать /api — убираем для socket.io
     const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
     const wsBase = apiUrl.replace(/\/api$/, "");
@@ -39,10 +37,8 @@ const useChat = (actId, chatId = null) => {
 
     const attachHandlers = (s) => {
       s.on("connect", () => {
-        console.log("Подключен к чату актов, socket.id:", s.id);
         setIsConnected(true);
         setError(null);
-        console.log(`Присоединение к комнате акта ${actId}...`);
         s.emit("joinStream", { actId: parseInt(actId) });
         // Надёжный HTTP-fallback: загружаем историю сразу после подключения
         if (!chatId) return;
@@ -55,13 +51,11 @@ const useChat = (actId, chatId = null) => {
       });
 
       s.on("disconnect", (reason) => {
-        console.log("Отключен от чата, причина:", reason);
         setIsConnected(false);
         // При серверном дисконнекте (auth fail) пересоздаём сокет со свежим токеном
         if (!destroyed && reason === "io server disconnect") {
           setTimeout(() => {
             if (destroyed) return;
-            console.log("Переподключение к чату со свежим токеном...");
             const newSocket = createSocket();
             socketRef.current = newSocket;
             attachHandlers(newSocket);
@@ -70,14 +64,13 @@ const useChat = (actId, chatId = null) => {
       });
 
       s.on("joinedStream", (data) => {
-        console.log("Успешно присоединён к стриму:", data);
+        void data;
       });
 
       s.on("chatHistory", (data) => {
         const msgs = (data.messages || []).filter(
           (m) => (m.message || m.content || "").trim(),
         );
-        console.log(`Загружено ${msgs.length} сообщений из истории`);
         setMessages(msgs);
       });
 
@@ -101,7 +94,6 @@ const useChat = (actId, chatId = null) => {
 
     return () => {
       destroyed = true;
-      console.log("Отключение от чата для акта", actId);
       socketRef.current?.disconnect();
       socketRef.current = null;
     };
@@ -116,7 +108,6 @@ const useChat = (actId, chatId = null) => {
         setLoading(true);
         setError(null);
 
-        console.log(`Загрузка начальных сообщений для акта ${actId}...`);
         const response = await api.get(`/chat/${chatId}/messages`, {
           params: {
             limit,
@@ -129,9 +120,6 @@ const useChat = (actId, chatId = null) => {
           return content.trim() !== "";
         });
 
-        console.log(
-          `Загружено ${filteredMessages.length} сообщений из истории (из ${response.data.length} всего)`,
-        );
         setMessages(filteredMessages);
       } catch (err) {
         console.error("Error fetching chat messages:", err);
@@ -184,18 +172,7 @@ const useChat = (actId, chatId = null) => {
           content: message.trim(),
         };
 
-        console.log("Отправка сообщения через WebSocket:", payload);
-
         socketRef.current.emit("sendMessage", payload);
-
-        console.log("Сообщение отправлено через WebSocket:", message);
-        console.log("Ожидаем событие newMessage от сервера...");
-
-        // Добавляем таймер для проверки - если через 2 секунды не пришло событие,
-        // перезагружаем сообщения через HTTP
-        setTimeout(() => {
-          console.log("Прошло 2 секунды, проверяем получение сообщения...");
-        }, 2000);
       } catch (err) {
         console.error("Error sending message:", err);
         setError("Failed to send message");
@@ -239,55 +216,9 @@ const useChat = (actId, chatId = null) => {
 
   useEffect(() => {
     if (actId && chatId) {
-      console.log(`🔄 Загрузка истории сообщений для акта ${actId}`);
       fetchMessages();
     }
-  }, [actId, chatId]); 
-
-  useEffect(() => {
-    if (!actId || !chatId || !isConnected) return;
-
-    console.log(
-      "🔄 Запуск периодической проверки новых сообщений (каждые 5 сек)",
-    );
-
-    const interval = setInterval(() => {
-      if (messages.length > 0) {
-        const lastMessageId = messages[messages.length - 1].id;
-        console.log(`🔍 Проверка новых сообщений после ID ${lastMessageId}...`);
-
-        api
-          .get(`/chat/${chatId}/messages`, {
-            params: { limit: 10, offset: 0 },
-          })
-          .then((response) => {
-            const newMessages = response.data.filter((msg) => {
-              const content = msg.content || msg.message || "";
-              return (
-                content.trim() !== "" && 
-                msg.id > lastMessageId &&
-                !messages.some((m) => m.id === msg.id)
-              );
-            });
-
-            if (newMessages.length > 0) {
-              console.log(
-                `Найдено ${newMessages.length} новых сообщений через HTTP`,
-              );
-              setMessages((prev) => [...prev, ...newMessages]);
-            }
-          })
-          .catch((err) => {
-            console.error("Ошибка при проверке новых сообщений:", err);
-          });
-      }
-    }, 5000); 
-
-    return () => {
-      console.log("Остановка периодической проверки сообщений");
-      clearInterval(interval);
-    };
-  }, [actId, chatId, isConnected, messages, setMessages]);
+  }, [actId, chatId, fetchMessages]);
 
   return {
     messages,

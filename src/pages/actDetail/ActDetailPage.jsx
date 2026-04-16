@@ -4,6 +4,8 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import api from "../../shared/api/api";
 import { SpotAgentSection } from "../../shared/ui/SpotAgent";
+import { buildPreviewUrl } from "../../shared/utils/previewUrl";
+import defaultActImage from '../../images/act_back_default.png';
 import styles from "./ActDetailPage.module.css";
 
 export default function ActDetailPage() {
@@ -86,14 +88,10 @@ export default function ActDetailPage() {
           {(act.previewFileName || act.photo) && (
             <div className={styles.preview}>
               <img
-                src={
-                  act.previewFileName
-                    ? `${import.meta.env.VITE_API_URL}/uploads/${act.previewFileName}`
-                    : act.photo
-                }
+                src={buildPreviewUrl(act.previewFileName) || act.photo || defaultActImage}
                 alt={act.title}
                 onError={(e) => {
-                  e.target.style.display = "none";
+                  e.currentTarget.src = defaultActImage;
                 }}
               />
             </div>
