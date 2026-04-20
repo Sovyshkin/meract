@@ -40,6 +40,8 @@ export default function GuildDetailPage() {
   const [members, setMembers] = useState([]);
 
   const [joinusers, setJoin] = useState([]);
+  const [myInvites, setMyInvites] = useState([]);
+  const [memberTab, setMemberTab] = useState(0);
 
   const descRef = useRef(null);
   const [title, setTitle] = useState('Name');
@@ -104,16 +106,30 @@ useEffect(() => {
         if (localStorage.getItem(pendingKey) === 'true') {
           setHasPendingRequest(true);
         }
-      }
 
-      // Если владелец, загружаем заявки
-      if (isUserOwner) {
-        try {
-          const joinData = await guildApi.getJoins(id);
-          setJoin(joinData);
-        } catch (joinError) {
-          console.error("Error loading joins:", joinError);
-          setJoin([]);
+        // Если владелец, загружаем заявки
+        if (isUserOwner) {
+          try {
+            const joinData = await guildApi.getJoins(id);
+            setJoin(joinData);
+          } catch (joinError) {
+            console.error("Error loading joins:", joinError);
+            setJoin([]);
+          }
+        }
+
+        // Если член гильдии (но не владелец), загружаем приглашения
+        if (isUserMember && !isUserOwner) {
+          try {
+            const invitesData = await guildApi.getMyInvites();
+            const guildInvites = Array.isArray(invitesData) 
+              ? invitesData.filter(inv => inv.guildId === Number(id))
+              : [];
+            setMyInvites(guildInvites);
+          } catch (inviteError) {
+            console.error("Error loading invites:", inviteError);
+            setMyInvites([]);
+          }
         }
       }
 
@@ -222,6 +238,27 @@ useEffect(() => {
     const guildData = await guildApi.getGuild(id);
     setMembers(guildData.members);
 
+  }
+
+  const AcceptInvite = async(inviteGuildId) => {
+    try {
+      await guildApi.acceptInvite(inviteGuildId);
+      setMyInvites(prev => prev.filter(inv => inv.guildId !== inviteGuildId));
+      setIsMember(true);
+      toast.success('You joined the guild!');
+    } catch (err) {
+      toast.error('Failed to accept invite');
+    }
+  }
+
+  const RejectInvite = async(inviteGuildId) => {
+    try {
+      await guildApi.rejectInvite(inviteGuildId);
+      setMyInvites(prev => prev.filter(inv => inv.guildId !== inviteGuildId));
+      toast.info('Invite rejected');
+    } catch (err) {
+      toast.error('Failed to reject invite');
+    }
   }
 
   return (
@@ -336,72 +373,142 @@ useEffect(() => {
                   +{joinusers.length}
                 </div>
               }
+              {(!isAdmin && isMember && myInvites.length > 0) &&
+                <div style={{background:'#009DFF', borderRadius:'8px', padding:'3px', padding:'1px 4px',}}>
+                  +{myInvites.length}
+                </div>
+              }
             </button>
             <button className={navMethod === 2 ? styles.active : ""} onClick={() => setNavMethod(2)}>Achievements</button>
           </div>
         </div>
         <div className={styles.parentnav}>
 
-        {navMethod === 1 && (
-          
-          <div className={styles.cardcont} >
-              {isAdmin && joinusers.length > 0 &&
-                <>
-                <p style={{color:'#cecece', fontSize:'14px',}}>Potential guilders</p>
-
-            {joinusers.map((member) => (
-              <div key={member.id} className={styles.members} style={{display:'flex', flexDirection:'column', }}>
-                <div className={styles.members} style={{width:'100%', backgroundColor:'transparent', border:'none',}}>
-                <div className={styles.rankBadge}>
-                  <img src={member.user.avatarUrl || userimg} alt="avatar" className={styles.rankImg} />
-                </div>
-                <div style={{display:'flex', justifyContent:'space-between', width:'100%',}}>
-                  
-                <div className={styles.cardInfo}>
-                  <p className={styles.userName}>{member.user.login || 'no name'}</p>
-                  <p className={styles.userName} style={{ color: member.status === 'ACTIVE' ? '#00F300' : '#c0c0c0' }}>
-                    {member.status == 'ACTIVE'?
-                     <span>online</span>
-                      : <span>offline</span>
-                    }
-                  </p>
-                </div>
-                <img src={guildmenu} alt="" style={{maxHeight:'24px',}}/>
-                </div>
-
-                </div>
-
-                 <div className={styles.btncont} style={{width:'100%',}}>
-                  <button className={styles.active} onClick={() => AcceptJoin(member.id)}>To accept</button>
-                  <button  onClick={() => DenyJoin(member.id)}>Deny</button>
-                </div>
+{navMethod === 1 && (
+          <div className={styles.cardcont}>
+            {isAdmin && (
+              <div className={styles.memberSubTabs}>
+                <button className={memberTab === 0 ? styles.active : ''} onClick={() => setMemberTab(0)}>
+                  Requests ({joinusers.length})
+                </button>
+                <button className={memberTab === 1 ? styles.active : ''} onClick={() => setMemberTab(1)}>
+                  Members ({members.length})
+                </button>
               </div>
+            )}
 
-            ))}
-                </>
-
-              }
-
-          <div style={{marginTop: joinusers.length > 0 ? '20px' : '0px', display:'flex', flexDirection:'column', gap:'10px',}}>
-               <p style={{color:'#cecece', fontSize:'14px',}}>Guild members</p>
-
-            {members.map((member) => (
-              <div key={member.id} className={styles.members}>
-                <div className={styles.rankBadge}>
-                  <img src={member.avatarUrl || userimg} alt="avatar" className={styles.rankImg} />
-                </div>
-                <div className={styles.cardInfo}>
-                  <p className={styles.userName}>{member.login || 'no name'}</p>
-                  <p className={styles.userName} style={{ color: member.status === 'ACTIVE' ? '#00F300' : '#c0c0c0' }}>
-                    {member.status == 'ACTIVE'?
-                     <span>online</span>
-                      : <span>offline</span>
-                    }
-                  </p>
-                </div>
+            {!isAdmin && isMember && myInvites.length > 0 && (
+              <div className={styles.memberSubTabs}>
+                <button className={memberTab === 0 ? styles.active : ''} onClick={() => setMemberTab(0)}>
+                  My Invites ({myInvites.length})
+                </button>
+                <button className={memberTab === 1 ? styles.active : ''} onClick={() => setMemberTab(1)}>
+                  Members ({members.length})
+                </button>
               </div>
-            ))}
-            </div>
+            )}
+
+            {isAdmin && memberTab === 0 && joinusers.length > 0 && (
+              <div style={{display:'flex', flexDirection:'column', gap:'10px', marginTop: '10px'}}>
+                {joinusers.map((member) => (
+                  <div key={member.id} className={styles.members} style={{display:'flex', flexDirection:'column'}}>
+                    <div style={{display:'flex', alignItems:'center', gap:'10px', width:'100%'}}>
+                      <div className={styles.rankBadge}>
+                        <img src={member.user.avatarUrl || userimg} alt="avatar" className={styles.rankImg} />
+                      </div>
+                      <div className={styles.cardInfo}>
+                        <p className={styles.userName}>{member.user.login || 'no name'}</p>
+                        {member.message && (
+                          <p style={{color:'#888', fontSize:'12px', margin:'2px 0 0 0'}}>"{member.message}"</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className={styles.btncont} style={{width:'100%'}}>
+                      <button className={styles.active} onClick={() => AcceptJoin(member.id)}>Accept</button>
+                      <button onClick={() => DenyJoin(member.id)}>Reject</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {isAdmin && memberTab === 1 && (
+              <div style={{display:'flex', flexDirection:'column', gap:'10px', marginTop: '10px'}}>
+                {members.map((member) => (
+                  <div key={member.id} className={styles.members}>
+                    <div className={styles.rankBadge}>
+                      <img src={member.avatarUrl || userimg} alt="avatar" className={styles.rankImg} />
+                    </div>
+                    <div className={styles.cardInfo}>
+                      <p className={styles.userName}>{member.login || 'no name'}</p>
+                      <p className={styles.userName} style={{ color: member.status === 'ACTIVE' ? '#00F300' : '#c0c0c0' }}>
+                        {member.status == 'ACTIVE' ? <span>online</span> : <span>offline</span>}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!isAdmin && isMember && memberTab === 1 && (
+              <div style={{display:'flex', flexDirection:'column', gap:'10px', marginTop: '10px'}}>
+                {members.map((member) => (
+                  <div key={member.id} className={styles.members}>
+                    <div className={styles.rankBadge}>
+                      <img src={member.avatarUrl || userimg} alt="avatar" className={styles.rankImg} />
+                    </div>
+                    <div className={styles.cardInfo}>
+                      <p className={styles.userName}>{member.login || 'no name'}</p>
+                      <p className={styles.userName} style={{ color: member.status === 'ACTIVE' ? '#00F300' : '#c0c0c0' }}>
+                        {member.status == 'ACTIVE' ? <span>online</span> : <span>offline</span>}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!isAdmin && isMember && myInvites.length > 0 && memberTab === 0 && (
+              <div style={{display:'flex', flexDirection:'column', gap:'10px', marginTop: '10px'}}>
+                {myInvites.map((invite) => (
+                  <div key={invite.guildId} className={styles.members} style={{display:'flex', flexDirection:'column'}}>
+                    <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
+                      <div className={styles.rankBadge}>
+                        <img src={invite.guildLogo || userimg} alt="avatar" className={styles.rankImg} />
+                      </div>
+                      <div className={styles.cardInfo}>
+                        <p className={styles.userName}>{invite.guildName || 'Guild'}</p>
+                        {invite.message && (
+                          <p style={{color:'#888', fontSize:'12px', margin:'2px 0 0 0'}}>"{invite.message}"</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className={styles.btncont} style={{width:'100%'}}>
+                      <button className={styles.active} onClick={() => AcceptInvite(invite.guildId)}>Accept</button>
+                      <button onClick={() => RejectInvite(invite.guildId)}>Reject</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!isAdmin && !isMember && (
+              <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
+                {members.map((member) => (
+                  <div key={member.id} className={styles.members}>
+                    <div className={styles.rankBadge}>
+                      <img src={member.avatarUrl || userimg} alt="avatar" className={styles.rankImg} />
+                    </div>
+                    <div className={styles.cardInfo}>
+                      <p className={styles.userName}>{member.login || 'no name'}</p>
+                      <p className={styles.userName} style={{ color: member.status === 'ACTIVE' ? '#00F300' : '#c0c0c0' }}>
+                        {member.status == 'ACTIVE' ? <span>online</span> : <span>offline</span>}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

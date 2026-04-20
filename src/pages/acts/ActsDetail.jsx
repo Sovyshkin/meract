@@ -19,47 +19,54 @@ import { buildPreviewUrl } from "../../shared/utils/previewUrl";
 import { useSoundStore } from "../../shared/stores/soundStore";
 import { toast } from "react-toastify";
 
-function buildRoleInfo(roleType, actTeams, apiData, fallbackImg, currentUserId) {
+function buildRoleInfo(roleType, team, apiData, fallbackImg, currentUserId) {
   let method = null;
   const presetList = [];
   let votingDeadline = null;
   let votingStartAt = null;
 
-  for (const team of actTeams) {
-    for (const rc of (team.roleConfigs || [])) {
-      if (rc.role !== roleType) continue;
-      // Дедлайн из roleConfig (есть в ответе getActById)
-      if (rc.votingStartAt && !votingStartAt) {
-        votingStartAt = new Date(rc.votingStartAt);
-        if (rc.votingDurationHours) {
-          votingDeadline = new Date(votingStartAt.getTime() + rc.votingDurationHours * 3600 * 1000);
-        }
+  for (const rc of (team?.roleConfigs || [])) {
+    if (rc.role !== roleType) continue;
+    // Дедлайн из roleConfig (есть в ответе getActById)
+    if (rc.votingStartAt && !votingStartAt) {
+      votingStartAt = new Date(rc.votingStartAt);
+      if (rc.votingDurationHours) {
+        votingDeadline = new Date(votingStartAt.getTime() + rc.votingDurationHours * 3600 * 1000);
       }
-      if (rc.openVoting) {
-        method = 'open_voting';
-      } else if (!method && rc.candidates?.length === 1) {
-        method = 'fixed';
-        const c = rc.candidates[0];
+    }
+    if (rc.openVoting) {
+      method = 'open_voting';
+    } else if (!method && rc.candidates?.length === 1) {
+      method = 'fixed';
+      const c = rc.candidates[0];
+      const uid = c.user?.id ?? c.id;
+      presetList.push({ id: uid, teamCandidateId: c.id, name: c.user?.login || c.user?.email || `User #${uid}`, avatar: c.user?.avatarUrl || fallbackImg });
+    } else if (!method && (rc.candidates?.length ?? 0) > 1) {
+      method = 'voting_candidates';
+      rc.candidates.forEach(c => {
         const uid = c.user?.id ?? c.id;
-        presetList.push({ id: uid, teamCandidateId: c.id, name: c.user?.login || c.user?.email || `User #${uid}`, avatar: c.user?.avatarUrl || fallbackImg });
-      } else if (!method && (rc.candidates?.length ?? 0) > 1) {
-        method = 'voting_candidates';
-        rc.candidates.forEach(c => {
-          const uid = c.user?.id ?? c.id;
-          presetList.push({
-            id: uid,
-            teamCandidateId: c.id,
-            name: c.user?.login || c.user?.email || `User #${uid}`,
-            avatar: c.user?.avatarUrl || fallbackImg,
-            percent: '0',
-          });
+        presetList.push({
+          id: uid,
+          teamCandidateId: c.id,
+          name: c.user?.login || c.user?.email || `User #${uid}`,
+          avatar: c.user?.avatarUrl || fallbackImg,
+          percent: '0',
         });
-      }
+      });
     }
   }
 
+  const teamId = team?.id;
+
   const apiObj = (apiData && typeof apiData === 'object' && !Array.isArray(apiData)) ? apiData : {};
-  const teamCandidatesApi = apiObj.teamCandidates || [];
+  const teamCandidatesRaw = apiObj.teamCandidates || [];
+  const teamCandidatesApi = teamCandidatesRaw.filter((tc) => {
+    if (!teamId) return true;
+    const candidateTeamId = tc?.config?.teamId ?? tc?.teamId ?? null;
+    if (!candidateTeamId) return true;
+    return String(candidateTeamId) === String(teamId);
+  });
+
   if (method === 'voting_candidates' && teamCandidatesApi.length > 0) {
     const totalVotes = teamCandidatesApi.reduce((s, c) => s + (c._count?.votes || 0), 0);
     presetList.forEach(pc => {
@@ -80,7 +87,13 @@ function buildRoleInfo(roleType, actTeams, apiData, fallbackImg, currentUserId) 
     }
   }
 
-  const roleCands = apiObj.roleCandidates || [];
+  const roleCandidatesRaw = apiObj.roleCandidates || [];
+  const roleCands = roleCandidatesRaw.filter((rc) => {
+    if (!teamId) return true;
+    const candidateTeamId = rc?.config?.teamId ?? rc?.teamId ?? null;
+    if (!candidateTeamId) return true;
+    return String(candidateTeamId) === String(teamId);
+  });
   const totalRoleVotes = roleCands.reduce((s, c) => s + (c._count?.votes || 0), 0);
 
   // Определяем, за кого голосовал текущий пользователь
@@ -175,6 +188,7 @@ export default function ActDetail() {
   const [selectedSeasonIdx, setSelectedSeasonIdx] = useState(0);
   const [actChapterId, setActChapterId] = useState(null);
   const [actTeams, setActTeams] = useState([]);
+  const [selectedTeamId, setSelectedTeamId] = useState(null);
 
   // Загрузка деталей акта
   useEffect(() => {
@@ -258,12 +272,25 @@ export default function ActDetail() {
 
   // Загрузка ролей динамически по всем roleConfigs в actTeams
   useEffect(() => {
+    if (!actTeams.length) {
+      setSelectedTeamId(null);
+      return;
+    }
+
+    if (!selectedTeamId || !actTeams.some((team) => String(team.id) === String(selectedTeamId))) {
+      setSelectedTeamId(actTeams[0].id);
+    }
+  }, [actTeams, selectedTeamId]);
+
+  const selectedTeam = actTeams.find((team) => String(team.id) === String(selectedTeamId)) || null;
+
+  useEffect(() => {
     const fetchRoles = async () => {
-      if (!id || actTeams.length === 0) return;
+      if (!id || !selectedTeam) return;
       setLoadingRoles(true);
       try {
         const uniqueRoles = [...new Set(
-          actTeams.flatMap(t => (t.roleConfigs || []).map(rc => rc.role))
+          (selectedTeam.roleConfigs || []).map(rc => rc.role)
         )];
 
         const currentUserId = user?.id || user?.sub;
@@ -272,7 +299,7 @@ export default function ActDetail() {
           uniqueRoles.map(async (role) => {
             const apiData = await actApi.getRole(id, role)
               .catch(() => ({ teamCandidates: [], roleCandidates: [] }));
-            return { role, roleInfo: buildRoleInfo(role, actTeams, apiData, userimg, currentUserId) };
+            return { role, roleInfo: buildRoleInfo(role, selectedTeam, apiData, userimg, currentUserId) };
           })
         );
 
@@ -323,7 +350,7 @@ export default function ActDetail() {
       }
     };
     fetchRoles();
-  }, [id, actTeams]);
+  }, [id, selectedTeam, user?.id, user?.sub]);
 
   // Загрузка голосований
   useEffect(() => {
@@ -341,8 +368,12 @@ export default function ActDetail() {
     return () => clearInterval(interval);
   }, [id]);
 
-  const handleVote = async (pollId, optionId) => {
+  const handleVote = async (pollId, optionId, endsAt) => {
     if (userVotes[pollId] !== undefined) return;
+    if (endsAt && Date.now() > new Date(endsAt).getTime()) {
+      toast.warning('Voting deadline has passed');
+      return;
+    }
     try {
       await pollApi.vote(pollId, optionId);
       setUserVotes(prev => ({ ...prev, [pollId]: optionId }));
@@ -373,10 +404,11 @@ export default function ActDetail() {
 
   const refetchRole = async (role) => {
     try {
+      if (!selectedTeam) return;
       const currentUserId = user?.id || user?.sub;
       const apiData = await actApi.getRole(id, role)
         .catch(() => ({ teamCandidates: [], roleCandidates: [] }));
-      const roleInfo = buildRoleInfo(role, actTeams, apiData, userimg, currentUserId);
+      const roleInfo = buildRoleInfo(role, selectedTeam, apiData, userimg, currentUserId);
       setRoleCandidates(prev => ({ ...prev, [role]: roleInfo }));
     } catch (e) {
       console.error('refetchRole error:', e);
@@ -690,6 +722,42 @@ const copyShareLink = () => {
           </div>
         )}
 
+        {actTeams.length > 1 && (
+          <div className={styles.parentnav}>
+            <div className={styles.navigators}>
+              <div className={styles.cardcontfirst}>
+                <p className={styles.title} style={{ fontSize: '18px', margin: '0px' }}>Teams</p>
+                <p className={styles.subtitle} style={{ fontSize: '14px', margin: '0px', color: 'rgb(181, 179, 179)' }}>
+                  Switch team to view its voting
+                </p>
+                <div style={{ marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {actTeams.map((team) => {
+                    const isSelected = String(team.id) === String(selectedTeamId);
+                    return (
+                      <button
+                        key={team.id}
+                        onClick={() => setSelectedTeamId(team.id)}
+                        style={{
+                          border: isSelected ? '1px solid #009DFF' : '1px solid rgba(255,255,255,0.15)',
+                          background: isSelected ? 'rgba(0,157,255,0.12)' : 'rgba(255,255,255,0.04)',
+                          color: isSelected ? '#009DFF' : '#ddd',
+                          borderRadius: '10px',
+                          padding: '8px 12px',
+                          fontFamily: 'Oxanium, sans-serif',
+                          fontSize: '13px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {team.name || `Team ${team.id}`}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Секции ролей — fixed / voting_candidates / open_voting */}
         {(() => {
           const ROLE_LABELS = {
@@ -710,9 +778,9 @@ const copyShareLink = () => {
             return 'open';
           };
 
-          const uniqueRoles = [...new Set(
-            actTeams.flatMap(t => (t.roleConfigs || []).map(rc => rc.role))
-          )];
+          const uniqueRoles = selectedTeam
+            ? [...new Set((selectedTeam.roleConfigs || []).map(rc => rc.role))]
+            : [];
           return uniqueRoles.map(role => {
             const roleInfo = roleCandidates[role] || { method: null, candidates: [] };
             const { method, candidates, votingDeadline, votingStartAt } = roleInfo;
@@ -948,6 +1016,7 @@ const copyShareLink = () => {
                 </p>
                 {polls.map((poll) => {
                   const voted = userVotes[poll.id] !== undefined;
+                  const isPollClosed = poll.endsAt && Date.now() > new Date(poll.endsAt).getTime();
                   return (
                     <div key={poll.id} style={{ marginTop: '12px', background: '#1a1a1a', borderRadius: '12px', padding: '14px' }}>
                       <p style={{ color: 'white', fontWeight: 'bold', marginBottom: '8px' }}>{poll.title}</p>
@@ -957,19 +1026,20 @@ const copyShareLink = () => {
                         return (
                           <div
                             key={opt.id}
-                            onClick={() => handleVote(poll.id, opt.id)}
+                            onClick={() => handleVote(poll.id, opt.id, poll.endsAt)}
                             style={{
                               display: 'flex',
                               alignItems: 'center',
                               gap: '10px',
                               marginBottom: '8px',
-                              cursor: voted ? 'default' : 'pointer',
+                              cursor: voted || isPollClosed ? 'default' : 'pointer',
                               padding: '8px 10px',
                               borderRadius: '8px',
                               border: isChosen ? '1px solid #009DFF' : '1px solid #333',
-                              background: '#111',
+                              background: isPollClosed ? 'rgba(255,255,255,0.03)' : '#111',
                               position: 'relative',
                               overflow: 'hidden',
+                              opacity: isPollClosed ? 0.65 : 1,
                             }}
                           >
                             {/* прогресс-бар */}
@@ -993,7 +1063,9 @@ const copyShareLink = () => {
                       })}
                       {poll.endsAt && (
                         <p style={{ color: '#888', fontSize: '12px', marginTop: '4px' }}>
-                          Ends: {new Date(poll.endsAt).toLocaleString()}
+                          {isPollClosed
+                            ? `Voting ended: ${new Date(poll.endsAt).toLocaleString()}`
+                            : `Ends: ${new Date(poll.endsAt).toLocaleString()}`}
                         </p>
                       )}
                     </div>

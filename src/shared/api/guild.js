@@ -11,8 +11,8 @@ export const guildApi = {
     const response = await api.get(`/guild/${id}`);
     return response.data;
   },
-  joinGuild: async (id) => {
-    const response = await api.post(`/guild/submit-request/${id}`);
+  joinGuild: async (id, message) => {
+    const response = await api.post(`/guild/submit-request/${id}`, { message });
     return response.data;
   },
   updateInfo: async (name, desc, photo, cover, id) => {
@@ -63,6 +63,21 @@ AcceptJoin: async(id) => {
 RejectJoin: async(id) => {
   const response = await api.post(`/guild/join-requests/${id}/reject`);
   return response.data; 
+},
+
+getMyInvites: async () => {
+  const response = await api.get("/guild/my-invites");
+  return response.data;
+},
+
+acceptInvite: async (guildId) => {
+  const response = await api.post(`/guild/${guildId}/invite/accept`);
+  return response.data;
+},
+
+rejectInvite: async (guildId) => {
+  const response = await api.post(`/guild/${guildId}/invite/reject`);
+  return response.data;
 },
 
 };

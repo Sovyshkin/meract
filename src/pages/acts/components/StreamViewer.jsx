@@ -99,6 +99,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const [heroStreams, setHeroStreams] = useState([]);
   const [showHeroPicker, setShowHeroPicker] = useState(false);
   const [isSelectedHeroEnded, setIsSelectedHeroEnded] = useState(false);
+  const [viewerCount, setViewerCount] = useState(0);
   const teamChatSocketRef = useRef(null);
   const teamChatEndRef = useRef(null);
   // Состояния для записей
@@ -114,6 +115,15 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const [isPublishing, setIsPublishing] = useState(false);
   const [isStreamActive, setIsStreamActive] = useState(false);
   const [isStartingStream, setIsStartingStream] = useState(false);
+
+  // Состояния для оценки акта
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [ratingValue, setRatingValue] = useState(8);
+  const [hasRated, setHasRated] = useState(false);
+  const [currentRating, setCurrentRating] = useState(null);
+  const [currentRatingsCount, setCurrentRatingsCount] = useState(0);
+  const watchedTimeRef = useRef(0);
+  const ratingTimerRef = useRef(null);
 
   // WebSocket состояние
   const [wsConnected, setWsConnected] = useState(false);
@@ -459,6 +469,35 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     }, 2500);
     return () => clearInterval(timer);
   }, [actId, loadHeroStreams]);
+
+  useEffect(() => {
+    if (!actId || !selectedStreamerId || !isSelectedHeroOnline) {
+      setViewerCount(0);
+      return;
+    }
+
+    let active = true;
+    const loadViewersCount = async () => {
+      try {
+        const data = await actApi.getHeroStreamViewersCount(actId, selectedStreamerId);
+        if (!active) return;
+        const count = Number(data?.viewersCount ?? 0);
+        setViewerCount(Number.isFinite(count) ? Math.max(0, count) : 0);
+      } catch {
+        if (active) {
+          setViewerCount(0);
+        }
+      }
+    };
+
+    loadViewersCount();
+    const timer = setInterval(loadViewersCount, 5000);
+
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [actId, selectedStreamerId, isSelectedHeroOnline]);
 
   const heroStatusSocketRef = useRef(null);
   useEffect(() => {
@@ -1433,6 +1472,61 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     }
   }, [isConnected]);
 
+  // Timer for rating prompt - track if user watched for 10+ seconds
+  useEffect(() => {
+    if (!isConnected || hasRated) return;
+
+    watchedTimeRef.current = 0;
+    
+    ratingTimerRef.current = setInterval(() => {
+      watchedTimeRef.current += 1;
+    }, 1000);
+
+    return () => {
+      if (ratingTimerRef.current) {
+        clearInterval(ratingTimerRef.current);
+        ratingTimerRef.current = null;
+      }
+    };
+  }, [isConnected, hasRated]);
+
+  // Show rating modal when user leaves after 10+ seconds of watching
+  useEffect(() => {
+    if (!showRatingModal || hasRated) return;
+
+    const handleBeforeUnload = () => {
+      if (watchedTimeRef.current >= 10 && !hasRated) {
+        setShowRatingModal(true);
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [showRatingModal, hasRated]);
+
+  const handleRateAct = async () => {
+    if (hasRated) return;
+    try {
+      const response = await actApi.rateAct(actId, ratingValue);
+      if (response) {
+        setCurrentRating(response.rating);
+        setCurrentRatingsCount(response.ratingsCount);
+        setHasRated(true);
+      }
+    } catch (err) {
+      console.error('Failed to submit rating:', err);
+    }
+    setShowRatingModal(false);
+  };
+
+  const handleRatingClose = () => {
+    if (watchedTimeRef.current >= 10 && !hasRated) {
+      setShowRatingModal(true);
+    } else {
+      onClose?.();
+    }
+  };
+
   // Настраиваем командный чат (только для членов команды)
   useEffect(() => {
     if (!actId) return;
@@ -2037,9 +2131,9 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
             {isConnected && (
               <div className={styles.connectedOverlay}>
                 {isSelectedStreamer ? (
-                  <p>Streaming - {remoteUsers.length} viewer(s)</p>
+                  <p>Streaming - {viewerCount} viewer(s)</p>
                 ) : (
-                  <p>Connected - {remoteUsers.length} publisher(s)</p>
+                  <p>Connected - {viewerCount} viewer(s) now watching</p>
                 )}
               </div>
             )}
@@ -2547,6 +2641,85 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                   autoPlay
                   className={styles.recordingVideo}
                 />
+              </div>
+            </div>
+          )}
+
+          {showRatingModal && (
+            <div className={styles.modalOverlay}>
+              <div className={styles.recordingPlayer}>
+                <div className={styles.recordingPlayerHeader}>
+                  <h3>Rate this Act</h3>
+                  <button 
+                    onClick={() => setShowRatingModal(false)}
+                    className={styles.closePlayerButton}
+                  >
+                    ×
+                  </button>
+                </div>
+                <div style={{ padding: '20px', textAlign: 'center' }}>
+                  <p style={{ color: '#b5b3b3', marginBottom: '20px' }}>
+                    How would you rate this stream?
+                  </p>
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'center', 
+                    gap: '8px', 
+                    marginBottom: '20px',
+                    flexWrap: 'wrap'
+                  }}>
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((val) => (
+                      <button
+                        key={val}
+                        onClick={() => setRatingValue(val)}
+                        style={{
+                          width: '50px',
+                          height: '50px',
+                          borderRadius: '10px',
+                          border: ratingValue === val ? '2px solid #009DFF' : '1px solid rgba(255,255,255,0.15)',
+                          background: ratingValue === val ? 'rgba(0,157,255,0.2)' : 'rgba(255,255,255,0.05)',
+                          color: ratingValue === val ? '#009DFF' : 'white',
+                          fontSize: '16px',
+                          fontWeight: '600',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {val}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                    <button
+                      onClick={() => setShowRatingModal(false)}
+                      style={{
+                        padding: '12px 24px',
+                        borderRadius: '10px',
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        background: 'rgba(255,255,255,0.05)',
+                        color: '#b5b3b3',
+                        fontSize: '14px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Skip
+                    </button>
+                    <button
+                      onClick={handleRateAct}
+                      style={{
+                        padding: '12px 24px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        background: '#009DFF',
+                        color: 'white',
+                        fontSize: '14px',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Submit Rating
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           )}

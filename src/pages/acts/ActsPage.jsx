@@ -15,6 +15,7 @@ import { geoApi } from "../../shared/api/geo.js";
 import { useFilterStore } from "../../shared/stores/actsFilters.js";
 import api from "../../shared/api/api.js";
 import { useNotificationStore } from "../../shared/stores/notificationStore.js";
+import { useAuthStore } from "../../shared/stores/authStore.js";
 
 export default function ActsPage() {
   const [acts, setActs] = useState([]);
@@ -31,13 +32,14 @@ export default function ActsPage() {
   const { clearAll } = useSequelStore();
   const navigate = useNavigate();
   const unreadCount = useNotificationStore((s) => s.unreadCount);
+  const userLocation = useAuthStore((s) => s.location);
 
   const { selectedRangeIdx, setDistanceRange } = useFilterStore();
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const data = await actApi.getAllActs();
+        const data = await actApi.getAllActs(userLocation);
         setActs(data);
       } catch (error) {
         console.error("Failed to load acts:", error);
@@ -46,7 +48,7 @@ export default function ActsPage() {
       }
     };
     fetchData();
-  }, []);
+  }, [userLocation]);
 
   // Load active categories for tabs
   useEffect(() => {

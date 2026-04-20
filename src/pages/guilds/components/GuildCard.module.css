@@ -266,6 +266,11 @@
   background-color: #009DFFF5;
   padding: 7px;
 }
+.usersdiv img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
 .cont{
   display: flex;
   justify-content: space-between;
@@ -301,4 +306,7 @@
   position: absolute;
   top: 10px;
   right: 0px;
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
 }

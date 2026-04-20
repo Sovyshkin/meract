@@ -55,6 +55,7 @@ import LocationPage from "../../pages/settings/LocationPage";
 import LocationDetailPage from "../../pages/settings/LocaltionDetail";
 import SecurityPage from "../../pages/settings/SecurityPage";
 import TechnicalSupport from "../../pages/TechnicalSupport/TechnicalSupport";
+import SupportPage from "../../pages/support/SupportPage";
 import ActDetail from "../../pages/acts/ActsDetail";
 import TeamDetail from "../../pages/createAct/TeamDetail";
 import MyActsPage from "../../pages/acts/MyActs";
@@ -312,7 +313,7 @@ export const router = createBrowserRouter([
   },
   {
     path: "support",
-    element: <TechnicalSupport />,
+    element: <SupportPage />,
   },
   {
     path: "team",

@@ -468,6 +468,9 @@ const ChatMulti = () => {
             } ${msg.isOptimistic ? styles.optimistic : ''} ${msg.isDeleted ? styles.deletedMessage : ''}`}
             onClick={() => openFullScreenMedia(msg)}
           >
+            {msg.sender?.id !== currentUser?.id && (
+              <span className={styles.senderName}>{msg.sender?.login || msg.sender?.email || 'User'}</span>
+            )}
             <p className={styles.msgText} dangerouslySetInnerHTML={{ __html: msg.displayText || '' }} />
             <span className={styles.msgTime}>{msg.time}</span>
           </div>

@@ -161,6 +161,31 @@ export default function ChatPage() {
       </div>
 
       <div className={styles.cardcont}>
+        <div 
+          className={styles.card}
+          onClick={() => navigate('/support')}
+          style={{ borderLeft: '3px solid #009DFF' }}
+        >
+          <div className={styles.rankBadge}>
+            <img src={notification} alt="support" className={styles.rankImg} />
+          </div>
+          <div className={styles.cardInfo}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <p className={styles.userName}>Support</p>
+            </div>
+            <p style={{ 
+              color: '#bbb', 
+              fontSize: '13px', 
+              margin: 0,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}>
+              Get help with your issues
+            </p>
+          </div>
+        </div>
+
         {loading ? (
           <h3 style={{ color: 'white', margin: 'auto' }}>Loading...</h3>
         ) : filteredChats.length > 0 ? (

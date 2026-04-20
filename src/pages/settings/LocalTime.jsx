@@ -8,26 +8,38 @@ import { profileApi } from '../../shared/api/profile';
 const LocalTime = () => {
     const navigate = useNavigate();
     const {name} = useParams();
-    const [selectedId, setSelectedId] = useState(1);
 
     const [timeZones, setTimeZones] = useState([]);
     const [selectedZone, setSelectedZone] = useState(name || ''); 
+    const [isAutoDetected, setIsAutoDetected] = useState(false);
     
     useEffect(() => {
+        const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
         const fetchData = async () => {
             try {
             const data = await profileApi.getTimezone();
             setTimeZones(data.zones);
             console.log(data, 'localllllllll');
+            
+            if (!name) {
+                setSelectedZone(browserTz);
+                setIsAutoDetected(true);
+                try {
+                    await profileApi.updateTimezone(browserTz);
+                } catch (e) {
+                    console.error("Failed to auto-save timezone:", e);
+                }
+            }
     
             } catch (error) {
             console.error("Ошибка при загрузке:", error);
             }
         };
         fetchData();
-    }, [])
+    }, [name])
     const handleSelect = async (zone) => {
     setSelectedZone(zone); 
+    setIsAutoDetected(false);
     try {
         await profileApi.updateTimezone(zone);
     } catch (e) {
@@ -47,6 +59,11 @@ const LocalTime = () => {
                     />
                     <div className="name">
                         <h1>Local time</h1>
+                        {isAutoDetected && (
+                            <p style={{ fontSize: '11px', color: '#00F300', margin: '2px 0 0 0' }}>
+                                Auto-detected from browser
+                            </p>
+                        )}
                     </div>
                     <div></div>
                 </div>

@@ -47,29 +47,61 @@ function App() {
   }, [isAuthenticated, user?.id]);
 
   useEffect(() => {
-    if (isAuthenticated && navigator.geolocation) {
-      console.log(" Запрос доступа к геолокации...");
-
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const locationData = {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          };
-
-          console.log(" Геолокация получена:", locationData);
-          setLocation(locationData);
-        },
-        (error) => {
-          console.error(" Ошибка получения геолокации:", error.message);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0,
-        },
-      );
+    if (!isAuthenticated || !navigator.geolocation) {
+      return;
     }
+
+    console.log(" Запрос доступа к геолокации...");
+
+    let watchId = null;
+
+    const handleSuccess = (position) => {
+      const locationData = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      };
+      console.log(" Геолокация получена:", locationData);
+      setLocation(locationData);
+    };
+
+    const handleError = (error) => {
+      console.error(" Ошибка получения геолокации:", error.message);
+      switch (error.code) {
+        case error.PERMISSION_DENIED:
+          console.error(" Пользователь отклонил запрос геолокации");
+          break;
+        case error.POSITION_UNAVAILABLE:
+          console.error(" Местоположение недоступно");
+          break;
+        case error.TIMEOUT:
+          console.error(" Тайм-аут запроса геолокации");
+          break;
+        default:
+          console.error(" Неизвестная ошибка геолокации");
+      }
+    };
+
+    navigator.geolocation.getCurrentPosition(handleSuccess, handleError, {
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 60000,
+    });
+
+    watchId = navigator.geolocation.watchPosition(
+      handleSuccess,
+      handleError,
+      {
+        enableHighAccuracy: false,
+        timeout: 15000,
+        maximumAge: 300000,
+      }
+    );
+
+    return () => {
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
   }, [isAuthenticated, setLocation]);
 
   return (

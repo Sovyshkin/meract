@@ -93,8 +93,9 @@ const transformTeamsForApi = (teams) => {
 };
 
 export const actApi = {
-  getAllActs: async () => {
-    const response = await api.get("/act/get-acts");
+  getAllActs: async (coords) => {
+    const params = coords ? { lat: coords.latitude, lng: coords.longitude } : {};
+    const response = await api.get("/act/get-acts", { params });
     return response.data;
   },
 
@@ -175,6 +176,11 @@ export const actApi = {
     return response.data;
   },
 
+  getHeroStreamViewersCount: async (actId, heroUserId) => {
+    const response = await api.get(`/act/${actId}/hero-streams/${heroUserId}/viewers-count`);
+    return response.data;
+  },
+
   voteTeamCandidate: async (actId, candidateId) => {
     const response = await api.post(`/act/${actId}/vote-team-candidate`, { candidateId });
     return response.data;
@@ -192,6 +198,11 @@ export const actApi = {
 
   assignRole: async (actId, roleType, candidateId) => {
     const response = await api.post(`/act/${actId}/assign-role`, { roleType, candidateId });
+    return response.data;
+  },
+
+  rateAct: async (actId, value) => {
+    const response = await api.post(`/act/rate/${actId}`, { value });
     return response.data;
   },
 };
