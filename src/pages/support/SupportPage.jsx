@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import styles from "./SupportPage.module.css";
 import back from '../../images/arrow-left.png';
 import send from '../../images/send.png';
-import supportIcon from '../../images/support.png';
 import { supportApi } from "../../shared/api/support";
 import { useAuthStore } from "../../shared/stores/authStore";
 import { toast } from "react-toastify";
@@ -202,7 +201,7 @@ export default function SupportPage() {
           <div className={styles.ticketList}>
             {tickets.length === 0 ? (
               <div className={styles.emptyState}>
-                <img src={supportIcon} alt="Support" className={styles.emptyIcon} />
+                <span style={{fontSize:'48px'}}>🎫</span>
                 <p>No tickets yet</p>
                 <p className={styles.emptySubtext}>Create a new ticket to get help</p>
               </div>
