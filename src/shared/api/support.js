@@ -1,8 +1,10 @@
 import api from "./api";
+import axios from "axios";
+import { useAuthStore } from "../stores/authStore";
 
 export const supportApi = {
   createTicket: async (subject, message) => {
-    const response = await api.post("/support/tickets", { subject, message });
+    const response = await api.post("/support/tickets", { title: subject, description: message });
     return response.data;
   },
 
@@ -16,8 +18,25 @@ export const supportApi = {
     return response.data;
   },
 
-  sendTicketMessage: async (ticketId, message) => {
-    const response = await api.post(`/support/tickets/${ticketId}/message`, { message });
+  sendTicketMessage: async (ticketId, message, file = null) => {
+    const token = useAuthStore.getState().getToken();
+    const formData = new FormData();
+
+    formData.append("message", message || "File attachment");
+    if (file) {
+      formData.append("file", file);
+    }
+
+    const response = await axios.post(
+      `${import.meta.env.VITE_API_URL}/support/tickets/${ticketId}/message`,
+      formData,
+      {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        },
+        withCredentials: true
+      }
+    );
     return response.data;
   },
 

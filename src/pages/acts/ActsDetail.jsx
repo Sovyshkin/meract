@@ -182,6 +182,8 @@ export default function ActDetail() {
   const [scheduledAt, setScheduledAt] = useState(null);
   const [date, setDate] = useState('');
   const [rating, setRating] = useState(0);
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [ratingValue, setRatingValue] = useState(5);
   const [genre, setGenre] = useState([]);
   const [time, setTime] = useState('0 min');
   const [sequelData, setSequelData] = useState(null);
@@ -516,7 +518,18 @@ export default function ActDetail() {
     WebkitMaskImage: 'linear-gradient(to bottom, black 70%, transparent 100%)',
     maskImage: 'linear-gradient(to bottom, black 70%, transparent 100%)'
   };
-const copyShareLink = () => {
+const handleRateAct = async () => {
+    try {
+      const response = await actApi.rateAct(id, ratingValue);
+      setRating(response.rating);
+      setShowRatingModal(false);
+      toast.success('Rating submitted!');
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to submit rating');
+    }
+  };
+
+  const copyShareLink = () => {
     const currentUrl = window.location.href;
     navigator.clipboard.writeText(currentUrl)
       .then(() => {
@@ -584,7 +597,7 @@ const copyShareLink = () => {
                 </p>
               )}
               <div style={{ display: 'flex', gap: '15px' }}>
-                <div style={{ display: 'flex', gap: '5px' }}>
+                <div style={{ display: 'flex', gap: '5px', cursor: 'pointer' }} onClick={() => setShowRatingModal(true)}>
                   <img src={star} alt="" style={{ width: '20px', height: '20px' }} />
                   <p style={{ color: '#00F300' }}>{rating}</p>
                 </div>
@@ -1071,6 +1084,93 @@ const copyShareLink = () => {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showRatingModal && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.8)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+          }}>
+            <div style={{
+              background: '#1a1a1a',
+              borderRadius: '16px',
+              padding: '24px',
+              width: '90%',
+              maxWidth: '360px',
+              border: '1px solid rgba(255,255,255,0.1)',
+            }}>
+              <h3 style={{ color: 'white', marginBottom: '8px', textAlign: 'center' }}>Rate this Act</h3>
+              <p style={{ color: '#b5b3b3', marginBottom: '20px', textAlign: 'center', fontSize: '14px' }}>
+                How would you rate this act?
+              </p>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                gap: '8px',
+                marginBottom: '20px',
+                flexWrap: 'wrap'
+              }}>
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((val) => (
+                  <button
+                    key={val}
+                    onClick={() => setRatingValue(val)}
+                    style={{
+                      width: '50px',
+                      height: '50px',
+                      borderRadius: '10px',
+                      border: ratingValue === val ? '2px solid #009DFF' : '1px solid rgba(255,255,255,0.15)',
+                      background: ratingValue === val ? 'rgba(0,157,255,0.2)' : 'rgba(255,255,255,0.05)',
+                      color: ratingValue === val ? '#009DFF' : 'white',
+                      fontSize: '16px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {val}
+                  </button>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                <button
+                  onClick={() => setShowRatingModal(false)}
+                  style={{
+                    padding: '12px 24px',
+                    borderRadius: '10px',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    background: 'rgba(255,255,255,0.05)',
+                    color: '#b5b3b3',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRateAct}
+                  style={{
+                    padding: '12px 24px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background: '#009DFF',
+                    color: 'white',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Submit
+                </button>
               </div>
             </div>
           </div>

@@ -115,6 +115,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const [isPublishing, setIsPublishing] = useState(false);
   const [isStreamActive, setIsStreamActive] = useState(false);
   const [isStartingStream, setIsStartingStream] = useState(false);
+  const [isFacingFront, setIsFacingFront] = useState(true);
 
   // Состояния для оценки акта
   const [showRatingModal, setShowRatingModal] = useState(false);
@@ -239,16 +240,18 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   } = useRecordings(actId, selectedStreamerId ? Number(selectedStreamerId) : undefined);
 
   useEffect(() => {
-    // Never auto-switch after a hero has already been selected.
-    // Stream switch for viewers must remain manual only.
+    if (!selectedStreamerId && !heroAutoSelectedRef.current) {
+      return;
+    }
     if (selectedStreamerId) {
+      heroAutoSelectedRef.current = true;
       return;
     }
 
     if (mergedHeroStreamers.length === 0) {
-      // Keep selected hero stable to avoid fallback to waiting screen.
       if (currentUserId && (isHero || isInitiator)) {
         setSelectedStreamerId(currentUserId);
+        heroAutoSelectedRef.current = true;
       }
       return;
     }
@@ -256,14 +259,15 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     const selfHero = mergedHeroStreamers.find((h) => String(h.heroUserId) === String(currentUserId));
     if (selfHero) {
       setSelectedStreamerId(selfHero.heroUserId);
+      heroAutoSelectedRef.current = true;
       return;
     }
     const onlineHero = mergedHeroStreamers.find((h) => h.status === 'ONLINE');
     if (onlineHero) {
       setSelectedStreamerId(onlineHero.heroUserId);
+      heroAutoSelectedRef.current = true;
       return;
     }
-    setSelectedStreamerId(mergedHeroStreamers[0].heroUserId);
   }, [mergedHeroStreamers, currentUserId, selectedStreamerId, isStartingStream, isPublishing, isStreamActive, isHero, isInitiator]);
 
   const remoteVideoRef = useRef(null);
@@ -283,6 +287,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const viewerRetryCountRef = useRef(0);
   const MAX_VIEWER_CONNECT_RETRIES = 4;
   const viewerSubscribeInFlightRef = useRef(new Set());
+  const heroAutoSelectedRef = useRef(false);
 
   const [isopenmenu, setisopenmenu] = useState(false);
   const forceResetAgoraClient = useCallback(async () => {
@@ -1060,10 +1065,65 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     }
   };
 
+  // Переключение камеры (передняя/задняя)
+  const switchCamera = useCallback(async () => {
+    if (!localVideoTrackRef.current || !clientRef.current) return;
+
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cameras = devices.filter(d => d.kind === 'videoinput');
+
+      if (cameras.length < 2) {
+        toast.info('Only one camera available');
+        return;
+      }
+
+      const currentDeviceId = localVideoTrackRef.current.getCurrentDeviceInfo?.()?.deviceId;
+      const targetFacing = isFacingFront ? 'back' : 'front';
+
+      const targetCamera = cameras.find(c => {
+        const label = c.label?.toLowerCase() || '';
+        return targetFacing === 'front'
+          ? label.includes('front') || label.includes('facing front')
+          : label.includes('back') || label.includes('rear') || label.includes('facing back');
+      });
+
+      const newCamera = targetCamera || cameras.find(c => c.deviceId !== currentDeviceId);
+      if (!newCamera) {
+        toast.info('Target camera not found');
+        return;
+      }
+
+      const newVideoTrack = await AgoraRTC.createCameraVideoTrack({
+        encoderConfig: { width: 640, height: 480 },
+        cameraId: newCamera.deviceId,
+      });
+
+      newVideoTrack.play(localVideoRef.current, { mirror: false });
+
+      await clientRef.current.unpublish([localVideoTrackRef.current]);
+      await clientRef.current.publish([newVideoTrack]);
+
+      localVideoTrackRef.current.stop();
+      localVideoTrackRef.current.close();
+      localVideoTrackRef.current = newVideoTrack;
+      setLocalVideoTrack(newVideoTrack);
+      setIsFacingFront(!isFacingFront);
+
+      debugLog(`📷 Camera switched to ${isFacingFront ? 'back' : 'front'}`);
+      toast.success(`Camera: ${isFacingFront ? 'back' : 'front'}`);
+    } catch (err) {
+      console.error('Camera switch failed:', err);
+      toast.error('Failed to switch camera');
+    }
+  }, [isFacingFront]);
+
   // Функция для остановки стрима (для стримера)
   const stopStreaming = async () => {
     if (!isSelectedStreamer) return;
-    
+
+    wasManuallyStoppedRef.current = true;
+
     try {
       debugLog("🛑 Stopping stream...");
 
@@ -1420,11 +1480,13 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       clientRef.current.leave();
       clientRef.current = null;
     }
-    
+
     setLocalVideoTrack(null);
     setLocalAudioTrack(null);
     setIsPublishing(false);
     setIsStreamActive(false);
+    setIsConnected(false);
+    setRemoteUsers([]);
     isConnectingRef.current = false;
   };
 
@@ -1846,6 +1908,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
   // Автореконнект стримера: если он вернулся на страницу, а стрим уже ONLINE
   const autoReconnectDoneRef = useRef(false);
+  const wasManuallyStoppedRef = useRef(false);
   useEffect(() => {
     autoReconnectDoneRef.current = false;
   }, [selectedStreamerId]);
@@ -1858,10 +1921,14 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       !isStartingStream &&
       !isConnectingRef.current &&
       !autoReconnectDoneRef.current &&
-      !clientRef.current
+      !clientRef.current &&
+      !wasManuallyStoppedRef.current
     ) {
       autoReconnectDoneRef.current = true;
       reconnectAsStreamer();
+    }
+    if (!isSelectedHeroOnline && !isPublishing) {
+      wasManuallyStoppedRef.current = false;
     }
   }, [isSelectedStreamer, isSelectedHeroOnline, isPublishing, isStartingStream]);
 
@@ -2292,6 +2359,19 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                   >
                     <span style={{ fontSize: '22px', lineHeight: 1 }}>
                       {isMicMuted ? '🔇' : '🎙️'}
+                    </span>
+                  </button>
+                )}
+
+                {/* Кнопка переключения камеры (только для стримера) */}
+                {isSelectedStreamer && (
+                  <button
+                    className={styles.actionButton}
+                    onClick={switchCamera}
+                    title={isFacingFront ? 'Switch to back camera' : 'Switch to front camera'}
+                  >
+                    <span style={{ fontSize: '22px', lineHeight: 1 }}>
+                      {isFacingFront ? '📹' : '📷'}
                     </span>
                   </button>
                 )}
