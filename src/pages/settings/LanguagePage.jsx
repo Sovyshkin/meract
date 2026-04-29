@@ -9,7 +9,7 @@ const LanguageSelection = () => {
     const navigate = useNavigate();
 
     const [languages, setLanguages] = useState([]);
-    const [selectedLanguages, setSelectedLanguages] = useState({});
+    const [selectedLanguage, setSelectedLanguage] = useState('');
 
       useEffect(() => {
     const fetchData = async () => {
@@ -18,15 +18,9 @@ const LanguageSelection = () => {
             setLanguages(allLangsRes.languages || []);
 
             const selectedRes = await profileApi.getSelectedlang();
-            
-            const selectedArray = selectedRes.languages; 
 
-            if (Array.isArray(selectedArray)) {
-                const initialSelected = {};
-                selectedArray.forEach(lang => {
-                    initialSelected[lang] = true;
-                });
-                setSelectedLanguages(initialSelected);
+            if (selectedRes?.languages && selectedRes.languages.length > 0) {
+                setSelectedLanguage(selectedRes.languages[0]);
             }
         } catch (error) {
             console.error("error", error);
@@ -37,29 +31,14 @@ const LanguageSelection = () => {
 }, []);
 
 
-    const toggleLanguage = (langName) => {
-        setSelectedLanguages(prev => ({
-            ...prev,
-            [langName]: !prev[langName]
-        }));
-    };
-
     const savelang = async () => {
-        const selectedArray = Object.keys(selectedLanguages).filter(
-            (key) => selectedLanguages[key] === true
-        );
-
-        if (selectedArray.length === 0) {
-            alert("Please select at least one language");
+        if (!selectedLanguage) {
+            alert("Please select a language");
             return;
         }
 
-        const dataToSend = {
-            languages: selectedArray
-        };
-
         try {
-            await profileApi.updateLang(dataToSend);
+            await profileApi.updateLang([selectedLanguage]);
             navigate('/settings/profile');
         } catch (error) {
             console.error("Ошибка при сохранении:", error);
@@ -85,18 +64,18 @@ const LanguageSelection = () => {
 
             <div className={styles.cardwrapmain}>
                 {languages.map((item, index) => (
-                    <div 
-                        key={index} 
-                        className={styles.cardcont} 
-                        onClick={() => toggleLanguage(item)}
+                    <div
+                        key={index}
+                        className={styles.cardcont}
+                        onClick={() => setSelectedLanguage(item)}
                     >
                         <div className={styles.card}>
                             <div className={styles.cardInfo}>
                                 <p className={styles.userName}>{item}</p>
                             </div>
-                            
+
                             <div className={styles.selectionArea}>
-                                {selectedLanguages[item] && (
+                                {selectedLanguage === item && (
                                     <img src={selectedIcon} alt="selected" className={styles.selectedIcon} />
                                 )}
                             </div>

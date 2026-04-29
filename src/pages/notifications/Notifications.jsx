@@ -14,7 +14,7 @@ const accept = () => {
 const reject = () => {
     console.log('Rejected');
 }
-const NotificationCard = ({ card, isExpanded, onToggle, onDelete, onRead, canSwipe }) => {
+const NotificationCard = ({ card, isExpanded, onToggle, onDelete, onRead, canSwipe, onAccept, onReject }) => {
   const [isOverflowing, setIsOverflowing] = useState(false);
   const textRef = useRef(null);
 
@@ -93,10 +93,10 @@ const NotificationCard = ({ card, isExpanded, onToggle, onDelete, onRead, canSwi
       {/* Кнопки только для Invitations (когда canSwipe = false) */}
       {!canSwipe && (
         <div className={styles.btncont} style={{ marginTop: '12px', display: 'flex', gap: '10px' }}>
-          <button style={{ flex: 1 }} onClick={reject}>
+          <button style={{ flex: 1 }} onClick={() => onReject && onReject(card)}>
             Отклонить
           </button>
-          <button className={styles.active} style={{ flex: 1 }} onClick={accept}>
+          <button className={styles.active} style={{ flex: 1 }} onClick={() => onAccept && onAccept(card)}>
             Принять
           </button>
         </div>
@@ -170,7 +170,7 @@ const Notifications = () => {
 
   // Split into general notifications and invitations
   // "invitation" type → Invitations tab; everything else → Notifications tab
-  const INVITATION_TYPES = ['guild_invite', 'act_invite', 'team_invite', 'invitation'];
+  const INVITATION_TYPES = ['guild_invite', 'act_invite', 'team_invite', 'stream_invite', 'invitation'];
   const generalNotifications = storeNotifications.filter(
     (n) => !INVITATION_TYPES.includes(n.type)
   );
@@ -212,6 +212,21 @@ const Notifications = () => {
       console.error('Mark all read failed:', err);
     }
   }, [markAllRead]);
+
+  const handleAccept = useCallback(async (card) => {
+    if (card.type === 'stream_invite' && card.metadata?.actId) {
+      navigate(`/stream/${card.metadata.actId}`);
+    } else if (card.type === 'act_invite' && card.metadata?.actId) {
+      navigate(`/acts/${card.metadata.actId}`);
+    } else if (card.type === 'guild_invite' && card.metadata?.guildId) {
+      navigate(`/guilds/${card.metadata.guildId}`);
+    }
+    markRead(card.id);
+  }, [markRead, navigate]);
+
+  const handleReject = useCallback(async (card) => {
+    markRead(card.id);
+  }, [markRead]);
 
   const unreadCount = storeNotifications.filter((n) => !n.isRead).length;
 
@@ -269,6 +284,7 @@ const Notifications = () => {
                     avatar: n.imageUrl || null,
                     isRead: n.isRead,
                     type: n.type,
+                    metadata: n.metadata || {},
                   };
                   return (
                     <NotificationCard
@@ -279,6 +295,8 @@ const Notifications = () => {
                       onDelete={handleDelete}
                       onRead={handleMarkRead}
                       canSwipe={nav === 0}
+                      onAccept={handleAccept}
+                      onReject={handleReject}
                     />
                   );
                 })}

@@ -10,11 +10,11 @@ export default function GuildCard({ guild }) {
   console.log(guild, '1!!!!!!@#')
    const id = guild.id; 
    const isLive = guild.status;
-   const title = guild.name || 'no name';
+   const title = guild.name || 'Untitled';
    const description = guild.description;
    const acts = guild.actsCount ?? 0; 
    const users = guild.membersCount ?? 0;
-   const tags = guild.tags.join(', ');
+   const tags = guild.tags?.join(', ') || '';
    let rawImageUrl = guild.logoFileName || guild_default;
    let finalImage;
    let coverurl = guild.coverFileName || guild_default;

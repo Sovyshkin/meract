@@ -27,7 +27,7 @@ export const profileApi = {
     return response.data;
   },
   updateTimezone: async (zone) => {
-    const response = await api.post(`/user/select-time-zone?zone=${zone}`);
+    const response = await api.post(`/user/select-time-zone?zone=${encodeURIComponent(zone)}`);
     return response.data;
   },
    getNotice: async () => {
@@ -105,15 +105,15 @@ updateInfo: async (name, desc, avatarFile, coverFile, id) => {
     return response.data;
   },
   updateLang: async (languages) => {
-    const response = await api.post(`/user/update-languages`, languages);
+    const response = await api.post(`/user/update-languages`, { languages });
     return response.data;
   },
-  setCity: async () => {
-    const response = await api.post(`user/set-city`);
+  setCity: async (city) => {
+    const response = await api.post(`/user/set-city`, { city });
     return response.data;
-  }, 
-  setCountry: async () => {
-    const response = await api.post(`/user/set-country`);
+  },
+  setCountry: async (country) => {
+    const response = await api.post(`/user/set-country`, { country });
     return response.data;
   },
   getUserById: async (id) => {

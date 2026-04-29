@@ -21,6 +21,7 @@ export default function GuildsPage() {
     const fetchData = async () => {
       try {
         const data = await guildApi.getAllGuilds();
+        console.log('Guilds API response:', data);
         setGuilds(data);
       } catch (error) {
         console.error(error);

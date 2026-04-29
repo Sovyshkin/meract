@@ -334,7 +334,7 @@ useEffect(() => {
           <div className={styles.head}>
             <img src={guildImg} alt="" className={styles.avatar} />
             <div className={styles.headtext}>
-              <h1 className={styles.title}>{guild?.name || 'no name'}</h1>
+              <h1 className={styles.title}>{title || 'no name'}</h1>
               <div className={styles.usersdiv}>
                 <img src={userimg} alt="" />
                 <p className={styles.desc} style={{ color: '#c9c8c8' }}>{usersCount}</p>
@@ -410,14 +410,14 @@ useEffect(() => {
 
             {isAdmin && memberTab === 0 && joinusers.length > 0 && (
               <div style={{display:'flex', flexDirection:'column', gap:'10px', marginTop: '10px'}}>
-                {joinusers.map((member) => (
+                {joinusers.filter(m => m.user?.login || m.user?.email).map((member) => (
                   <div key={member.id} className={styles.members} style={{display:'flex', flexDirection:'column'}}>
                     <div style={{display:'flex', alignItems:'center', gap:'10px', width:'100%'}}>
                       <div className={styles.rankBadge}>
                         <img src={member.user.avatarUrl || userimg} alt="avatar" className={styles.rankImg} />
                       </div>
                       <div className={styles.cardInfo}>
-                        <p className={styles.userName}>{member.user.login || 'no name'}</p>
+                        <p className={styles.userName}>{member.user.login || member.user.email}</p>
                         {member.message && (
                           <p style={{color:'#888', fontSize:'12px', margin:'2px 0 0 0'}}>"{member.message}"</p>
                         )}
@@ -434,13 +434,13 @@ useEffect(() => {
 
             {isAdmin && memberTab === 1 && (
               <div style={{display:'flex', flexDirection:'column', gap:'10px', marginTop: '10px'}}>
-                {members.map((member) => (
+                {members.filter(m => m.login || m.email).map((member) => (
                   <div key={member.id} className={styles.members}>
                     <div className={styles.rankBadge}>
                       <img src={member.avatarUrl || userimg} alt="avatar" className={styles.rankImg} />
                     </div>
                     <div className={styles.cardInfo}>
-                      <p className={styles.userName}>{member.login || 'no name'}</p>
+                      <p className={styles.userName}>{member.login || member.email}</p>
                       <p className={styles.userName} style={{ color: member.status === 'ACTIVE' ? '#00F300' : '#c0c0c0' }}>
                         {member.status == 'ACTIVE' ? <span>online</span> : <span>offline</span>}
                       </p>
@@ -452,13 +452,13 @@ useEffect(() => {
 
             {!isAdmin && isMember && memberTab === 1 && (
               <div style={{display:'flex', flexDirection:'column', gap:'10px', marginTop: '10px'}}>
-                {members.map((member) => (
+                {members.filter(m => m.login || m.email).map((member) => (
                   <div key={member.id} className={styles.members}>
                     <div className={styles.rankBadge}>
                       <img src={member.avatarUrl || userimg} alt="avatar" className={styles.rankImg} />
                     </div>
                     <div className={styles.cardInfo}>
-                      <p className={styles.userName}>{member.login || 'no name'}</p>
+                      <p className={styles.userName}>{member.login || member.email}</p>
                       <p className={styles.userName} style={{ color: member.status === 'ACTIVE' ? '#00F300' : '#c0c0c0' }}>
                         {member.status == 'ACTIVE' ? <span>online</span> : <span>offline</span>}
                       </p>
@@ -494,13 +494,13 @@ useEffect(() => {
 
             {!isAdmin && !isMember && (
               <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
-                {members.map((member) => (
+                {members.filter(m => m.login || m.email).map((member) => (
                   <div key={member.id} className={styles.members}>
                     <div className={styles.rankBadge}>
                       <img src={member.avatarUrl || userimg} alt="avatar" className={styles.rankImg} />
                     </div>
                     <div className={styles.cardInfo}>
-                      <p className={styles.userName}>{member.login || 'no name'}</p>
+                      <p className={styles.userName}>{member.login || member.email}</p>
                       <p className={styles.userName} style={{ color: member.status === 'ACTIVE' ? '#00F300' : '#c0c0c0' }}>
                         {member.status == 'ACTIVE' ? <span>online</span> : <span>offline</span>}
                       </p>

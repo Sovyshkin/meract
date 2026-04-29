@@ -71,13 +71,23 @@ getMyInvites: async () => {
 },
 
 acceptInvite: async (guildId) => {
-  const response = await api.post(`/guild/${guildId}/invite/accept`);
-  return response.data;
-},
+    const response = await api.post(`/guild/${guildId}/invite/accept`);
+    return response.data;
+  },
 
-rejectInvite: async (guildId) => {
-  const response = await api.post(`/guild/${guildId}/invite/reject`);
-  return response.data;
-},
+  rejectInvite: async (guildId) => {
+    const response = await api.post(`/guild/${guildId}/invite/reject`);
+    return response.data;
+  },
+
+  transferOwner: async (guildId, newOwnerId) => {
+    const response = await api.patch(`/guild/${guildId}/owner/transfer`, { newOwnerId });
+    return response.data;
+  },
+
+  setMemberAdmin: async (guildId, userId, isAdmin) => {
+    const response = await api.patch(`/guild/${guildId}/members/${userId}/admin`, { isAdmin });
+    return response.data;
+  },
 
 };

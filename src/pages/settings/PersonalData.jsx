@@ -21,10 +21,12 @@ const PersonalData = () => {
     const [date, setDate] = useState('');
     const [lang, setLang] = useState([]);
     const [time, setTime] = useState();
-    const [location, setLocation] = useState();
+    const [location, setLocation] = useState('');
     const [browserTimezone, setBrowserTimezone] = useState('');
     const [locationPermission, setLocationPermission] = useState('prompt');
     const setAuthLocation = useAuthStore((state) => state.setLocation);
+    const cachedLocation = useAuthStore((state) => state.cachedLocation);
+    const setCachedLocation = useAuthStore((state) => state.setCachedLocation);
 
     useEffect(() => {
         const detectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -46,26 +48,45 @@ const PersonalData = () => {
         }
     }, []);
 
-    useEffect(() => {
+useEffect(() => {
     const fetchData = async () => {
         try {
         const data = await profileApi.getProfile();
         console.log(data, 'dataaaa');
 
         setAvatar(data.avatarUrl);
-        setUsername(data.login || "No login"); 
+        setUsername(data.login || "No login");
         setFullname(data.fullName || "no name");
         setDate(data.createdAt.split('T')[0]);
         setLang(data.communicationLanguages);
         setTime(data.timeZone)
-        setLocation(`${data.country}, ${data.city}`);
+
+        if (data.country && data.city) {
+            setLocation(`${data.country}, ${data.city}`);
+        } else if (cachedLocation) {
+            setLocation(cachedLocation);
+        } else {
+            try {
+                const geoResponse = await fetch('https://ipapi.co/json/');
+                const geoData = await geoResponse.json();
+                if (geoData.country_name && geoData.city) {
+                    const loc = `${geoData.country_name}, ${geoData.city}`;
+                    setLocation(loc);
+                    setCachedLocation(loc);
+                } else {
+                    setLocation('Not available');
+                }
+            } catch {
+                setLocation('Not available');
+            }
+        }
         } catch (error) {
         console.error("Ошибка при загрузке:", error);
         }
     };
 
     fetchData();
-    }, []);
+}, [cachedLocation, setCachedLocation]);
 
     const DeleteLogo = async() =>{
         try {
@@ -128,28 +149,28 @@ const PersonalData = () => {
         await DeleteLogo();
     } 
 
-    const openModal = (type) => {
+const openModal = (type) => {
     setModalType(type);
-    setModalValue(type === 'Full name' ? fullname : username);
+    setModalValue(type === 'Name' ? fullname : username);
     setIsModalOpen(true);
-};
+  };
 
 
     const closeModal = () => setIsModalOpen(false);
-    const handleSave = async () => {
+const handleSave = async () => {
     try {
         if (modalType === 'Name') {
             await profileApi.updateFullname(modalValue);
-            setFullname(modalValue); 
+            setFullname(modalValue);
         } else if (modalType === 'Username') {
-            await profileApi.updateUsername(modalValue); 
-            setUsername(modalValue); 
+            await profileApi.updateUsername(modalValue);
+            setUsername(modalValue);
         }
         closeModal();
     } catch (error) {
         console.error("Ошибка при сохранении:", error);
     }
-};
+  };
 
     const handleRequestLocation = () => {
         if (!navigator.geolocation) {

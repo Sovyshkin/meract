@@ -359,14 +359,20 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
     debugLog("🔌 Connecting to MainGateway WebSocket...");
     
-    const socket = io('http://localhost:3000', {
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const wsUrl = apiUrl.replace(/\/api$/, '');
+    const socket = io(wsUrl, {
       transports: ['websocket'],
       path: '/socket.io',
       query: {
         actId: actId,
         userId: user.id,
         token: useAuthStore.getState().getToken()
-      }
+      },
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
     });
 
     socketRef.current = socket;
@@ -374,9 +380,25 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     socket.on('connect', () => {
       debugLog('✅ Connected to MainGateway');
       setWsConnected(true);
-      
-      // Присоединяемся к комнате акта
+      if (isSelectedStreamer) {
+        toast.success('Connection restored');
+      }
+
       socket.emit('joinAct', { actId: parseInt(actId) });
+    });
+
+    socket.on('reconnect_attempt', (attemptNumber) => {
+      debugLog(`🔄 Reconnection attempt #${attemptNumber}`);
+      if (isSelectedStreamer) {
+        toast.warning(`Reconnecting... attempt ${attemptNumber}`);
+      }
+    });
+
+    socket.on('reconnect_error', (error) => {
+      debugLog('❌ Reconnection error:', error);
+      if (isSelectedStreamer) {
+        toast.error('Connection error. Please check your internet.');
+      }
     });
 
     socket.on('streamStarted', (data) => {
@@ -425,6 +447,9 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     socket.on('disconnect', (reason) => {
       debugLog('❌ Disconnected from MainGateway:', reason);
       setWsConnected(false);
+      if (isSelectedStreamer) {
+        toast.error('Connection lost! Trying to reconnect...');
+      }
     });
 
     return () => {

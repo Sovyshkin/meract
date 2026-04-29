@@ -27,4 +27,14 @@ export const noticeApi = {
     const response = await api.delete(`/notifications/${id}`);
     return response.data;
   },
+
+  setCity: async (city) => {
+    const response = await api.post(`/user/set-city`, { city });
+    return response.data;
+  },
+
+  setCountry: async (country) => {
+    const response = await api.post(`/user/set-country`, { country });
+    return response.data;
+  },
 };

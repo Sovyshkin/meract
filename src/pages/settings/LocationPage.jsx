@@ -51,67 +51,143 @@ const LocationPage = () => {
         }
     };
 
+    const getLocationByIP = async () => {
+        try {
+            const response = await fetch('https://ipapi.co/json/');
+            const data = await response.json();
+            return {
+                city: data.city,
+                country: data.country_name,
+                latitude: data.latitude,
+                longitude: data.longitude,
+            };
+        } catch (e) {
+            console.error("IP-based location failed:", e);
+            return null;
+        }
+    };
+
+    const saveLocation = async (position) => {
+        const { latitude, longitude } = position.coords;
+        const locationData = { latitude, longitude };
+        setAuthLocation(locationData);
+        setCurrentLocation(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+
+        const { city, country } = await reverseGeocode(latitude, longitude);
+
+        if (city && country) {
+            try {
+                await profileApi.setCity(city);
+                await profileApi.setCountry(country);
+                setCurrentLocation(`${city}, ${country}`);
+                alert(`Location saved: ${city}, ${country}`);
+            } catch (e) {
+                console.error("Failed to save location to backend:", e);
+                alert(`Location detected: ${city}, ${country}`);
+            }
+        } else {
+            alert(`Coordinates saved: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+        }
+        setLocationPermission('granted');
+        setIsLoading(false);
+    };
+
     const Save = async () => {
+        const ipData = await getLocationByIP();
+        if (ipData) {
+            try {
+                await profileApi.setCity(ipData.city || 'Unknown');
+                await profileApi.setCountry(ipData.country || 'Unknown');
+                setCurrentLocation(`${ipData.city}, ${ipData.country}`);
+                setAuthLocation({ latitude: ipData.latitude, longitude: ipData.longitude });
+                alert(`Location saved: ${ipData.city}, ${ipData.country}`);
+            } catch (e) {
+                setCurrentLocation(`${ipData.city}, ${ipData.country}`);
+                alert(`Location: ${ipData.city}, ${ipData.country}`);
+            }
+            return;
+        }
+
         if (!navigator.geolocation) {
-            alert("Geolocation is not supported by your browser");
+            alert("Geolocation is not supported and IP-based location failed");
             return;
         }
 
         setIsLoading(true);
 
-        navigator.geolocation.getCurrentPosition(
-            async (position) => {
-                const { latitude, longitude } = position.coords;
-                console.log("Latitude:", latitude, "Longitude:", longitude);
-                
-                const locationData = { latitude, longitude };
-                setAuthLocation(locationData);
-                setCurrentLocation(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
-                
-                const { city, country } = await reverseGeocode(latitude, longitude);
-                console.log("Reverse geocode result:", city, country);
-                
-                if (city && country) {
-                    try {
-                        await profileApi.setCity();
-                        await profileApi.setCountry();
-                        setCurrentLocation(`${city}, ${country}`);
-                        alert(`Location saved: ${city}, ${country}`);
-                    } catch (e) {
-                        console.error("Failed to save location to backend:", e);
-                        alert(`Location detected: ${city}, ${country} (could not save to server)`);
+        const tryGeolocation = (options, retries = 2) => {
+            return new Promise((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        resolve(position);
+                    },
+                    (error) => {
+                        if (retries > 0 && error.code === error.TIMEOUT) {
+                            navigator.geolocation.getCurrentPosition(
+                                (pos) => resolve(pos),
+                                (err) => reject(err),
+                                { ...options, timeout: 30000, maximumAge: 600000 }
+                            );
+                        } else {
+                            reject(error);
+                        }
+                    },
+                    options
+                );
+            });
+        };
+
+        try {
+            let position;
+            try {
+                position = await tryGeolocation({
+                    enableHighAccuracy: true,
+                    timeout: 15000,
+                    maximumAge: 0
+                }, 2);
+            } catch (highAccuracyError) {
+                try {
+                    position = await tryGeolocation({
+                        enableHighAccuracy: false,
+                        timeout: 20000,
+                        maximumAge: 300000
+                    }, 2);
+                } catch (lowAccuracyError) {
+                    const ipData = await getLocationByIP();
+                    if (ipData) {
+                        try {
+                            await profileApi.setCity(ipData.city || 'Unknown');
+                            await profileApi.setCountry(ipData.country || 'Unknown');
+                            setCurrentLocation(`${ipData.city}, ${ipData.country}`);
+                            alert(`Location saved (IP-based): ${ipData.city}, ${ipData.country}`);
+                        } catch (e) {
+                            setCurrentLocation(`${ipData.city}, ${ipData.country}`);
+                            alert(`Location (IP-based): ${ipData.city}, ${ipData.country}`);
+                        }
+                        setIsLoading(false);
+                        return;
                     }
-                } else {
-                    alert(`Coordinates saved: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+                    throw lowAccuracyError;
                 }
-                
-                setLocationPermission('granted');
-                setIsLoading(false);
-            },
-            (error) => {
-                setIsLoading(false);
-                switch(error.code) {
-                    case error.PERMISSION_DENIED:
-                        setLocationPermission('denied');
-                        alert("Location access denied. Please enable it in your browser settings.");
-                        break;
-                    case error.POSITION_UNAVAILABLE:
-                        alert("Location information is unavailable.");
-                        break;
-                    case error.TIMEOUT:
-                        alert("The request to get user location timed out.");
-                        break;
-                    default:
-                        alert("An unknown error occurred.");
-                        break;
-                }
-            },
-            {
-                enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 0
             }
-        );
+            await saveLocation(position);
+        } catch (error) {
+            setIsLoading(false);
+            switch (error.code) {
+                case error.PERMISSION_DENIED:
+                    setLocationPermission('denied');
+                    alert("Location access denied. Please enable it in browser settings.");
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    alert("Location information unavailable.");
+                    break;
+                case error.TIMEOUT:
+                    alert("Location request timed out.");
+                    break;
+                default:
+                    alert("Failed to get location. Please try again.");
+            }
+        }
     };
 
     const getPermissionStatus = () => {
@@ -133,11 +209,11 @@ const LocationPage = () => {
         <div className={styles.container}>
             <div className={styles.header}>
                     <div className={styles.header_cont}>
-                      <img 
-                        src={back} 
-                        alt="menu" 
+                      <img
+                        src={back}
+                        alt="menu"
                         onClick={() => navigate('/settings/profile')}
-                        style={{ cursor: 'pointer' }} 
+                        style={{ cursor: 'pointer' }}
                       />
                       <div className={styles.name}>
                         <div className="name"><h1>Location</h1></div>
@@ -145,17 +221,17 @@ const LocationPage = () => {
                       <div></div>
                     </div>
                      <div >
-                         
-                      </div>
+
+                     </div>
                     <div className={styles.nav}>
                       <div className={styles.searchWrapper}>
                         <img src={search} alt="search" className={styles.searchIcon} />
                         <input type="text" placeholder="Search" className={styles.input} />
-                        <img 
-                          src={filter} 
-                          alt="filter" 
-                          className={styles.filterIcon} 
-                          onClick={() => navigate('/chat-create')} 
+                        <img
+                          src={filter}
+                          alt="filter"
+                          className={styles.filterIcon}
+                          onClick={() => navigate('/chat-create')}
                         />
                       </div>
                     </div>
@@ -173,33 +249,33 @@ const LocationPage = () => {
                 </div>
 
                 {languages.map((item) => (
-                    <div 
-                        key={item.id} 
-                        className={styles.cardcont} 
+                    <div
+                        key={item.id}
+                        className={styles.cardcont}
                         onClick={() => navigate(`/settings/location/${item.name}`)}
                     >
                         <div className={styles.card}>
                             <div className={styles.cardInfo}>
                                 <p className={styles.userName}>{item.label}</p>
                             </div>
-                            
+
                             <svg className={styles.arrowIcon} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                                                       <polyline points="9 18 15 12 9 6"></polyline>
-                                                   </svg>
+                                                        <polyline points="9 18 15 12 9 6"></polyline>
+                                                    </svg>
                         </div>
                     </div>
                 ))}
             </div>
             <div className={styles.savebutton}>
-                <button 
-                    className={styles.active} 
+                <button
+                    className={styles.active}
                     onClick={Save}
                     disabled={isLoading || locationPermission === 'denied' || locationPermission === 'unsupported'}
                 >
                     {isLoading ? 'Getting location...' : 'Allow access to geodata'}
                 </button>
             </div>
-        </div>  
+        </div>
     );
 };
 

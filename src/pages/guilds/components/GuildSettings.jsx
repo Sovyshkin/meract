@@ -33,9 +33,14 @@ const GuildSettings = () => {
     // Файлы и превью
     const [avatarFile, setAvatarFile] = useState(null);
     const [coverFile, setCoverFile] = useState(null);
-    const [avatarPreview, setAvatarPreview] = useState(null);
-    const [coverPreview, setCoverPreview] = useState(null);
+const [avatarPreview, setAvatarPreview] = useState(null);
+  const [coverPreview, setCoverPreview] = useState(null);
 const [inviteError, setInviteError] = useState(false);
+const [guildData, setGuildData] = useState(null);
+const [members, setMembers] = useState([]);
+const [selectedNewOwner, setSelectedNewOwner] = useState('');
+const [transfering, setTransfering] = useState(false);
+const [settingAdmin, setSettingAdmin] = useState(null);
 
     useEffect(() => {
     const loadAllData = async () => {
@@ -53,6 +58,8 @@ const [inviteError, setInviteError] = useState(false);
                 setDescription(guildData.description || '');
                 setAvatarPreview(guildData.logoFileName || null);
                 setCoverPreview(guildData.coverFileName || null);
+                setGuildData(guildData);
+                setMembers(guildData.members || []);
             }
 
             if (profiledata) {
@@ -98,7 +105,36 @@ const [inviteError, setInviteError] = useState(false);
     };
     
 
-    if (loading) return <div className={styles.loader}>Loading...</div>;
+    const handleTransferOwnership = async () => {
+    if (!selectedNewOwner) return;
+    try {
+      setTransfering(true);
+      await guildApi.transferOwner(id, Number(selectedNewOwner));
+      alert('Ownership transferred successfully');
+      navigate(`/guilds/${id}`);
+    } catch (error) {
+      console.error('Failed to transfer ownership:', error);
+      alert('Failed to transfer ownership');
+    } finally {
+      setTransfering(false);
+    }
+  };
+
+  const handleToggleAdmin = async (memberId, currentIsAdmin) => {
+    try {
+      setSettingAdmin(memberId);
+      await guildApi.setMemberAdmin(id, memberId, !currentIsAdmin);
+      alert(`Admin ${currentIsAdmin ? 'removed' : 'added'} successfully`);
+      navigate(`/guilds/${id}`);
+    } catch (error) {
+      console.error('Failed to update admin:', error);
+      alert('Failed to update admin');
+    } finally {
+      setSettingAdmin(null);
+    }
+  };
+
+  if (loading) return <div className={styles.loader}>Loading...</div>;
     
    const inviteUser = async () => {
     if (!username) {
@@ -189,6 +225,55 @@ const [inviteError, setInviteError] = useState(false);
                         )} */}
                     </div>   
                 </>
+            )}
+
+            {isAdmin && members.length > 0 && (
+              <div className={styles.paragraph}>
+                <h4 className={styles.elsetitle}>Transfer Ownership</h4>
+                <p className={styles.subtitle}>Select a new owner</p>
+                <select
+                  className={styles.inputField}
+                  value={selectedNewOwner}
+                  onChange={(e) => setSelectedNewOwner(e.target.value)}
+                >
+                  <option value="">Select member...</option>
+                  {members.filter(m => m.id !== userid).map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.login || member.email}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className={styles.savebutton}
+                  onClick={handleTransferOwnership}
+                  disabled={!selectedNewOwner || transfering}
+                >
+                  {transfering ? 'Transferring...' : 'Transfer Ownership'}
+                </button>
+              </div>
+            )}
+
+            {isAdmin && members.length > 0 && (
+              <div className={styles.paragraph}>
+                <h4 className={styles.elsetitle}>Manage Admins</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px' }}>
+                  {members.filter(m => m.login || m.email).map((member) => (
+                    <div key={member.id} className={styles.card} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <p className={styles.subtitle}>{member.login || member.email}</p>
+                      </div>
+                      <button
+                        className={styles.savebutton}
+                        style={{ maxWidth: '120px', padding: '8px 12px', fontSize: '12px' }}
+                        onClick={() => handleToggleAdmin(member.id, member.isAdmin)}
+                        disabled={settingAdmin === member.id}
+                      >
+                        {settingAdmin === member.id ? '...' : (member.isAdmin ? 'Remove Admin' : 'Make Admin')}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
 
             {/* БЛОК ИНВАЙТОВ — только для владельца гильдии */}

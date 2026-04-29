@@ -14,6 +14,8 @@ export const useAuthStore = create(
       routeDestination: null,
       routeCoordinates: null,
       routePoints: [],
+      cachedGuildId: null,
+      cachedLocation: null,
 
       setUser: (userData) => {
         set({
@@ -70,6 +72,10 @@ export const useAuthStore = create(
           routePoints: [...currentPoints, newPoint],
         });
       },
+
+      setCachedGuildId: (id) => set({ cachedGuildId: id }),
+      setCachedLocation: (loc) => set({ cachedLocation: loc }),
+      getCachedLocation: () => get().cachedLocation,
 
       removeRoutePoint: (order) => {
         const currentPoints = get().routePoints;
@@ -149,6 +155,8 @@ export const useAuthStore = create(
           });
         }
       },
+
+      getCachedGuildId: () => get().cachedGuildId,
     }),
     {
       name: AUTH_STORAGE_KEY,
@@ -157,6 +165,8 @@ export const useAuthStore = create(
         token: state.token,
         isAuthenticated: state.isAuthenticated,
         location: state.location,
+        cachedGuildId: state.cachedGuildId,
+        cachedLocation: state.cachedLocation,
       }),
       version: 1,
     }

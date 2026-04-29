@@ -173,7 +173,8 @@ export default function SupportPage() {
   };
 
   const renderMessage = (msg, index) => {
-    const isMine = msg.senderId === user?.id || msg.senderId === user?.sub;
+    const isMine = msg.user?.id === user?.id || msg.user?.id === user?.sub;
+    const isAdmin = msg.user?.isadmin === true;
     const hasMedia = msg.fileUrl && msg.fileType;
     const text = msg.message || msg.text || '';
     const apiUrl = import.meta.env.VITE_API_URL.replace('/api', '');

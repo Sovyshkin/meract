@@ -47,61 +47,30 @@ function App() {
   }, [isAuthenticated, user?.id]);
 
   useEffect(() => {
-    if (!isAuthenticated || !navigator.geolocation) {
+    if (!isAuthenticated) {
       return;
     }
 
-    console.log(" Запрос доступа к геолокации...");
+    const fetchLocationByIP = async () => {
+      try {
+        const response = await fetch('https://ipapi.co/json/');
+        const data = await response.json();
+        const locationData = {
+          latitude: data.latitude,
+          longitude: data.longitude,
+        };
+        setLocation(locationData);
 
-    let watchId = null;
-
-    const handleSuccess = (position) => {
-      const locationData = {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      };
-      console.log(" Геолокация получена:", locationData);
-      setLocation(locationData);
-    };
-
-    const handleError = (error) => {
-      console.error(" Ошибка получения геолокации:", error.message);
-      switch (error.code) {
-        case error.PERMISSION_DENIED:
-          console.error(" Пользователь отклонил запрос геолокации");
-          break;
-        case error.POSITION_UNAVAILABLE:
-          console.error(" Местоположение недоступно");
-          break;
-        case error.TIMEOUT:
-          console.error(" Тайм-аут запроса геолокации");
-          break;
-        default:
-          console.error(" Неизвестная ошибка геолокации");
+        if (data.city && data.country_name) {
+          await noticeApi.setCity(data.city);
+          await noticeApi.setCountry(data.country_name);
+        }
+      } catch (e) {
+        console.error("IP-based location failed:", e);
       }
     };
 
-    navigator.geolocation.getCurrentPosition(handleSuccess, handleError, {
-      enableHighAccuracy: true,
-      timeout: 15000,
-      maximumAge: 60000,
-    });
-
-    watchId = navigator.geolocation.watchPosition(
-      handleSuccess,
-      handleError,
-      {
-        enableHighAccuracy: false,
-        timeout: 15000,
-        maximumAge: 300000,
-      }
-    );
-
-    return () => {
-      if (watchId !== null) {
-        navigator.geolocation.clearWatch(watchId);
-      }
-    };
+    fetchLocationByIP();
   }, [isAuthenticated, setLocation]);
 
   return (

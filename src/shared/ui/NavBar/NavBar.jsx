@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import api from "../../api/api";
 import styles from "./NavBar.module.css";
 import { useNotificationStore } from "../../stores/notificationStore";
+import { useAuthStore } from "../../stores/authStore";
 
 function ActIcon(props) {
   return (
@@ -66,6 +67,8 @@ export default function NavBar() {
   const navigate = useNavigate();
   const [guildId, setGuildId] = useState(null);
   const chatUnreadCount = useNotificationStore((s) => s.chatUnreadCount);
+  const cachedGuildId = useAuthStore((s) => s.cachedGuildId);
+  const setCachedGuildId = useAuthStore((s) => s.setCachedGuildId);
 
   const navItems = [
     { label: "Acts", icon: ActIcon, path: "/acts" },
@@ -76,11 +79,16 @@ export default function NavBar() {
   ];
 
   useEffect(() => {
+    if (cachedGuildId) {
+      setGuildId(cachedGuildId);
+      return;
+    }
     const fetchUserGuild = async () => {
       try {
         const response = await api.get("/guild/get-my-guild");
         if (response.data?.id) {
           setGuildId(response.data.id);
+          setCachedGuildId(response.data.id);
         }
       } catch (err) {
         console.error("Error fetching guild for chat:", err);
@@ -88,7 +96,7 @@ export default function NavBar() {
     };
 
     fetchUserGuild();
-  }, []);
+  }, [cachedGuildId, setCachedGuildId]);
 
   const handlePlayClick = () => {
     navigate("/create-act");

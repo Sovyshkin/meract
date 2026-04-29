@@ -1,11 +1,26 @@
 import styles from './SettingsPage.module.css';
 import { useNavigate } from "react-router-dom";
-
+import { useEffect, useState } from "react";
 import notification from '../../images/notification.png'
 import back from '../../images/arrow-left.png';
+import { profileApi } from '../../shared/api/profile';
 const SettingsPage = () => {
     const navigate = useNavigate();
-    const lang = 'English';
+    const [lang, setLang] = useState('English');
+
+    useEffect(() => {
+      const fetchLang = async () => {
+        try {
+          const data = await profileApi.getSelectedlang();
+          if (data?.languages && data.languages.length > 0) {
+            setLang(data.languages.join(', '));
+          }
+        } catch (e) {
+          console.error('Failed to fetch languages:', e);
+        }
+      };
+      fetchLang();
+    }, []);
     return(
         <div className={styles.container}>
               <div className={styles.header}>
