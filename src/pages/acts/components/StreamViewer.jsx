@@ -240,18 +240,13 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   } = useRecordings(actId, selectedStreamerId ? Number(selectedStreamerId) : undefined);
 
   useEffect(() => {
-    if (!selectedStreamerId && !heroAutoSelectedRef.current) {
-      return;
-    }
     if (selectedStreamerId) {
-      heroAutoSelectedRef.current = true;
       return;
     }
 
     if (mergedHeroStreamers.length === 0) {
       if (currentUserId && (isHero || isInitiator)) {
         setSelectedStreamerId(currentUserId);
-        heroAutoSelectedRef.current = true;
       }
       return;
     }
@@ -259,15 +254,14 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     const selfHero = mergedHeroStreamers.find((h) => String(h.heroUserId) === String(currentUserId));
     if (selfHero) {
       setSelectedStreamerId(selfHero.heroUserId);
-      heroAutoSelectedRef.current = true;
       return;
     }
     const onlineHero = mergedHeroStreamers.find((h) => h.status === 'ONLINE');
     if (onlineHero) {
       setSelectedStreamerId(onlineHero.heroUserId);
-      heroAutoSelectedRef.current = true;
       return;
     }
+    setSelectedStreamerId(mergedHeroStreamers[0].heroUserId);
   }, [mergedHeroStreamers, currentUserId, selectedStreamerId, isStartingStream, isPublishing, isStreamActive, isHero, isInitiator]);
 
   const remoteVideoRef = useRef(null);
