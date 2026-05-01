@@ -347,10 +347,12 @@ const TeamDetail = () => {
             )}
 
             {/* Open voting config for heroes */}
-            {heroMethod === 'open_voting' && (
+            {(heroMethod === 'open_voting' || heroMethod === 'voting_candidates') && (
                 <div className={styles.recruitmentDetails}>
                     <p style={{color:'#aaa', fontSize:'13px', marginBottom:'12px'}}>
-                        Any user can apply for the hero role. The winner is determined by viewer voting.
+                        {heroMethod === 'open_voting'
+                            ? 'Any user can apply for the hero role. The winner is determined by viewer voting.'
+                            : 'The audience will vote for the assigned candidates.'}
                     </p>
                     <div className={styles.recruitmentItem}>
                         <p className={styles.recruitmentLabel}>Voting start date</p>
@@ -465,10 +467,12 @@ const TeamDetail = () => {
                     </div>
                 )}
 
-                {navigatorMethod === 'open_voting' && (
+                {(navigatorMethod === 'open_voting' || navigatorMethod === 'voting_candidates') && (
                     <div className={styles.recruitmentDetails}>
                         <p style={{color:'#aaa', fontSize:'13px', marginBottom:'12px'}}>
-                            Any user can apply for the navigator role. The winner is determined by viewer voting.
+                            {navigatorMethod === 'open_voting'
+                                ? 'Any user can apply for the navigator role. The winner is determined by viewer voting.'
+                                : 'The audience will vote for the assigned candidates.'}
                         </p>
                         <div className={styles.recruitmentItem}>
                             <p className={styles.recruitmentLabel}>Voting start date</p>
@@ -585,10 +589,12 @@ const TeamDetail = () => {
                     </div>
                 )}
 
-                {agentMethod === 'open_voting' && (
+                {(agentMethod === 'open_voting' || agentMethod === 'voting_candidates') && (
                     <div className={styles.recruitmentDetails}>
                         <p style={{color:'#aaa', fontSize:'13px', marginBottom:'12px'}}>
-                            Any user can apply for the spot agent role. The winner is determined by viewer voting.
+                            {agentMethod === 'open_voting'
+                                ? 'Any user can apply for the spot agent role. The winner is determined by viewer voting.'
+                                : 'The audience will vote for the assigned candidates.'}
                         </p>
                         <div className={styles.recruitmentItem}>
                             <p className={styles.recruitmentLabel}>Voting start date</p>

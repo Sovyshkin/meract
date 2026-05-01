@@ -492,19 +492,23 @@
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .modalContent {
-  background: rgba(0, 0, 0, 0.9);
+  background: rgba(0, 0, 0, 0.95);
   border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 10px;
+  border-radius: 16px;
   padding: 24px;
   width: 90%;
-  max-width: 500px;
-  max-height: 80vh;
-  overflow: hidden;
+  max-width: 520px;
+  max-height: 85vh;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
 }
 
 .modalHeader {
@@ -1008,4 +1012,108 @@ position: absolute;
 @keyframes chatMsgIn {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+.pinnedMessagesHeader {
+  background: rgba(255, 200, 0, 0.08);
+  border-bottom: 1px solid rgba(255, 200, 0, 0.25);
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  font-size: 11px;
+  color: #ffc800;
+  font-weight: 600;
+}
+
+.pinnedMsg {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 200, 0, 0.1);
+}
+
+.pinnedMsg:last-child {
+  border-bottom: none;
+}
+
+.pinnedMsgContent {
+  flex: 1;
+}
+
+.pinnedMsgContent .chatOverlayUsername {
+  font-size: 11px;
+}
+
+.pinnedMsgContent .chatOverlayText {
+  font-size: 12px;
+  margin: 0;
+  color: #fff;
+}
+
+.pinBtn,
+.unpinBtn {
+  background: transparent;
+  border: none;
+  color: #ffc800;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 4px;
+  opacity: 0.5;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+}
+
+.pinBtn:hover,
+.unpinBtn:hover {
+  opacity: 1;
+}
+
+.pollCard {
+  background: rgba(255, 200, 0, 0.08);
+  border: 1px solid rgba(255, 200, 0, 0.25);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 8px;
+}
+
+.pollTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffc800;
+  margin-bottom: 4px;
+}
+
+.pollDesc {
+  font-size: 12px;
+  color: #b5b3b3;
+  margin-bottom: 8px;
+}
+
+.pollOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pollOptionBtn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 200, 0, 0.2);
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: white;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.2s;
+}
+
+.pollOptionBtn:hover {
+  background: rgba(255, 200, 0, 0.15);
+}
+
+.pollFooter {
+  font-size: 11px;
+  color: #888;
+  margin-top: 6px;
+  text-align: center;
 }

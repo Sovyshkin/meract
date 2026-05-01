@@ -9,6 +9,7 @@ import {
   Marker,
   Polyline,
   TileLayer,
+  useMapEvents,
 } from "react-leaflet";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -29,6 +30,7 @@ import tasks_image from '../../../images/tasks.png';
 import messages from '../../../images/messages.png';
 import geo from '../../../images/geo.png';
 import { chatApi } from "../../../shared/api/chat";
+import { pollApi } from "../../../shared/api/pollApi";
 
 import streaminfo from '../../../images/streaminfo.png';
 import video_slash from '../../../images/video-slash.png';
@@ -44,6 +46,11 @@ const debugLog = (...args) => {
     console.log(...args);
   }
 };
+
+function MapClickHandler({ onPick }) {
+  useMapEvents({ click: (e) => onPick(e.latlng.lat, e.latlng.lng) });
+  return null;
+}
 
 // Function to extract data from JWT token
 const parseJWT = (token) => {
@@ -129,13 +136,20 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   // WebSocket состояние
   const [wsConnected, setWsConnected] = useState(false);
   const socketRef = useRef(null);
+  const [showAddTaskModal, setShowAddTaskModal] = useState(false);
+  const [showProposeTaskModal, setShowProposeTaskModal] = useState(false);
+  const [newTaskDescription, setNewTaskDescription] = useState('');
+  const [newTaskAddress, setNewTaskAddress] = useState('');
+  const [newTaskLat, setNewTaskLat] = useState(null);
+  const [newTaskLng, setNewTaskLng] = useState(null);
+  const [newTaskGettingLocation, setNewTaskGettingLocation] = useState(false);
 
   debugLog("StreamViewer - Initial streamData:", streamData);
 
   // Use chat hook
   const actId = streamData?.id || channelName?.replace("act_", "");
   const { user } = useAuthStore();
-  const { messages: chatMessages, sendMessage: sendChatMessage, sending, fetchMessages: fetchChatMessages } = useChat(actId);
+  const { messages: chatMessages, sendMessage: sendChatMessage, sending, fetchMessages: fetchChatMessages, pinnedMessages, pinMessage, unpinMessage, proposeTask, addTask, addedTask, clearAddedTask, activePoll, clearActivePoll } = useChat(actId);
 
   // Spot Agent state
   const {
@@ -630,6 +644,17 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       toast.success("Spot Agent application submitted successfully!");
     } catch (err) {
       toast.error(err.message || "Failed to submit application");
+    }
+  };
+
+  const handleVote = async (optionId) => {
+    if (!activePoll) return;
+    try {
+      const updated = await pollApi.vote(activePoll.id, optionId);
+      setActivePoll(updated);
+      toast.success("Vote cast!");
+    } catch (err) {
+      toast.error(err.message || "Failed to vote");
     }
   };
 
@@ -1832,6 +1857,14 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     return () => clearInterval(syncTimer);
   }, [isTasksModalOpen, actId, actualStreamData]);
 
+  useEffect(() => {
+    if (addedTask) {
+      setTasks(prev => [...prev, addedTask]);
+      toast.success('Task added successfully');
+      clearAddedTask();
+    }
+  }, [addedTask]);
+
   // Fetch route data from actualStreamData
   useEffect(() => {
     const fetchRouteData = async () => {
@@ -2257,10 +2290,59 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                   {activeChat === 'general' && (
                     <>
                       <div className={styles.chatOverlayMessages}>
+                        {activePoll && (
+                          <div className={styles.pollCard}>
+                            <div className={styles.pollTitle}>{activePoll.title}</div>
+                            {activePoll.description && (
+                              <div className={styles.pollDesc}>{activePoll.description}</div>
+                            )}
+                            <div className={styles.pollOptions}>
+                              {activePoll.options?.map((opt) => (
+                                <button
+                                  key={opt.id}
+                                  className={styles.pollOptionBtn}
+                                  onClick={() => handleVote(opt.id)}
+                                >
+                                  {opt.text} — {opt.percent}%
+                                </button>
+                              ))}
+                            </div>
+                            <div className={styles.pollFooter}>
+                              {activePoll.totalVotes} votes · Ends {new Date(activePoll.endsAt).toLocaleTimeString()}
+                            </div>
+                          </div>
+                        )}
+                        {pinnedMessages.length > 0 && (
+                          <div className={styles.pinnedMessagesHeader}>
+                            📌 Pinned
+                            {pinnedMessages.map((m) => (
+                              <div key={`pin-${m.id}`} className={styles.pinnedMsg}>
+                                <div className={styles.pinnedMsgContent}>
+                                  <span className={styles.chatOverlayUsername}>{m.user?.username || 'User'}</span>
+                                  <p className={styles.chatOverlayText}>{m.text || m.message || m.content}</p>
+                                </div>
+                                {(isNavigator || isInitiator) && (
+                                  <button
+                                    className={styles.unpinBtn}
+                                    onClick={() => unpinMessage(m.id)}
+                                    title="Unpin"
+                                  >×</button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                         {chatMessages.filter(m => (m.message || m.content || '').trim()).map((m, i) => (
                           <div key={m.id || i} className={styles.chatOverlayMsg}>
                             <span className={styles.chatOverlayUsername}>{m.user?.username || m.username || 'User'}</span>
                             <p className={styles.chatOverlayText}>{m.message || m.content}</p>
+                            {(isNavigator || isInitiator) && (
+                              <button
+                                className={styles.pinBtn}
+                                onClick={() => pinMessage(m.id)}
+                                title="Pin"
+                              >📌</button>
+                            )}
                           </div>
                         ))}
                         <div ref={chatEndRef} />
@@ -2345,6 +2427,26 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                 >
                   <img src={messages} alt="Chat" />
                 </button>
+
+                {/* Navigator buttons */}
+                {isNavigator && (
+                  <>
+                    <button
+                      className={styles.actionButton}
+                      onClick={() => setShowAddTaskModal(true)}
+                      title="Add task"
+                    >
+                      <span style={{ fontSize: '16px' }}>➕</span>
+                    </button>
+                    <button
+                      className={styles.actionButton}
+                      onClick={() => setShowProposeTaskModal(true)}
+                      title="Propose task for voting"
+                    >
+                      <span style={{ fontSize: '16px' }}>🗳️</span>
+                    </button>
+                  </>
+                )}
                 
                 {/* Кнопка для Spot Agent (только для зрителей, не для стримера) */}
                 {!isSelectedStreamer && !isInitiator &&
@@ -2818,6 +2920,257 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                       Submit Rating
                     </button>
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Add Task Modal (Navigator) */}
+          {showAddTaskModal && (
+            <div className={styles.modalOverlay} onClick={() => setShowAddTaskModal(false)}>
+              <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
+                <h3 style={{ color: 'white', marginBottom: '16px' }}>Add New Task</h3>
+                <p style={{ color: '#BFBFBF', marginBottom: '6px', fontSize: '13px' }}>Description *</p>
+                <input
+                  type="text"
+                  placeholder="What needs to be done?"
+                  value={newTaskDescription}
+                  onChange={e => setNewTaskDescription(e.target.value)}
+                  style={{
+                    width: '100%', padding: '10px', borderRadius: '8px',
+                    background: 'rgba(255,255,255,0.08)', color: 'white',
+                    border: '1px solid rgba(255,255,255,0.15)', marginBottom: '14px',
+                    boxSizing: 'border-box',
+                  }}
+                />
+                <p style={{ color: '#BFBFBF', marginBottom: '6px', fontSize: '13px' }}>Address (optional)</p>
+                <input
+                  type="text"
+                  placeholder="Street address or landmark"
+                  value={newTaskAddress}
+                  onChange={e => setNewTaskAddress(e.target.value)}
+                  style={{
+                    width: '100%', padding: '10px', borderRadius: '8px',
+                    background: 'rgba(255,255,255,0.08)', color: 'white',
+                    border: '1px solid rgba(255,255,255,0.15)', marginBottom: '14px',
+                    boxSizing: 'border-box',
+                  }}
+                />
+                <p style={{ color: '#BFBFBF', marginBottom: '8px', fontSize: '13px' }}>Pick location on map (tap to pin)</p>
+                <div style={{ height: '220px', borderRadius: '10px', overflow: 'hidden', marginBottom: '10px', width: '100%' }}>
+                  <MapContainer
+                    center={newTaskLat != null ? [newTaskLat, newTaskLng] : [55.751244, 37.618423]}
+                    zoom={newTaskLat != null ? 14 : 4}
+                    style={{ height: '100%', width: '100%' }}
+                  >
+                    <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" attribution='&copy; OpenStreetMap &copy; CARTO' />
+                    <MapClickHandler onPick={(lat, lng) => { setNewTaskLat(lat); setNewTaskLng(lng); }} />
+                    {newTaskLat != null && <Marker position={[newTaskLat, newTaskLng]} />}
+                  </MapContainer>
+                </div>
+                {newTaskLat != null ? (
+                  <p style={{ color: '#888', fontSize: '12px', marginBottom: '10px', wordBreak: 'break-all' }}>
+                    📍 {newTaskLat.toFixed(6)}, {newTaskLng.toFixed(6)}
+                  </p>
+                ) : (
+                  <p style={{ color: '#666', fontSize: '12px', marginBottom: '10px' }}>No location selected</p>
+                )}
+                <div
+                  role="button"
+                  onClick={() => {
+                    if (!newTaskGettingLocation) {
+                      setNewTaskGettingLocation(true);
+                      navigator.geolocation.getCurrentPosition(
+                        (pos) => {
+                          setNewTaskLat(pos.coords.latitude);
+                          setNewTaskLng(pos.coords.longitude);
+                          setNewTaskGettingLocation(false);
+                        },
+                        () => setNewTaskGettingLocation(false),
+                        { enableHighAccuracy: true }
+                      );
+                    }
+                  }}
+                  style={{
+                    padding: '10px',
+                    borderRadius: '8px',
+                    background: 'rgba(255,255,255,0.07)',
+                    color: newTaskGettingLocation ? '#888' : '#BFBFBF',
+                    cursor: newTaskGettingLocation ? 'default' : 'pointer',
+                    textAlign: 'center',
+                    fontSize: '13px',
+                    marginBottom: '16px',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  {newTaskGettingLocation ? 'Getting location…' : '📡 Use my current location'}
+                </div>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    onClick={() => {
+                      setShowAddTaskModal(false);
+                      setNewTaskDescription('');
+                      setNewTaskAddress('');
+                      setNewTaskLat(null);
+                      setNewTaskLng(null);
+                    }}
+                    style={{
+                      flex: 1, padding: '11px',
+                      background: 'transparent', color: '#fff',
+                      border: '1px solid #555', borderRadius: '8px', cursor: 'pointer',
+                    }}
+                  >Cancel</button>
+                  <button
+                    onClick={() => {
+                      const teamId = actualStreamData?.teams?.[0]?.id;
+                      if (newTaskDescription.trim() && teamId) {
+                        addTask({
+                          actId, teamId,
+                          description: newTaskDescription.trim(),
+                          address: newTaskAddress.trim() || undefined,
+                          lat: newTaskLat ?? undefined,
+                          lng: newTaskLng ?? undefined,
+                        });
+                        setNewTaskDescription('');
+                        setNewTaskAddress('');
+                        setNewTaskLat(null);
+                        setNewTaskLng(null);
+                        setShowAddTaskModal(false);
+                      }
+                    }}
+                    style={{
+                      flex: 1, padding: '11px',
+                      background: '#FF3B57', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer',
+                    }}
+                  >Add Task</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Propose Task for Voting Modal (Navigator) */}
+          {showProposeTaskModal && (
+            <div className={styles.modalOverlay} onClick={() => setShowProposeTaskModal(false)}>
+              <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
+                <h3 style={{ color: 'white', marginBottom: '16px' }}>Propose Task for Voting</h3>
+                <p style={{ color: '#BFBFBF', fontSize: '13px', marginBottom: '12px' }}>
+                  The task will be sent to chat as a pinned message and put to a vote.
+                </p>
+                <p style={{ color: '#BFBFBF', marginBottom: '6px', fontSize: '13px' }}>Description *</p>
+                <input
+                  type="text"
+                  placeholder="What needs to be done?"
+                  value={newTaskDescription}
+                  onChange={e => setNewTaskDescription(e.target.value)}
+                  style={{
+                    width: '100%', padding: '10px', borderRadius: '8px',
+                    background: 'rgba(255,255,255,0.08)', color: 'white',
+                    border: '1px solid rgba(255,255,255,0.15)', marginBottom: '14px',
+                    boxSizing: 'border-box',
+                  }}
+                />
+                <p style={{ color: '#BFBFBF', marginBottom: '6px', fontSize: '13px' }}>Address (optional)</p>
+                <input
+                  type="text"
+                  placeholder="Street address or landmark"
+                  value={newTaskAddress}
+                  onChange={e => setNewTaskAddress(e.target.value)}
+                  style={{
+                    width: '100%', padding: '10px', borderRadius: '8px',
+                    background: 'rgba(255,255,255,0.08)', color: 'white',
+                    border: '1px solid rgba(255,255,255,0.15)', marginBottom: '14px',
+                    boxSizing: 'border-box',
+                  }}
+                />
+                <p style={{ color: '#BFBFBF', marginBottom: '8px', fontSize: '13px' }}>Pick location on map (tap to pin)</p>
+                <div style={{ height: '220px', borderRadius: '10px', overflow: 'hidden', marginBottom: '10px', width: '100%' }}>
+                  <MapContainer
+                    center={newTaskLat != null ? [newTaskLat, newTaskLng] : [55.751244, 37.618423]}
+                    zoom={newTaskLat != null ? 14 : 4}
+                    style={{ height: '100%', width: '100%' }}
+                  >
+                    <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" attribution='&copy; OpenStreetMap &copy; CARTO' />
+                    <MapClickHandler onPick={(lat, lng) => { setNewTaskLat(lat); setNewTaskLng(lng); }} />
+                    {newTaskLat != null && <Marker position={[newTaskLat, newTaskLng]} />}
+                  </MapContainer>
+                </div>
+                {newTaskLat != null ? (
+                  <p style={{ color: '#888', fontSize: '12px', marginBottom: '10px', wordBreak: 'break-all' }}>
+                    📍 {newTaskLat.toFixed(6)}, {newTaskLng.toFixed(6)}
+                  </p>
+                ) : (
+                  <p style={{ color: '#666', fontSize: '12px', marginBottom: '10px' }}>No location selected</p>
+                )}
+                <div
+                  role="button"
+                  onClick={() => {
+                    if (!newTaskGettingLocation) {
+                      setNewTaskGettingLocation(true);
+                      navigator.geolocation.getCurrentPosition(
+                        (pos) => {
+                          setNewTaskLat(pos.coords.latitude);
+                          setNewTaskLng(pos.coords.longitude);
+                          setNewTaskGettingLocation(false);
+                        },
+                        () => setNewTaskGettingLocation(false),
+                        { enableHighAccuracy: true }
+                      );
+                    }
+                  }}
+                  style={{
+                    padding: '10px',
+                    borderRadius: '8px',
+                    background: 'rgba(255,255,255,0.07)',
+                    color: newTaskGettingLocation ? '#888' : '#BFBFBF',
+                    cursor: newTaskGettingLocation ? 'default' : 'pointer',
+                    textAlign: 'center',
+                    fontSize: '13px',
+                    marginBottom: '16px',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  {newTaskGettingLocation ? 'Getting location…' : '📡 Use my current location'}
+                </div>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    onClick={() => {
+                      setShowProposeTaskModal(false);
+                      setNewTaskDescription('');
+                      setNewTaskAddress('');
+                      setNewTaskLat(null);
+                      setNewTaskLng(null);
+                    }}
+                    style={{
+                      flex: 1, padding: '11px',
+                      background: 'transparent', color: '#fff',
+                      border: '1px solid #555', borderRadius: '8px', cursor: 'pointer',
+                    }}
+                  >Cancel</button>
+                  <button
+                    onClick={() => {
+                      if (newTaskDescription.trim()) {
+                        proposeTask({
+                          actId,
+                          description: newTaskDescription.trim(),
+                          address: newTaskAddress.trim() || undefined,
+                          lat: newTaskLat ?? undefined,
+                          lng: newTaskLng ?? undefined,
+                          biddingTime: 10,
+                        });
+                        setNewTaskDescription('');
+                        setNewTaskAddress('');
+                        setNewTaskLat(null);
+                        setNewTaskLng(null);
+                        setShowProposeTaskModal(false);
+                      }
+                    }}
+                    style={{
+                      flex: 1, padding: '11px',
+                      background: '#FF3B57', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer',
+                    }}
+                  >Propose</button>
                 </div>
               </div>
             </div>

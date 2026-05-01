@@ -32,6 +32,8 @@ const transformTeamsForApi = (teams) => {
         role: 'hero',
         openVoting: false,
         candidateUserIds: team.heroes.map(h => h.id),
+        votingStartAt: `${team.heroVotingStartDate}T${team.heroVotingStartTime}:00`,
+        votingDurationHours: Number(team.heroVotingHours) || 24,
       });
     }
 
@@ -54,6 +56,8 @@ const transformTeamsForApi = (teams) => {
         role: 'navigator',
         openVoting: false,
         candidateUserIds: team.navigators.map(n => n.id),
+        votingStartAt: `${team.navigatorVotingStartDate}T${team.navigatorVotingStartTime}:00`,
+        votingDurationHours: Number(team.navigatorVotingHours) || 24,
       });
     }
 
@@ -76,6 +80,8 @@ const transformTeamsForApi = (teams) => {
         role: 'spot_agent',
         openVoting: false,
         candidateUserIds: team.agents.map(a => a.id),
+        votingStartAt: `${team.agentVotingStartDate}T${team.agentVotingStartTime}:00`,
+        votingDurationHours: Number(team.agentVotingHours) || 24,
       });
     }
 

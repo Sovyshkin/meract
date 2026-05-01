@@ -7,6 +7,9 @@ import { useAuthStore } from "../../../shared/stores/authStore";
 
 const useChat = (actId, chatId = null) => {
   const [messages, setMessages] = useState([]);
+  const [pinnedMessages, setPinnedMessages] = useState([]);
+  const [addedTask, setAddedTask] = useState(null);
+  const [activePoll, setActivePoll] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [sending, setSending] = useState(false);
@@ -87,6 +90,46 @@ const useChat = (actId, chatId = null) => {
           if (prev.some((m) => m.id === message.id)) return prev;
           return [...prev, message];
         });
+      });
+
+      s.on("stream:message", (message) => {
+        const content = message.content || message.message || "";
+        if (!content.trim()) return;
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === message.id)) return prev;
+          return [...prev, message];
+        });
+      });
+
+      s.on("stream:messages:pinned", (data) => {
+        setPinnedMessages(data.messages || []);
+      });
+
+      s.on("stream:message:pinned", (message) => {
+        setPinnedMessages((prev) => {
+          const filtered = prev.filter((m) => m.id !== message.id);
+          return [...filtered, message];
+        });
+      });
+
+      s.on("stream:message:unpinned", (data) => {
+        setPinnedMessages((prev) => prev.filter((m) => m.id !== data.messageId));
+      });
+
+      s.on("task:added", (task) => {
+        setAddedTask(task);
+      });
+
+      s.on("poll:new", (poll) => {
+        setActivePoll(poll);
+      });
+
+      s.on("poll:update", (poll) => {
+        setActivePoll(poll);
+      });
+
+      s.on("poll:closed", (data) => {
+        setActivePoll(null);
       });
     };
 
@@ -214,6 +257,26 @@ const useChat = (actId, chatId = null) => {
     [actId, chatId],
   );
 
+  const pinMessage = useCallback((messageId) => {
+    if (!socketRef.current?.connected) return;
+    socketRef.current.emit("stream:pin", { messageId });
+  }, []);
+
+  const unpinMessage = useCallback((messageId) => {
+    if (!socketRef.current?.connected) return;
+    socketRef.current.emit("stream:unpin", { messageId });
+  }, []);
+
+  const proposeTask = useCallback((data) => {
+    if (!socketRef.current?.connected) return;
+    socketRef.current.emit("task:propose", data);
+  }, []);
+
+  const addTask = useCallback((data) => {
+    if (!socketRef.current?.connected) return;
+    socketRef.current.emit("task:add", data);
+  }, []);
+
   useEffect(() => {
     if (actId && chatId) {
       fetchMessages();
@@ -222,6 +285,7 @@ const useChat = (actId, chatId = null) => {
 
   return {
     messages,
+    pinnedMessages,
     loading,
     error,
     sending,
@@ -230,6 +294,14 @@ const useChat = (actId, chatId = null) => {
     loadMoreMessages,
     setMessages,
     isConnected,
+    pinMessage,
+    unpinMessage,
+    proposeTask,
+    addTask,
+    addedTask,
+    clearAddedTask: () => setAddedTask(null),
+    activePoll,
+    clearActivePoll: () => setActivePoll(null),
   };
 };
 

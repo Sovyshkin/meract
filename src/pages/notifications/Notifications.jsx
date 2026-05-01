@@ -7,13 +7,7 @@ import trash from '../../images/trash.png';
 import styles from './Notifications.module.css';
 import { noticeApi } from '../../shared/api/notifications';
 import { useNotificationStore } from '../../shared/stores/notificationStore';
-const accept = () => {
-    console.log('Accepted');
-}
 
-const reject = () => {
-    console.log('Rejected');
-}
 const NotificationCard = ({ card, isExpanded, onToggle, onDelete, onRead, canSwipe, onAccept, onReject }) => {
   const [isOverflowing, setIsOverflowing] = useState(false);
   const textRef = useRef(null);
@@ -90,8 +84,8 @@ const NotificationCard = ({ card, isExpanded, onToggle, onDelete, onRead, canSwi
         )}
       </div>
 
-      {/* Кнопки только для Invitations (когда canSwipe = false) */}
-      {!canSwipe && (
+      {/* Кнопки только для Invitations (когда canSwipe = false и не act_invite) */}
+      {!canSwipe && card.type !== 'act_invite' && (
         <div className={styles.btncont} style={{ marginTop: '12px', display: 'flex', gap: '10px' }}>
           <button style={{ flex: 1 }} onClick={() => onReject && onReject(card)}>
             Отклонить
@@ -128,7 +122,6 @@ const NotificationCard = ({ card, isExpanded, onToggle, onDelete, onRead, canSwi
 
 const Notifications = () => {
   const navigate = useNavigate();
-  const [nav, setNav] = useState(0);
   const [expandedCards, setExpandedCards] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -168,17 +161,7 @@ const Notifications = () => {
     load();
   }, []);
 
-  // Split into general notifications and invitations
-  // "invitation" type → Invitations tab; everything else → Notifications tab
-  const INVITATION_TYPES = ['guild_invite', 'act_invite', 'team_invite', 'stream_invite', 'invitation'];
-  const generalNotifications = storeNotifications.filter(
-    (n) => !INVITATION_TYPES.includes(n.type)
-  );
-  const invitations = storeNotifications.filter(
-    (n) => INVITATION_TYPES.includes(n.type)
-  );
-
-  const currentData = nav === 0 ? generalNotifications : invitations;
+  const currentData = storeNotifications;
 
   const toggleExpand = (id) => {
     setExpandedCards((prev) =>
@@ -236,7 +219,7 @@ const Notifications = () => {
         <div className={styles.header_cont}>
           <img src={back} alt="back" onClick={() => navigate('/acts')} style={{ cursor: 'pointer' }} />
           <div className={styles.name}>
-            <h1>{nav === 0 ? 'Уведомления' : 'Приглашения'}</h1>
+            <h1>Уведомления</h1>
           </div>
           {unreadCount > 0 ? (
             <span
@@ -250,14 +233,7 @@ const Notifications = () => {
           )}
         </div>
 
-        <div className={styles.btncont}>
-          <button className={nav === 0 ? styles.active : ''} onClick={() => setNav(0)}>
-            Уведомления
-          </button>
-          <button className={nav === 1 ? styles.active : ''} onClick={() => setNav(1)}>
-            Приглашения
-          </button>
-        </div>
+
       </div>
 
       <div className={styles.cardcont}>
@@ -269,7 +245,7 @@ const Notifications = () => {
           <AnimatePresence mode="wait">
             {currentData.length > 0 ? (
               <motion.div
-                key={nav}
+                key="notifications"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
@@ -294,7 +270,7 @@ const Notifications = () => {
                       onToggle={toggleExpand}
                       onDelete={handleDelete}
                       onRead={handleMarkRead}
-                      canSwipe={nav === 0}
+                      canSwipe={true}
                       onAccept={handleAccept}
                       onReject={handleReject}
                     />
@@ -308,7 +284,7 @@ const Notifications = () => {
                 animate={{ opacity: 1 }}
                 style={{ display: 'flex', height: '200px', alignItems: 'center', justifyContent: 'center', color: 'whitesmoke' }}
               >
-                <p>{nav === 0 ? 'Нет уведомлений' : 'Нет приглашений'}</p>
+                <p>Нет уведомлений</p>
               </motion.div>
             )}
           </AnimatePresence>
