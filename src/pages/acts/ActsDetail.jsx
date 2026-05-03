@@ -191,6 +191,7 @@ export default function ActDetail() {
   const [actChapterId, setActChapterId] = useState(null);
   const [actTeams, setActTeams] = useState([]);
   const [selectedTeamId, setSelectedTeamId] = useState(null);
+  const [streamLocation, setStreamLocation] = useState(null);
 
   // Загрузка деталей акта
   useEffect(() => {
@@ -247,6 +248,19 @@ export default function ActDetail() {
           if (data.scheduledAt) setScheduledAt(data.scheduledAt);
           if (data.sequel?._count?.chapters) setSeasons(data.sequel._count.chapters);
           if (data.teams) setActTeams(data.teams);
+
+          // Extract stream location from first task with coordinates
+          if (data.teams) {
+            for (const team of data.teams) {
+              if (team.tasks && team.tasks.length > 0) {
+                const taskWithCoords = team.tasks.find(t => t.lat != null && t.lng != null);
+                if (taskWithCoords) {
+                  setStreamLocation({ lat: taskWithCoords.lat, lng: taskWithCoords.lng, address: taskWithCoords.address || null });
+                  break;
+                }
+              }
+            }
+          }
         }
       } catch (error) {
         console.error("Ошибка загрузки акта:", error);
@@ -606,6 +620,14 @@ const handleRateAct = async () => {
                   ? <p className={styles.desc} style={{ color: '#c0c0c0' }}>1 Season</p>
                   : <p className={styles.desc} style={{ color: '#c0c0c0' }}>{seasons || 0} Seasons</p>
                 }
+                {isLive === 'ONLINE' && streamLocation && (
+                  <div style={{ background: '#1a3a1a', padding: '4px 10px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span style={{ color: '#00FF00', fontSize: '12px' }}>📍</span>
+                    <p className={styles.desc} style={{ color: '#00FF00', fontSize: '12px' }}>
+                      {streamLocation.address || `${streamLocation.lat?.toFixed(4)}, ${streamLocation.lng?.toFixed(4)}`}
+                    </p>
+                  </div>
+                )}
               </div>
               <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', padding: '2px 0' }}>
                 {genre.map((item, index) => (

@@ -8,7 +8,6 @@ import { useEffect, useState } from "react";
 export default function ActCard({ act, titleact }) {
   const navigate = useNavigate();
   const id = act.id;
-// 1. ОБЪЯВЛЯЕМ ВСЕ ПЕРЕМЕННЫЕ ЧЕРЕЗ USESTATE
 const [isLive, setIsLive] = useState(null);
 const [title, setTitle] = useState('');
 const [description, setDescription] = useState('');
@@ -16,10 +15,11 @@ const [heroes, setHeroes] = useState('no heroes');
 const [navigator, setNavigator] = useState('no navigators');
 const [location, setLocation] = useState('no location');
 const [distance, setDistance] = useState('no distance');
+const [streamLocation, setStreamLocation] = useState(null);
 const [rating, setRating] = useState(0.0);
 const [rawImageUrl, setRawImageUrl] = useState(act.previewFileName || null);
 const [displayImage, setDisplayImage] = useState(default_back);
-const [achivemenets, setAchivemenets] = useState([]); 
+const [achivemenets, setAchivemenets] = useState([]);
 const [navMethod, setNavMethod] = useState(1);
 const [loading, setLoading] = useState(true);
 
@@ -52,8 +52,7 @@ useEffect(() => {
         setIsLive(effectiveStatus);
         setTitle(actsdata.title || actsdata.name || 'Untitled');
         setDescription(actsdata.description || 'No description');
-        
-        // Extract heroes/navigators from teams structure
+
         const allRoleConfigs = (actsdata.teams || []).flatMap(t => t.roleConfigs || []);
         const heroNames = allRoleConfigs
           .filter(rc => rc.role === 'hero')
@@ -63,19 +62,31 @@ useEffect(() => {
           .flatMap(rc => (rc.candidates || []).map(c => c.user?.login).filter(Boolean));
         setHeroes(heroNames.length > 0 ? heroNames.join(', ') : 'open voting');
         setNavigator(navNames.length > 0 ? navNames.join(', ') : 'open voting');
-        
+
         if (actsdata.initiator) {
-          setLocation(`${actsdata.initiator.city || ''}, ${actsdata.initiator.country || ''}`);
+          setLocation(actsdata.initiator.city + ', ' + actsdata.initiator.country);
         }
 
         setDistance(actsdata.distanceKm || null);
+
+        if (actsdata.teams) {
+          for (const team of actsdata.teams) {
+            if (team.tasks && team.tasks.length > 0) {
+              const taskWithCoords = team.tasks.find(t => t.lat != null && t.lng != null);
+              if (taskWithCoords) {
+                setStreamLocation({ lat: taskWithCoords.lat, lng: taskWithCoords.lng, address: taskWithCoords.address || null });
+                break;
+              }
+            }
+          }
+        }
+
         setRating(actsdata.rating || 0.0);
-        // Keep list endpoint preview as source of truth; use detail preview only when list has none.
         if (!act.previewFileName && actsdata.previewFileName) {
           setRawImageUrl(actsdata.previewFileName);
         }
         if (actsdata.tasks) {
-          setAchivemenets(actsdata.tasks); 
+          setAchivemenets(actsdata.tasks);
         }
 
         if (actsdata.navigatorMethods === "VOTING") {
@@ -94,16 +105,16 @@ useEffect(() => {
   }
 }, [id, act.previewFileName]);
 
- const addCacheBuster = (url) => {
+const addCacheBuster = (url) => {
   if (!url || url === default_back) return url;
   const separator = url.includes('?') ? '&' : '?';
-  const fingerprint = encodeURIComponent(`${id}-${String(rawImageUrl || '')}`);
-  return `${url}${separator}cb=${fingerprint}`;
- };
+  const fingerprint = encodeURIComponent(id + '-' + String(rawImageUrl || ''));
+  return url + separator + 'cb=' + fingerprint;
+};
 
- const resolvedPreviewUrl = addCacheBuster(buildPreviewUrl(rawImageUrl) || default_back);
+const resolvedPreviewUrl = addCacheBuster(buildPreviewUrl(rawImageUrl) || default_back);
 
- useEffect(() => {
+useEffect(() => {
   if (!resolvedPreviewUrl || resolvedPreviewUrl === default_back) {
     setDisplayImage(default_back);
     return;
@@ -122,62 +133,57 @@ useEffect(() => {
   return () => {
     isActive = false;
   };
- }, [resolvedPreviewUrl]);
-
+}, [resolvedPreviewUrl]);
 
   const cardStyle = {
-    backgroundImage: `url(${displayImage})`,
+    backgroundImage: "url(" + displayImage + ")",
     backgroundSize: "cover",
     backgroundPosition: "center",
     backgroundRepeat: "no-repeat",
   };
 
   const handleCardClick = () => {
-    navigate(`/acts/${act.id}`, { state: { act } });
+    navigate("/acts/" + act.id, { state: { act } });
   };
 
   if (act.isMock) {
     return (
       <div className={styles.parent}>
-        { titleact === true &&
-
+        { titleact === true && (
         <p className={styles.subtitle}>Popular</p>
-        }
+        )}
         <div className={styles.actCard} onClick={handleCardClick} style={cardStyle}>
           <div className={styles.infoblock}>
             <div className={styles.inner}>
               {isLive === 'ONLINE' && (
-                <div className={styles.online}> 
+                <div className={styles.online}>
                   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org">
                     <circle cx="10" cy="10" r="5" fill="white" />
                   </svg>
                   <p className={styles.live}>Live</p>
                 </div>
               )}
-                     <div style={{display:'flex',gap:'5px', alignItems:'baseline',}}>
-
-          <h1 className={styles.title}>{title}</h1>
-          <div style={{display:'flex',gap:'5px'}}>
-            <img src={star} alt="" style={{width: '20px',
-  height: '20px',}}/>
-            <p style={{color:'#00F300'}}>{rating}</p>
-          </div>
-          </div>
-              <p className={styles.desc}>{description}</p>
-             <div style={{gap:'2px', background:'#181818', width:'fit-content', padding:'4px 5px', borderRadius:'10px',}}>
-           <p className={styles.desc} style={{fontSize:'small',color:'white',fontWeight:'bolder'}}>Heroes: {heroes}</p>
-          <p className={styles.desc} style={{fontSize:'small',color:'white', fontWeight:'bolder'}}>Navigator: {navigator}</p>
-          </div>
-              <div style={{display:'flex', gap:'5px', alignItems:'center',}}>
-                <div style={{ background:'#111111', width:'fit-content', padding:'4px 5px', borderRadius:'8px', border:'none',}}>
-              <p className={styles.desc} style={{ color:'#c0c0c0',}}>{location}</p>
-                </div>
-              <div style={{  padding: '2px 4px', borderRadius: '8px' }}>
-                <div style={{ background:'#252525', width:'fit-content', padding:'4px 5px', borderRadius:'8px', border:'none',}}>
-                  <p className={styles.desc} style={{ color:'#c0c0c0',}}>{distance}km away</p>
+              <div style={{display:'flex',gap:'5px', alignItems:'baseline'}}>
+                <h1 className={styles.title}>{title}</h1>
+                <div style={{display:'flex',gap:'5px'}}>
+                  <img src={star} alt="" style={{width: '20px', height: '20px'}}/>
+                  <p style={{color:'#00F300'}}>{rating}</p>
                 </div>
               </div>
-
+              <p className={styles.desc}>{description}</p>
+              <div style={{gap:'2px', background:'#181818', width:'fit-content', padding:'4px 5px', borderRadius:'10px'}}>
+                <p className={styles.desc} style={{fontSize:'small',color:'white',fontWeight:'bolder'}}>Heroes: {heroes}</p>
+                <p className={styles.desc} style={{fontSize:'small',color:'white', fontWeight:'bolder'}}>Navigator: {navigator}</p>
+              </div>
+              <div style={{display:'flex', gap:'5px', alignItems:'center'}}>
+                <div style={{ background:'#111111', width:'fit-content', padding:'4px 5px', borderRadius:'8px', border:'none'}}>
+                  <p className={styles.desc} style={{ color:'#c0c0c0'}}>{location}</p>
+                </div>
+                <div style={{ padding: '2px 4px', borderRadius: '8px' }}>
+                  <div style={{ background:'#252525', width:'fit-content', padding:'4px 5px', borderRadius:'8px', border:'none'}}>
+                    <p className={styles.desc} style={{ color:'#c0c0c0'}}>{distance}km away</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -199,57 +205,42 @@ useEffect(() => {
               <p className={styles.live}>Live</p>
             </div>
           )}
-          <div style={{display:'flex',gap:'5px', alignItems:'baseline',}}>
-          <h1 className={styles.title}>{title}</h1>
-          <div style={{display:'flex',gap:'5px'}}>
-            <img src={star} alt="" style={{width: '20px',
-  height: '20px',}}/>
-            <p style={{color:'#00F300'}}>{rating}</p>
-          </div>
+          <div style={{display:'flex',gap:'5px', alignItems:'baseline'}}>
+            <h1 className={styles.title}>{title}</h1>
+            <div style={{display:'flex',gap:'5px'}}>
+              <img src={star} alt="" style={{width: '20px', height: '20px'}}/>
+              <p style={{color:'#00F300'}}>{rating}</p>
+            </div>
           </div>
           <p className={styles.desc}>{description}</p>
-        <div style={{gap:'2px', background:'#181818', width:'fit-content', padding:'4px 5px', borderRadius:'10px',}}>
-           <p className={styles.desc} style={{fontSize:'small',color:'white',fontWeight:'bolder'}}>Heroes: {heroes}</p>
-          <p className={styles.desc} style={{fontSize:'small',color:'white', fontWeight:'bolder'}}>Navigator: {navigator}</p>
+          <div style={{gap:'2px', background:'#181818', width:'fit-content', padding:'4px 5px', borderRadius:'10px'}}>
+            <p className={styles.desc} style={{fontSize:'small',color:'white',fontWeight:'bolder'}}>Heroes: {heroes}</p>
+            <p className={styles.desc} style={{fontSize:'small',color:'white', fontWeight:'bolder'}}>Navigator: {navigator}</p>
           </div>
-
-            <div style={{display:'flex', gap:'5px', alignItems:'center',}}>
-                <div style={{ background:'#111111', width:'fit-content', padding:'4px 5px', borderRadius:'8px', border:'none',}}>
-              <p className={styles.desc} style={{ color:'#c0c0c0',}}>{location}</p>
-                </div>
-              <div style={{  padding: '2px 4px', borderRadius: '8px' }}>
-                <div style={{ background:'#252525', width:'fit-content', padding:'4px 5px', borderRadius:'8px', border:'none',}}>
-                  {distance ?
-                    <p className={styles.desc} style={{ color:'#c0c0c0',}}>{distance}km away</p>
-                  :
-                    <p className={styles.desc} style={{ color:'#c0c0c0',}}>no distance</p>
-                  
-                  }
-                </div>
+          <div style={{display:'flex', gap:'5px', alignItems:'center'}}>
+            <div style={{ background:'#111111', width:'fit-content', padding:'4px 5px', borderRadius:'8px', border:'none'}}>
+              <p className={styles.desc} style={{ color:'#c0c0c0'}}>{location}</p>
+            </div>
+            <div style={{ padding: '2px 4px', borderRadius: '8px' }}>
+              <div style={{ background:'#252525', width:'fit-content', padding:'4px 5px', borderRadius:'8px', border:'none'}}>
+                {distance ? (
+                  <p className={styles.desc} style={{ color:'#c0c0c0'}}>{distance}km away</p>
+                ) : (
+                  <p className={styles.desc} style={{ color:'#c0c0c0'}}>no distance</p>
+                )}
               </div>
-
+            </div>
+            {isLive === 'ONLINE' && streamLocation && (
+              <div style={{ background:'#1a3a1a', width:'fit-content', padding:'4px 8px', borderRadius:'8px', border:'none', display:'flex', alignItems:'center', gap:'4px'}}>
+                <span style={{color:'#00FF00', fontSize:'10px'}}>📍</span>
+                <p className={styles.desc} style={{ color:'#00FF00'}}>
+                  {streamLocation.address || (streamLocation.lat != null ? streamLocation.lat.toFixed(4) + ', ' + streamLocation.lng.toFixed(4) : '')}
+                </p>
               </div>
+            )}
+          </div>
         </div>
       </div>
-
-      {/* <div className={styles.stripe}></div>
-      <div className={styles.blocks}>
-        <p>{act.location}</p>
-        <p>{act.distance}</p>
-      </div>
-      <div className={styles.info}>
-        <div className={styles.arrows}>
-          <span className={styles.arrow}>
-            <img src="/icons/arrowUp.svg" alt="arrow" />
-            <h2>{act.upvotes}</h2>
-          </span>
-          <span className={styles.arrow}>
-            <img src="/icons/arrowDown.svg" alt="arrow" />
-            <h2>{act.downvotes}</h2>
-          </span>
-        </div>
-        <h4>{act.liveIn}</h4>
-      </div> */}
     </div>
   );
 }

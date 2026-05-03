@@ -389,6 +389,10 @@
   gap: 4px;
   color: #c9c8c8;
 }
+.usersdiv img {
+  width: 28px;
+  height: 28px;
+}
 /* .headtext{
   display: flex;
 } */

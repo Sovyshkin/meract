@@ -20,7 +20,7 @@ function getCookie(name) {
 
 function App() {
   const { logout, isAuthenticated, setLocation, user } = useAuthStore();
-  const { setNotifications } = useNotificationStore();
+  const { setNotifications, addNotification } = useNotificationStore();
   const isMaintenance = false;
   useEffect(() => {
     const accessToken = getCookie("access_token");
@@ -46,6 +46,45 @@ function App() {
     return () => {};
   }, [isAuthenticated, user?.id]);
 
+  // Fetch unread count and sync notifications on initial load
+  useEffect(() => {
+    if (isAuthenticated) {
+      noticeApi.getUnreadCount().then((data) => {
+        if (data && typeof data.count === 'number') {
+          const store = useNotificationStore.getState();
+          const currentUnread = store.notifications.filter((n) => !n.isRead).length;
+          // If server has more unread than we have in store, refetch all notifications
+          if (data.count > currentUnread) {
+            noticeApi.getNotifications(100).then((notifications) => {
+              if (Array.isArray(notifications)) {
+                setNotifications(notifications);
+              }
+            }).catch(() => {});
+          }
+        }
+      }).catch(() => {});
+
+      // Periodically refresh unread count
+      const interval = setInterval(() => {
+        noticeApi.getUnreadCount().then((data) => {
+          if (data && typeof data.count === 'number') {
+            const store = useNotificationStore.getState();
+            const currentUnread = store.notifications.filter((n) => !n.isRead).length;
+            if (data.count > currentUnread) {
+              noticeApi.getNotifications(100).then((notifications) => {
+                if (Array.isArray(notifications)) {
+                  setNotifications(notifications);
+                }
+              }).catch(() => {});
+            }
+          }
+        }).catch(() => {});
+      }, 30000);
+
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated]);
+
   useEffect(() => {
     if (!isAuthenticated) {
       return;
@@ -62,8 +101,8 @@ function App() {
         setLocation(locationData);
 
         if (data.city && data.country_name) {
-          await noticeApi.setCity(data.city);
           await noticeApi.setCountry(data.country_name);
+          await noticeApi.setCity(data.city);
         }
       } catch (e) {
         console.error("IP-based location failed:", e);

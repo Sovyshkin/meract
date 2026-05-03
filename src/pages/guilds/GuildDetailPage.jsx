@@ -529,21 +529,23 @@ useEffect(() => {
                     border: selectedToSwap?.id === achive.id ? '1px solid #3abafe' : 'none'
                   }}
                 >
-                  <div className={styles.rankBadge}><img src={achive.avatar} alt="avatar" className={styles.rankImg} /></div>
+                  <div className={styles.rankBadge}><img src={achive.imageUrl} alt="avatar" className={styles.rankImg} /></div>
                   <div className={styles.cardInfo}>
                     <p className={styles.userName}>{achive.name}</p>
-                    <p className={styles.userName} style={{ color: '#b5b3b3' }}>{achive.description}</p>
+                    <p className={styles.userName} style={{ color: '#b5b3b3' }}>
+                      {achive.awardedAt ? new Date(achive.awardedAt).toLocaleDateString() : ''}
+                    </p>
                   </div>
                 </div>
               ))}
-              
+
             </div>
 
             <div className={styles.cardcont} style={{ marginTop: '20px' }}>
               {achivemenets.filter(a => !a.featured).map((achive) => (
-                <div 
-                  key={achive.id} 
-                  className={`${styles.members} ${selectedToSwap?.id === achive.id ? styles.selected : ""}`} 
+                <div
+                  key={achive.id}
+                  className={`${styles.members} ${selectedToSwap?.id === achive.id ? styles.selected : ""}`}
                   onClick={() => handleAchiveClick(achive)}
                   style={{
                     transform: selectedToSwap?.id === achive.id ? 'translateY(-8px)' : 'none',
@@ -551,10 +553,12 @@ useEffect(() => {
                     border: selectedToSwap?.id === achive.id ? '1px solid #3abafe' : 'none'
                   }}
                 >
-                  <div className={styles.rankBadge}><img src={achive.avatar} alt="avatar" className={styles.rankImg} /></div>
+                  <div className={styles.rankBadge}><img src={achive.imageUrl} alt="avatar" className={styles.rankImg} /></div>
                   <div className={styles.cardInfo}>
                     <p className={styles.userName}>{achive.name}</p>
-                    <p className={styles.userName} style={{ color: '#b5b3b3' }}>{achive.description}</p>
+                    <p className={styles.userName} style={{ color: '#b5b3b3' }}>
+                      {achive.awardedAt ? new Date(achive.awardedAt).toLocaleDateString() : ''}
+                    </p>
                   </div>
                 </div>
               ))}
