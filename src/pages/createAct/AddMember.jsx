@@ -16,17 +16,26 @@ const AddMember = () => {
     useEffect(() => {
         const fetchUsers = async () => {
             try {
-                const response = await api.get("/user/all-users");
-                setAllUsers(response.data);
+                // Prefer endpoint with full user list for team selection.
+                const response = await api.get("/user/all-users-for-guild");
+                const users = Array.isArray(response.data) ? response.data : [];
+                setAllUsers(users);
             } catch (error) {
-                console.error("err:", error);
+                try {
+                    // Fallback for older backend versions.
+                    const fallback = await api.get("/user/all-users");
+                    const users = Array.isArray(fallback.data) ? fallback.data : [];
+                    setAllUsers(users);
+                } catch (fallbackError) {
+                    console.error("err:", fallbackError);
+                }
             }
         };
         fetchUsers();
     }, []);
 
     const filteredUsers = allUsers.filter(u =>
-        (u.login ?? '').toLowerCase().includes(searchQuery.toLowerCase())
+        `${u.login ?? ''} ${u.email ?? ''}`.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     const handleConfirm = (user) => {
