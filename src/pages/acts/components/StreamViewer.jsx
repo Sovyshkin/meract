@@ -165,7 +165,19 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const [actualStreamData, setActualStreamData] = useState(streamData);
 
   // Spot Agent computed values
-  const currentUserId = user?.id || user?.sub;
+  const currentUserId = useMemo(() => {
+    if (user?.id || user?.sub) {
+      return user.id || user.sub;
+    }
+
+    const token = useAuthStore.getState().getToken();
+    if (typeof token === 'string' && token) {
+      const payload = parseJWT(token);
+      return payload?.sub || payload?.id || payload?.userId || null;
+    }
+
+    return null;
+  }, [user]);
   const isInitiator = currentUserId === actualStreamData?.userId;
   const spotAgentCount = actualStreamData?.spotAgentCount || 0;
   const hasApplied = candidates.some((c) => c.userId === currentUserId);
@@ -360,7 +372,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
   // ВАЖНО: WebSocket подключение к MainGateway
   useEffect(() => {
-    if (!actId || !user?.id) {
+    if (!actId || !currentUserId) {
       debugLog("Waiting for actId and userId...");
       return;
     }
@@ -374,7 +386,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       path: '/socket.io',
       query: {
         actId: actId,
-        userId: user.id,
+        userId: currentUserId,
         token: useAuthStore.getState().getToken()
       },
       reconnection: true,
@@ -467,7 +479,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
         socketRef.current.disconnect();
       }
     };
-  }, [actId, user?.id, user?.token, isSelectedStreamer]);
+  }, [actId, currentUserId, user?.token, isSelectedStreamer]);
 
   // Load actual stream data from server
   useEffect(() => {
