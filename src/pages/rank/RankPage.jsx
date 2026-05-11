@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../shared/stores/authStore";
 import styles from "./RankPage.module.css";
 import notification from '../../images/notification.png';
@@ -13,8 +13,11 @@ import points from '../../images/points.png';
 import back from '../../images/arrow-left.png';
 import { rankApi } from "../../shared/api/rank";
 
+const RANK_FILTERS_KEY = "rankFilters";
+
 export default function RankPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(false);
   const [nav, setNav] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
@@ -43,13 +46,47 @@ export default function RankPage() {
     fetchData(0);
   }, []);
 
+  const rankFilters = useMemo(() => {
+    if (location.state?.rankFilters) {
+      return location.state.rankFilters;
+    }
+    try {
+      const raw = localStorage.getItem(RANK_FILTERS_KEY);
+      if (!raw) return { sortBy: "points_desc", scope: "all" };
+      const parsed = JSON.parse(raw);
+      return {
+        sortBy: parsed?.sortBy || "points_desc",
+        scope: parsed?.scope || "all",
+      };
+    } catch {
+      return { sortBy: "points_desc", scope: "all" };
+    }
+  }, [location.state]);
+
   const filteredList = useMemo(() => {
     const list = data[nav] || [];
-    if (!searchTerm.trim()) return list;
-    return list.filter(item => 
+    const searched = !searchTerm.trim()
+      ? list
+      : list.filter(item =>
       item.name?.toLowerCase().includes(searchTerm.toLowerCase().trim())
     );
-  }, [searchTerm, data, nav]);
+
+    const sorted = [...searched];
+    if (rankFilters.sortBy === "points_asc") {
+      sorted.sort((a, b) => (a.points || 0) - (b.points || 0));
+    } else if (rankFilters.sortBy === "acts_desc") {
+      sorted.sort((a, b) => (b.actsCount || 0) - (a.actsCount || 0));
+    } else if (rankFilters.sortBy === "name_asc") {
+      sorted.sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+    } else {
+      sorted.sort((a, b) => (b.points || 0) - (a.points || 0));
+    }
+
+    const withRank = sorted.map((item, index) => ({ ...item, rank: index + 1 }));
+    if (rankFilters.scope === "top10") return withRank.slice(0, 10);
+    if (rankFilters.scope === "top50") return withRank.slice(0, 50);
+    return withRank;
+  }, [searchTerm, data, nav, rankFilters.sortBy, rankFilters.scope]);
 
   const handleNavChange = (type) => {
     setNav(type);
@@ -105,7 +142,12 @@ export default function RankPage() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
-            <img src={filter} alt="filter" className={styles.filterIcon} onClick={() => navigate('/rank-filters')} />
+            <img
+              src={filter}
+              alt="filter"
+              className={styles.filterIcon}
+              onClick={() => navigate('/rank-filters', { state: { rankFilters } })}
+            />
           </div>
         </div>
       </div>

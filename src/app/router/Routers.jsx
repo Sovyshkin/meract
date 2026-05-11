@@ -5,6 +5,7 @@ import {
   createBrowserRouter,
   useSearchParams,
 } from "react-router-dom";
+import { useEffect } from "react";
 // import RankFilters from"../../features/Auth//RankFilters";
 import RankFilters from "../../pages/rank/RankFilters";
 import TermOfUse from "../../features/Auth/registration/TermOfUse";
@@ -63,6 +64,12 @@ import CompanionProfile from "../../pages/chats/CompanionProfile";
 import MyAchieve from "../../pages/myAchieve/MyAchieve";
 import ChatMulti from "../../pages/chats/ChatMulti";
 import AddMember from "../../pages/createAct/AddMember";
+
+function getCookie(name) {
+  const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
+  return match ? match[2] : null;
+}
+
 const HomeRedirect = () => {
   const [searchParams] = useSearchParams();
   const { isAuthenticated, login } = useAuthStore();
@@ -74,8 +81,11 @@ const HomeRedirect = () => {
       try {
         const userData = JSON.parse(decodeURIComponent(userParam));
         console.log("Google OAuth user data received:", userData);
-
-        login(userData);
+        const accessToken = getCookie("access_token");
+        login({
+          user: userData,
+          token: accessToken || userData?.token || userData?.accessToken,
+        });
 
         window.history.replaceState({}, document.title, "/acts");
       } catch (error) {
@@ -84,7 +94,8 @@ const HomeRedirect = () => {
     }
   }, [searchParams, login]);
 
-  return <Navigate to={isAuthenticated ? "/acts" : "/"} replace />;
+  if (isAuthenticated) return <Navigate to="/acts" replace />;
+  return <StartPage />;
 };
 export const technicalRouter = createBrowserRouter([
   {
@@ -95,7 +106,7 @@ export const technicalRouter = createBrowserRouter([
 export const router = createBrowserRouter([
   {
     path: "/",
-    element: <StartPage/>,
+    element: <HomeRedirect />,
   },
   {
     path: "/acts",

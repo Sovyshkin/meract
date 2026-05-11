@@ -1,4 +1,4 @@
-import { useState, useRef, useLayoutEffect, useEffect, useCallback } from 'react';
+﻿import { useState, useRef, useLayoutEffect, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import back from '../../images/arrow-left.png';
@@ -32,7 +32,7 @@ const NotificationCard = ({ card, isExpanded, onToggle, onDelete, onRead, canSwi
       }}
       onClick={() => !card.isRead && onRead && onRead(card.id)}
     >
-      {/* Верхняя часть: Лого, Имя, Время и Текст */}
+      {/* Р’РµСЂС…РЅСЏСЏ С‡Р°СЃС‚СЊ: Р›РѕРіРѕ, РРјСЏ, Р’СЂРµРјСЏ Рё РўРµРєСЃС‚ */}
       <div style={{ display: 'flex', width: '100%' }}>
         <div className={styles.rankBadge}>
           <img
@@ -65,7 +65,7 @@ const NotificationCard = ({ card, isExpanded, onToggle, onDelete, onRead, canSwi
           </p>
         </div>
 
-        {/* Стрелка только для Notifications */}
+        {/* РЎС‚СЂРµР»РєР° С‚РѕР»СЊРєРѕ РґР»СЏ Notifications */}
         {canSwipe && (isOverflowing || isExpanded) && (
           <svg
             className={styles.arrowIcon}
@@ -84,14 +84,14 @@ const NotificationCard = ({ card, isExpanded, onToggle, onDelete, onRead, canSwi
         )}
       </div>
 
-      {/* Кнопки только для Invitations (когда canSwipe = false и не act_invite) */}
+      {/* РљРЅРѕРїРєРё С‚РѕР»СЊРєРѕ РґР»СЏ Invitations (РєРѕРіРґР° canSwipe = false Рё РЅРµ act_invite) */}
       {!canSwipe && card.type !== 'act_invite' && (
         <div className={styles.btncont} style={{ marginTop: '12px', display: 'flex', gap: '10px' }}>
           <button style={{ flex: 1 }} onClick={() => onReject && onReject(card)}>
-            Отклонить
+            РћС‚РєР»РѕРЅРёС‚СЊ
           </button>
           <button className={styles.active} style={{ flex: 1 }} onClick={() => onAccept && onAccept(card)}>
-            Принять
+            РџСЂРёРЅСЏС‚СЊ
           </button>
         </div>
       )}
@@ -139,8 +139,8 @@ const Notifications = () => {
     const date = new Date(dateStr);
     const now = new Date();
     const diff = now - date;
-    if (diff < 60_000) return 'сейчас';
-    if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} мин.`;
+    if (diff < 60_000) return 'СЃРµР№С‡Р°СЃ';
+    if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} РјРёРЅ.`;
     if (diff < 86_400_000) return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
     return date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' });
   };
@@ -219,14 +219,14 @@ const Notifications = () => {
         <div className={styles.header_cont}>
           <img src={back} alt="back" onClick={() => navigate('/acts')} style={{ cursor: 'pointer' }} />
           <div className={styles.name}>
-            <h1>Уведомления</h1>
+            <h1>Notifications</h1>
           </div>
           {unreadCount > 0 ? (
             <span
               onClick={handleMarkAllRead}
               style={{ fontSize: '11px', color: '#009DFF', cursor: 'pointer', whiteSpace: 'nowrap' }}
             >
-              Прочитать все
+              Mark all as read
             </span>
           ) : (
             <div style={{ width: '24px' }}></div>
@@ -239,7 +239,7 @@ const Notifications = () => {
       <div className={styles.cardcont}>
         {loading ? (
           <div style={{ display: 'flex', height: '200px', alignItems: 'center', justifyContent: 'center', color: '#555' }}>
-            Загрузка...
+            Loading...
           </div>
         ) : (
           <AnimatePresence mode="wait">
@@ -254,7 +254,7 @@ const Notifications = () => {
                 {currentData.map((n) => {
                   const card = {
                     id: n.id,
-                    user: n.title || 'Уведомление',
+                    user: n.title || 'Notification',
                     desc: n.body || '',
                     time: formatTime(n.createdAt),
                     avatar: n.imageUrl || null,
@@ -284,7 +284,7 @@ const Notifications = () => {
                 animate={{ opacity: 1 }}
                 style={{ display: 'flex', height: '200px', alignItems: 'center', justifyContent: 'center', color: 'whitesmoke' }}
               >
-                <p>Нет уведомлений</p>
+                <p>No notifications</p>
               </motion.div>
             )}
           </AnimatePresence>

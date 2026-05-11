@@ -1,26 +1,48 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+﻿import React, { useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import styles from "./RankPage.module.css";
 import back from '../../images/arrow-left.png';
 import notification from '../../images/notification.png';
 
+const RANK_FILTERS_KEY = "rankFilters";
+
 export default function RankFilters() {
   const navigate = useNavigate();
+  const locationState = useLocation();
 
-  // Раздельные состояния для двух разных дропдаунов
-  const [category, setCategory] = useState("Category 1");
-  const [isCatOpen, setIsCatOpen] = useState(false);
-  
-  const [location, setLocation] = useState("Location 1");
-  const [isLocOpen, setIsLocOpen] = useState(false);
+  const initialFilters = useMemo(
+    () => locationState.state?.rankFilters || {},
+    [locationState.state],
+  );
 
-  const catOptions = ["Category 1", "Category 2", "Category 3"];
-  const locOptions = ["London", "New York", "Tokyo"];
+  const [sortBy, setSortBy] = useState(initialFilters.sortBy || "points_desc");
+  const [isSortOpen, setIsSortOpen] = useState(false);
 
-  const Save = () => {
-    // Убраны несуществующие переменные, которые вешали кнопку
-    console.log({ category, location });
-    navigate('/rank');
+  const [scope, setScope] = useState(initialFilters.scope || "all");
+  const [isScopeOpen, setIsScopeOpen] = useState(false);
+
+  const sortOptions = [
+    { value: "points_desc", label: "Points: high to low" },
+    { value: "points_asc", label: "Points: low to high" },
+    { value: "acts_desc", label: "Acts count: high to low" },
+    { value: "name_asc", label: "Name: A to Z" },
+  ];
+
+  const scopeOptions = [
+    { value: "all", label: "All leaders" },
+    { value: "top10", label: "Top 10 only" },
+    { value: "top50", label: "Top 50 only" },
+  ];
+
+  const selectedSortLabel =
+    sortOptions.find((opt) => opt.value === sortBy)?.label || sortOptions[0].label;
+  const selectedScopeLabel =
+    scopeOptions.find((opt) => opt.value === scope)?.label || scopeOptions[0].label;
+
+  const save = () => {
+    const payload = { sortBy, scope };
+    localStorage.setItem(RANK_FILTERS_KEY, JSON.stringify(payload));
+    navigate('/rank', { state: { rankFilters: payload } });
   };
 
   return (
@@ -28,62 +50,64 @@ export default function RankFilters() {
       <div className={styles.actsPage}>
         <div className="header">
           <div className={styles.header_cont}>
-            <img src={back} alt="back" onClick={() => navigate('/rank')} style={{cursor: 'pointer'}}/>
+            <img src={back} alt="back" onClick={() => navigate('/rank')} style={{ cursor: 'pointer' }} />
             <div className="name"><h1>Sorting the leaders</h1></div>
-            <img src={notification} alt="notification" onClick={() => navigate('/notification')} style={{cursor: 'pointer'}}/>
+            <img src={notification} alt="notification" onClick={() => navigate('/notifications')} style={{ cursor: 'pointer' }} />
           </div>
         </div>
 
         <div className={styles.dropparent}>
-          {/* Category Dropdown */}
           <div className={styles.dropdownContainer}>
-            <p className={styles.title}>Category</p>
-            <div className={styles.dropdownHeader} onClick={() => setIsCatOpen(!isCatOpen)}>
-              <span>{category}</span>
-              <svg className={`${styles.arrowIcon} ${isCatOpen ? styles.rotate : ""}`} width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path d="M7 10L12 15L17 10" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <p className={styles.title}>Sort by</p>
+            <div className={styles.dropdownHeader} onClick={() => setIsSortOpen(!isSortOpen)}>
+              <span>{selectedSortLabel}</span>
+              <svg className={`${styles.arrowIcon} ${isSortOpen ? styles.rotate : ""}`} width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M7 10L12 15L17 10" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
-            {isCatOpen && (
+            {isSortOpen && (
               <div className={styles.dropdownList}>
-                {catOptions.map((opt) => (
-                  <div key={opt} className={styles.dropdownItem} onClick={() => { setCategory(opt); setIsCatOpen(false); }}>{opt}</div>
+                {sortOptions.map((opt) => (
+                  <div key={opt.value} className={styles.dropdownItem} onClick={() => { setSortBy(opt.value); setIsSortOpen(false); }}>
+                    {opt.label}
+                  </div>
                 ))}
               </div>
             )}
           </div>
 
-          {/* Location Dropdown */}
           <div className={styles.dropdownContainer}>
-            <p className={styles.title}>Location</p>
-            <div className={styles.dropdownHeader} onClick={() => setIsLocOpen(!isLocOpen)}>
-              <span>{location}</span>
-              <svg className={`${styles.arrowIcon} ${isLocOpen ? styles.rotate : ""}`} width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path d="M7 10L12 15L17 10" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <p className={styles.title}>Scope</p>
+            <div className={styles.dropdownHeader} onClick={() => setIsScopeOpen(!isScopeOpen)}>
+              <span>{selectedScopeLabel}</span>
+              <svg className={`${styles.arrowIcon} ${isScopeOpen ? styles.rotate : ""}`} width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M7 10L12 15L17 10" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
-            {isLocOpen && (
+            {isScopeOpen && (
               <div className={styles.dropdownList}>
-                {locOptions.map((opt) => (
-                  <div key={opt} className={styles.dropdownItem} onClick={() => { setLocation(opt); setIsLocOpen(false); }}>{opt}</div>
+                {scopeOptions.map((opt) => (
+                  <div key={opt.value} className={styles.dropdownItem} onClick={() => { setScope(opt.value); setIsScopeOpen(false); }}>
+                    {opt.label}
+                  </div>
                 ))}
               </div>
             )}
           </div>
         </div>
       </div>
-{/* Save Button */}
-                <div className={styles.item}>
-                  <div className={styles.btncont}>
-                    <button 
-                      className={styles.active} 
-                      style={{ width: '100%', justifyContent: 'center', display: 'flex', marginTop: '20px' }}
-                      onClick={() => Save()}
-                    >
-                      Save
-                    </button>
-                  </div>
-                </div>
+
+      <div className={styles.item}>
+        <div className={styles.btncont}>
+          <button
+            className={styles.active}
+            style={{ width: '100%', justifyContent: 'center', display: 'flex', marginTop: '20px' }}
+            onClick={save}
+          >
+            Save
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

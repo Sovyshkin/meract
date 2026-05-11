@@ -64,7 +64,9 @@ const [settingAdmin, setSettingAdmin] = useState(null);
 
             if (profiledata) {
                 setUserId(profiledata.id);
-                const isUserAdmin = profiledata.id === guildData?.ownerId;
+                const isUserOwner = profiledata.id === guildData?.ownerId;
+                const isMainAdmin = profiledata?.role?.name === 'main admin';
+                const isUserAdmin = isUserOwner || isMainAdmin;
                 setIsAdmin(isUserAdmin);
             }
             

@@ -96,9 +96,10 @@ useEffect(() => {
         // Проверка членства (нестрогое сравнение т.к. id может быть числом или строкой)
         const isUserMember = guildData.members.some(m => m.id == profileData.id);
         const isUserOwner = guildData.ownerId == profileData.id;
+        const isMainAdmin = profileData?.role?.name === 'main admin';
 
         setIsMember(isUserMember);
-        setAdmin(isUserOwner);
+        setAdmin(isUserOwner || isMainAdmin);
         setUserid(profileData.id);
 
         // Проверяем наличие ожидающей заявки из localStorage
@@ -119,7 +120,7 @@ useEffect(() => {
         }
 
         // Если член гильдии (но не владелец), загружаем приглашения
-        if (isUserMember && !isUserOwner) {
+        if (!isUserOwner) {
           try {
             const invitesData = await guildApi.getMyInvites();
             const guildInvites = Array.isArray(invitesData) 
@@ -373,7 +374,7 @@ useEffect(() => {
                   +{joinusers.length}
                 </div>
               }
-              {(!isAdmin && isMember && myInvites.length > 0) &&
+              {(!isAdmin && myInvites.length > 0) &&
                 <div style={{background:'#009DFF', borderRadius:'8px', padding:'3px', padding:'1px 4px',}}>
                   +{myInvites.length}
                 </div>
@@ -397,7 +398,7 @@ useEffect(() => {
               </div>
             )}
 
-            {!isAdmin && isMember && myInvites.length > 0 && (
+            {!isAdmin && myInvites.length > 0 && (
               <div className={styles.memberSubTabs}>
                 <button className={memberTab === 0 ? styles.active : ''} onClick={() => setMemberTab(0)}>
                   My Invites ({myInvites.length})
@@ -468,7 +469,7 @@ useEffect(() => {
               </div>
             )}
 
-            {!isAdmin && isMember && myInvites.length > 0 && memberTab === 0 && (
+            {!isAdmin && myInvites.length > 0 && memberTab === 0 && (
               <div style={{display:'flex', flexDirection:'column', gap:'10px', marginTop: '10px'}}>
                 {myInvites.map((invite) => (
                   <div key={invite.guildId} className={styles.members} style={{display:'flex', flexDirection:'column'}}>

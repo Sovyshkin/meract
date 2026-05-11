@@ -29,6 +29,7 @@ const useChat = (actId, chatId = null) => {
       return io(`${wsBase}/chat`, {
         path: "/socket.io",
         transports: ["websocket", "polling"],
+        auth: token ? { token } : {},
         query: token ? { token } : {},
         reconnection: false, // управляем вручную, чтобы брать свежий токен
       });
@@ -306,3 +307,5 @@ const useChat = (actId, chatId = null) => {
 };
 
 export default useChat;
+
+

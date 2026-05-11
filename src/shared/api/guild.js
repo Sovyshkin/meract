@@ -45,12 +45,12 @@ export const guildApi = {
     return response.data;
 },
 inviteUser: async(user, id) =>{
-  const data = await api.post(`/guild/invite-user?user=${user}&guildId=${id}`);
-  return data.response;
+  const response = await api.post(`/guild/invite-user?user=${encodeURIComponent(user)}&guildId=${id}`);
+  return response.data;
 },
 kickUser: async(user, id) =>{
-  const data = await api.post(`/guild/kick-out-user?userId=${user}&guildId=${id}`);
-  return data.response;
+  const response = await api.post(`/guild/kick-out-user?userId=${user}&guildId=${id}`);
+  return response.data;
 },
 getJoins: async(id) => {
   const response = await api.get(`/guild/${id}/join-requests`);
@@ -66,7 +66,7 @@ RejectJoin: async(id) => {
 },
 
 getMyInvites: async () => {
-  const response = await api.get("/guild/my-invites");
+  const response = await api.get("/guild/invites/my");
   return response.data;
 },
 

@@ -166,8 +166,8 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
   // Spot Agent computed values
   const currentUserId = useMemo(() => {
-    if (user?.id || user?.sub) {
-      return user.id || user.sub;
+    if (user?.id || user?.userId || user?.sub) {
+      return user.id || user.userId || user.sub;
     }
 
     const token = useAuthStore.getState().getToken();
@@ -178,40 +178,57 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
     return null;
   }, [user]);
+  const currentUserLogin = useMemo(() => {
+    if (user?.login || user?.email) return user.login || user.email;
+    const token = useAuthStore.getState().getToken();
+    if (typeof token === 'string' && token) {
+      const payload = parseJWT(token);
+      return payload?.login || payload?.email || null;
+    }
+    return null;
+  }, [user]);
   const isInitiator = currentUserId === actualStreamData?.userId;
   const spotAgentCount = actualStreamData?.spotAgentCount || 0;
   const hasApplied = candidates.some((c) => c.userId === currentUserId);
 
   // Проверяем, является ли текущий пользователь навигатором
-  const isNavigator = useMemo(() => {
-    if (!currentUserId || !actualStreamData?.teams) return false;
-    return actualStreamData.teams.some(team =>
-      (team.roleConfigs || []).some(rc =>
-        rc.role === 'navigator' &&
-        (rc.candidates || []).some(c => String(c.user?.id ?? c.userId) === String(currentUserId))
-      )
+  const hasRoleInTeamConfig = useCallback((role) => {
+    if (!actualStreamData?.teams) return false;
+    return actualStreamData.teams.some((team) =>
+      (team.roleConfigs || []).some((rc) => {
+        if (rc.role !== role) return false;
+        return (rc.candidates || []).some((c) => {
+          const candidateId = c.user?.id ?? c.userId;
+          const candidateLogin = c.user?.login || c.user?.email || null;
+          const byId =
+            currentUserId != null &&
+            candidateId != null &&
+            String(candidateId) === String(currentUserId);
+          const byLogin =
+            currentUserLogin &&
+            candidateLogin &&
+            String(candidateLogin).toLowerCase() ===
+              String(currentUserLogin).toLowerCase();
+          return byId || byLogin;
+        });
+      }),
     );
-  }, [currentUserId, actualStreamData?.teams]);
+  }, [actualStreamData?.teams, currentUserId, currentUserLogin]);
 
-  const isHero = useMemo(() => {
-    if (!currentUserId || !actualStreamData?.teams) return false;
-    return actualStreamData.teams.some(team =>
-      (team.roleConfigs || []).some(rc =>
-        rc.role === 'hero' &&
-        (rc.candidates || []).some(c => String(c.user?.id ?? c.userId) === String(currentUserId))
-      )
-    );
-  }, [currentUserId, actualStreamData?.teams]);
+  const isNavigator = useMemo(
+    () => hasRoleInTeamConfig('navigator'),
+    [hasRoleInTeamConfig],
+  );
 
-  const isSpotAgent = useMemo(() => {
-    if (!currentUserId || !actualStreamData?.teams) return false;
-    return actualStreamData.teams.some(team =>
-      (team.roleConfigs || []).some(rc =>
-        rc.role === 'spot_agent' &&
-        (rc.candidates || []).some(c => String(c.user?.id ?? c.userId) === String(currentUserId))
-      )
-    );
-  }, [currentUserId, actualStreamData?.teams]);
+  const isHero = useMemo(
+    () => hasRoleInTeamConfig('hero'),
+    [hasRoleInTeamConfig],
+  );
+
+  const isSpotAgent = useMemo(
+    () => hasRoleInTeamConfig('spot_agent'),
+    [hasRoleInTeamConfig],
+  );
 
   const isTeamMember = isHero || isNavigator || isSpotAgent || isInitiator;
   const mergedHeroStreamers = useMemo(
