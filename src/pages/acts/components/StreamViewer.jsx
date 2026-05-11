@@ -102,6 +102,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const [teamMessages, setTeamMessages] = useState([]);
   const [teamChatMessage, setTeamChatMessage] = useState('');
   const [activeChat, setActiveChat] = useState('general');
+  const [showChatQuickActions, setShowChatQuickActions] = useState(false);
   const [selectedStreamerId, setSelectedStreamerId] = useState(null);
   const [heroStreams, setHeroStreams] = useState([]);
   const [showHeroPicker, setShowHeroPicker] = useState(false);
@@ -2293,24 +2294,14 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                 <div className={styles.chatOverlay}>
                   {/* Таб-переключатель General / Team */}
                   {hasTeamChatAccess && teamChatId && (
-                    <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}>
+                    <div className={styles.chatTabs}>
                       <button
                         onClick={() => setActiveChat('general')}
-                        style={{
-                          flex: 1, padding: '8px 0', border: 'none', cursor: 'pointer', fontSize: '12px',
-                          background: activeChat === 'general' ? 'rgba(0,157,255,0.15)' : 'none',
-                          color: activeChat === 'general' ? '#009DFF' : '#888',
-                          fontWeight: activeChat === 'general' ? 600 : 400,
-                        }}
+                        className={`${styles.chatTabBtn} ${activeChat === 'general' ? styles.chatTabBtnActive : ''}`}
                       >General</button>
                       <button
                         onClick={() => setActiveChat('team')}
-                        style={{
-                          flex: 1, padding: '8px 0', border: 'none', cursor: 'pointer', fontSize: '12px',
-                          background: activeChat === 'team' ? 'rgba(0,157,255,0.15)' : 'none',
-                          color: activeChat === 'team' ? '#009DFF' : '#888',
-                          fontWeight: activeChat === 'team' ? 600 : 400,
-                        }}
+                        className={`${styles.chatTabBtn} ${activeChat === 'team' ? styles.chatTabBtnActive : ''}`}
                       >Team</button>
                     </div>
                   )}
@@ -2332,7 +2323,9 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                                   className={styles.pollOptionBtn}
                                   onClick={() => handleVote(opt.id)}
                                 >
-                                  {opt.text} — {opt.percent}%
+                                  <span className={styles.pollOptionFill} style={{ width: `${opt.percent || 0}%` }} />
+                                  <span className={styles.pollOptionLabel}>{opt.text}</span>
+                                  <span className={styles.pollOptionPercent}>{opt.percent || 0}%</span>
                                 </button>
                               ))}
                             </div>
@@ -2343,7 +2336,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                         )}
                         {pinnedMessages.length > 0 && (
                           <div className={styles.pinnedMessagesHeader}>
-                            📌 Pinned
+                            <div className={styles.pinnedLabel}>Pinned</div>
                             {pinnedMessages.map((m) => (
                               <div key={`pin-${m.id}`} className={styles.pinnedMsg}>
                                 <div className={styles.pinnedMsgContent}>
@@ -2385,6 +2378,39 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                           placeholder="Message..."
                           disabled={sending}
                         />
+                        {(isNavigator || isInitiator) && (
+                          <div className={styles.chatInputActionsWrap}>
+                            <button
+                              className={styles.chatInputActionBtn}
+                              onClick={() => setShowChatQuickActions(v => !v)}
+                              title="Actions"
+                            >
+                              +
+                            </button>
+                            {showChatQuickActions && (
+                              <div className={styles.chatQuickActionsMenu}>
+                                <button
+                                  className={styles.chatQuickActionItem}
+                                  onClick={() => {
+                                    setShowChatQuickActions(false);
+                                    setShowAddTaskModal(true);
+                                  }}
+                                >
+                                  Add task
+                                </button>
+                                <button
+                                  className={styles.chatQuickActionItem}
+                                  onClick={() => {
+                                    setShowChatQuickActions(false);
+                                    setShowProposeTaskModal(true);
+                                  }}
+                                >
+                                  Create poll
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
                         <button
                           className={styles.chatOverlaySendBtn}
                           onClick={handleSendMessage}
@@ -2458,7 +2484,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                 </button>
 
                 {/* Navigator buttons */}
-                {isNavigator && (
+                {isNavigator && !showChatPanel && (
                   <>
                     <button
                       className={styles.actionButton}
@@ -3228,3 +3254,5 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 };
 
 export default StreamViewer;
+
+

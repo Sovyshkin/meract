@@ -5,7 +5,6 @@ import {
   createBrowserRouter,
   useSearchParams,
 } from "react-router-dom";
-import { useEffect } from "react";
 // import RankFilters from"../../features/Auth//RankFilters";
 import RankFilters from "../../pages/rank/RankFilters";
 import TermOfUse from "../../features/Auth/registration/TermOfUse";

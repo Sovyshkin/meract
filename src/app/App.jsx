@@ -8,6 +8,7 @@ import PasswordProtection from "../features/Auth/PasswordProtection/PasswordProt
 import { useAuthStore } from "../shared/stores/authStore";
 import { useNotificationStore } from "../shared/stores/notificationStore";
 import { notificationSocket } from "../shared/utils/notificationSocket";
+import api from "../shared/api/api";
 import { noticeApi } from "../shared/api/notifications";
 import AchievementNotificationContainer from "../shared/ui/AchievementNotificationContainer/AchievementNotificationContainer";
 import "./App.css";
@@ -23,14 +24,22 @@ function App() {
   const { setNotifications, addNotification } = useNotificationStore();
   const isMaintenance = false;
   useEffect(() => {
+    if (!isAuthenticated) return;
+
     const accessToken = getCookie("access_token");
     const refreshToken = getCookie("refresh_token");
+    const storeToken = useAuthStore.getState().getToken?.();
 
-    if (isAuthenticated && !accessToken && !refreshToken) {
-      console.log(" No tokens in cookies, logging out...");
-      logout();
-      window.location.href = "/login";
+    if (accessToken || refreshToken || storeToken) {
+      return;
     }
+
+    api
+      .post("/auth/refresh")
+      .catch(() => {
+        logout();
+        window.location.href = "/login";
+      });
   }, [isAuthenticated, logout]);
 
   // Connect notification socket and load initial notifications

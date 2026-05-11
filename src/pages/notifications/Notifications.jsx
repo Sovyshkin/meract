@@ -139,10 +139,15 @@ const Notifications = () => {
     const date = new Date(dateStr);
     const now = new Date();
     const diff = now - date;
-    if (diff < 60_000) return 'СЃРµР№С‡Р°СЃ';
-    if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} РјРёРЅ.`;
-    if (diff < 86_400_000) return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-    return date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' });
+    if (diff < 60_000) return 'just now';
+    if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
+    if (diff < 86_400_000) {
+      return date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    }
+    return date.toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
   };
 
   // Load notifications from API on mount

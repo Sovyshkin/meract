@@ -54,6 +54,7 @@ useEffect(() => {
         setDescription(actsdata.description || 'No description');
 
         const allRoleConfigs = (actsdata.teams || []).flatMap(t => t.roleConfigs || []);
+        const allTeamTasks = (actsdata.teams || []).flatMap(t => t.tasks || []);
         const heroNames = allRoleConfigs
           .filter(rc => rc.role === 'hero')
           .flatMap(rc => (rc.candidates || []).map(c => c.user?.login).filter(Boolean));
@@ -63,11 +64,18 @@ useEffect(() => {
         setHeroes(heroNames.length > 0 ? heroNames.join(', ') : 'open voting');
         setNavigator(navNames.length > 0 ? navNames.join(', ') : 'open voting');
 
-        if (actsdata.initiator) {
-          setLocation(actsdata.initiator.city + ', ' + actsdata.initiator.country);
+        const city = actsdata?.user?.city || null;
+        const country = actsdata?.user?.country || null;
+        const firstTaskWithAddress = allTeamTasks.find((t) => t?.address && String(t.address).trim().length > 0);
+        if (city || country) {
+          setLocation([city, country].filter(Boolean).join(', '));
+        } else if (firstTaskWithAddress) {
+          setLocation(firstTaskWithAddress.address);
+        } else {
+          setLocation('no location');
         }
 
-        setDistance(actsdata.distanceKm || null);
+        setDistance(typeof actsdata.distanceKm === 'number' ? actsdata.distanceKm : null);
 
         if (actsdata.teams) {
           for (const team of actsdata.teams) {
@@ -85,9 +93,7 @@ useEffect(() => {
         if (!act.previewFileName && actsdata.previewFileName) {
           setRawImageUrl(actsdata.previewFileName);
         }
-        if (actsdata.tasks) {
-          setAchivemenets(actsdata.tasks);
-        }
+        setAchivemenets(allTeamTasks);
 
         if (actsdata.navigatorMethods === "VOTING") {
           setNavMethod(2);
@@ -181,10 +187,44 @@ useEffect(() => {
                 </div>
                 <div style={{ padding: '2px 4px', borderRadius: '8px' }}>
                   <div style={{ background:'#252525', width:'fit-content', padding:'4px 5px', borderRadius:'8px', border:'none'}}>
-                    <p className={styles.desc} style={{ color:'#c0c0c0'}}>{distance}km away</p>
+                    {distance != null ? (
+                      <p className={styles.desc} style={{ color:'#c0c0c0'}}>{Number(distance).toFixed(1)}km away</p>
+                    ) : (
+                      <p className={styles.desc} style={{ color:'#c0c0c0'}}>no distance</p>
+                    )}
                   </div>
                 </div>
               </div>
+              {achivemenets.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                  {achivemenets.slice(0, 4).map((task, idx) => (
+                    <div
+                      key={task.id || idx}
+                      title={task.description || `Task ${idx + 1}`}
+                      style={{
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '50%',
+                        background: 'rgba(0, 147, 255, 0.28)',
+                        border: '1px solid rgba(0, 147, 255, 0.75)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '12px',
+                        color: '#fff',
+                        fontWeight: 700,
+                      }}
+                    >
+                      {idx + 1}
+                    </div>
+                  ))}
+                  {achivemenets.length > 4 && (
+                    <span className={styles.desc} style={{ color: '#8ecbff', fontSize: '12px' }}>
+                      +{achivemenets.length - 4}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -223,13 +263,43 @@ useEffect(() => {
             </div>
             <div style={{ padding: '2px 4px', borderRadius: '8px' }}>
               <div style={{ background:'#252525', width:'fit-content', padding:'4px 5px', borderRadius:'8px', border:'none'}}>
-                {distance ? (
-                  <p className={styles.desc} style={{ color:'#c0c0c0'}}>{distance}km away</p>
+                {distance != null ? (
+                  <p className={styles.desc} style={{ color:'#c0c0c0'}}>{Number(distance).toFixed(1)}km away</p>
                 ) : (
                   <p className={styles.desc} style={{ color:'#c0c0c0'}}>no distance</p>
                 )}
               </div>
             </div>
+            {achivemenets.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                {achivemenets.slice(0, 4).map((task, idx) => (
+                  <div
+                    key={task.id || idx}
+                    title={task.description || `Task ${idx + 1}`}
+                    style={{
+                      width: '24px',
+                      height: '24px',
+                      borderRadius: '50%',
+                      background: 'rgba(0, 147, 255, 0.28)',
+                      border: '1px solid rgba(0, 147, 255, 0.75)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '12px',
+                      color: '#fff',
+                      fontWeight: 700,
+                    }}
+                  >
+                    {idx + 1}
+                  </div>
+                ))}
+                {achivemenets.length > 4 && (
+                  <span className={styles.desc} style={{ color: '#8ecbff', fontSize: '12px' }}>
+                    +{achivemenets.length - 4}
+                  </span>
+                )}
+              </div>
+            )}
             {isLive === 'ONLINE' && streamLocation && (
               <div style={{ background:'#1a3a1a', width:'fit-content', padding:'4px 8px', borderRadius:'8px', border:'none', display:'flex', alignItems:'center', gap:'4px'}}>
                 <span style={{color:'#00FF00', fontSize:'10px'}}>📍</span>

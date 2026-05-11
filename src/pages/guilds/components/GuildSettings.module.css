@@ -467,6 +467,25 @@
   outline: none;
 }
 
+select.inputField {
+  color: #ffffff;
+  background-color: rgba(20, 20, 20, 0.95);
+}
+
+select.inputField option {
+  color: #ffffff;
+  background-color: #1f1f1f;
+}
+
+select.inputField option:checked {
+  color: #ffffff;
+  background-color: #2f6fe4;
+}
+
+select.inputField option:disabled {
+  color: rgba(255, 255, 255, 0.55);
+}
+
 
 
 .textareaField {

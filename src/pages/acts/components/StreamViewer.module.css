@@ -1015,12 +1015,12 @@ position: absolute;
 }
 
 .pinnedMessagesHeader {
-  background: rgba(255, 200, 0, 0.08);
-  border-bottom: 1px solid rgba(255, 200, 0, 0.25);
+  background: linear-gradient(90deg, rgba(0, 147, 255, 0.95), rgba(0, 147, 255, 0.78));
+  border-bottom: 1px solid rgba(0, 147, 255, 1);
   padding: 6px 8px;
   margin-bottom: 4px;
   font-size: 11px;
-  color: #ffc800;
+  color: #ffffff;
   font-weight: 600;
 }
 
@@ -1069,23 +1069,23 @@ position: absolute;
 }
 
 .pollCard {
-  background: rgba(255, 200, 0, 0.08);
-  border: 1px solid rgba(255, 200, 0, 0.25);
-  border-radius: 8px;
-  padding: 10px;
+  background: rgba(29, 29, 31, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 10px;
+  padding: 12px;
   margin-bottom: 8px;
 }
 
 .pollTitle {
-  font-size: 13px;
-  font-weight: 600;
-  color: #ffc800;
-  margin-bottom: 4px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 6px;
 }
 
 .pollDesc {
   font-size: 12px;
-  color: #b5b3b3;
+  color: #b9b9b9;
   margin-bottom: 8px;
 }
 
@@ -1096,19 +1096,50 @@ position: absolute;
 }
 
 .pollOptionBtn {
+  position: relative;
+  overflow: hidden;
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 200, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 6px;
-  padding: 6px 10px;
+  padding: 8px 10px;
   color: white;
   font-size: 12px;
   cursor: pointer;
   text-align: left;
   transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .pollOptionBtn:hover {
-  background: rgba(255, 200, 0, 0.15);
+  background: rgba(0, 147, 255, 0.15);
+}
+
+.pollOptionFill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, #0298ff, #1ab7ff);
+  opacity: 0.8;
+  z-index: 0;
+}
+
+.pollOptionLabel,
+.pollOptionPercent {
+  position: relative;
+  z-index: 1;
+}
+
+.pollOptionLabel {
+  font-weight: 600;
+}
+
+.pollOptionPercent {
+  color: #d6e7ff;
+  font-weight: 700;
 }
 
 .pollFooter {
@@ -1116,4 +1147,80 @@ position: absolute;
   color: #888;
   margin-top: 6px;
   text-align: center;
+}
+
+.chatTabs {
+  display: flex;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.chatTabBtn {
+  flex: 1;
+  padding: 8px 0;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  background: transparent;
+  color: #8f8f8f;
+  font-family: "Oxanium", sans-serif;
+}
+
+.chatTabBtnActive {
+  background: rgba(0, 157, 255, 0.16);
+  color: #009dff;
+  font-weight: 700;
+}
+
+.pinnedLabel {
+  color: #cfe9ff;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.chatInputActionsWrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.chatInputActionBtn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.chatQuickActionsMenu {
+  position: absolute;
+  right: 0;
+  bottom: 36px;
+  min-width: 148px;
+  background: rgba(18, 18, 20, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  z-index: 5;
+}
+
+.chatQuickActionItem {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: #fff;
+  font-size: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+  font-family: "Oxanium", sans-serif;
+}
+
+.chatQuickActionItem:hover {
+  background: rgba(0, 147, 255, 0.2);
 }
