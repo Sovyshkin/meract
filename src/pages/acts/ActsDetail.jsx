@@ -270,12 +270,17 @@ export default function ActDetail() {
           if (data.sequel?._count?.chapters) setSeasons(data.sequel._count.chapters);
           if (data.teams) setActTeams(data.teams);
 
+          // DEBUG: Log teams structure
+          console.log('[DEBUG location] data.teams:', JSON.stringify(data.teams, null, 2));
+          
           // Extract stream location from first task with coordinates
           if (data.teams) {
             for (const team of data.teams) {
+              console.log('[DEBUG location] team:', team.name, 'tasks:', JSON.stringify(team.tasks, null, 2));
               if (team.tasks && team.tasks.length > 0) {
                 const taskWithCoords = team.tasks.find(t => t.lat != null && t.lng != null);
                 if (taskWithCoords) {
+                  console.log('[DEBUG location] Found task with coords:', taskWithCoords);
                   setStreamLocation({ lat: taskWithCoords.lat, lng: taskWithCoords.lng, address: taskWithCoords.address || null });
                   break;
                 }
