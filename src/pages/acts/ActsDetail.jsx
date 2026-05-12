@@ -475,12 +475,27 @@ export default function ActDetail() {
 
   // Герой акта может его запустить (бэкенд также должен разрешить — см. FRONTEND_FEATURE_BACKEND_REQUIREMENTS.md)
   const currentUserId = user?.id || user?.sub;
+  
+  // DEBUG: Log user info for hero detection
+  console.log('[DEBUG isHero] user:', user);
+  console.log('[DEBUG isHero] currentUserId:', currentUserId);
+  console.log('[DEBUG isHero] actTeams:', actTeams);
+  
   const isHero = actTeams.some(team =>
-    (team.roleConfigs || []).some(rc =>
-      rc.role === 'hero' &&
-      (rc.candidates || []).some(c => String(c.user?.id ?? c.userId) === String(currentUserId))
-    )
+    (team.roleConfigs || []).some(rc => {
+      const isHeroRole = rc.role === 'hero';
+      if (isHeroRole) {
+        console.log('[DEBUG isHero] Found hero roleConfig:', rc);
+        console.log('[DEBUG isHero] Candidates:', rc.candidates);
+        rc.candidates?.forEach(c => {
+          const candidateId = c.user?.id ?? c.userId;
+          console.log(`[DEBUG isHero] Candidate id: ${candidateId}, currentUserId: ${currentUserId}, match: ${String(candidateId) === String(currentUserId)}`);
+        });
+      }
+      return isHeroRole && (rc.candidates || []).some(c => String(c.user?.id ?? c.userId) === String(currentUserId));
+    })
   );
+  console.log('[DEBUG isHero] isHero result:', isHero);
 
   const allHeroes = Array.from(
     new Set(
