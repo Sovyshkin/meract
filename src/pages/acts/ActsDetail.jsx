@@ -2,6 +2,27 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { io } from "socket.io-client";
 
+// Helper function to decode JWT and extract user ID
+function getUserIdFromToken(token) {
+  if (!token) return null;
+  try {
+    const base64Url = token.split('.')[1];
+    if (!base64Url) return null;
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    const payload = JSON.parse(jsonPayload);
+    return payload.sub || payload.id || null;
+  } catch (e) {
+    console.error('[DEBUG JWT] Failed to decode token:', e);
+    return null;
+  }
+}
+
 import api from "../../shared/api/api";
 import { useAuthStore } from "../../shared/stores/authStore";
 import styles from "./ActsDetail.module.css";
@@ -473,8 +494,9 @@ export default function ActDetail() {
 
   const isOwner = Boolean(user && actOwnerId && String(user.id) === String(actOwnerId));
 
-  // Герой акта может его запустить (бэкенд также должен разрешить — см. FRONTEND_FEATURE_BACKEND_REQUIREMENTS.md)
-  const currentUserId = user?.id || user?.sub;
+  // Герой акта может его запустить (бэкенд также должен разрешить)
+  // Try to get user ID from user object first, then from JWT token
+  const currentUserId = user?.id || user?.sub || getUserIdFromToken(user?.token);
   
   // DEBUG: Log user info for hero detection
   console.log('[DEBUG isHero] user:', user);
