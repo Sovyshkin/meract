@@ -5,6 +5,43 @@ import star from '../../../images/star.png';
 import { actApi } from "../../../shared/api/act";
 import { buildPreviewUrl } from "../../../shared/utils/previewUrl";
 import { useEffect, useState } from "react";
+
+const reverseLocationCache = new Map();
+
+async function reverseGeocodeTask(lat, lng) {
+  if (lat == null || lng == null) return null;
+  const key = `${Number(lat).toFixed(5)},${Number(lng).toFixed(5)}`;
+  if (reverseLocationCache.has(key)) return reverseLocationCache.get(key);
+
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}`,
+      {
+        headers: {
+          Accept: "application/json",
+        },
+      },
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const a = data?.address || {};
+    const city = a.city || a.town || a.village || a.hamlet || "";
+    const road = a.road || a.pedestrian || a.path || "";
+    const house = a.house_number || "";
+    const country = a.country || "";
+
+    const readable = [city, [road, house].filter(Boolean).join(" "), country]
+      .filter(Boolean)
+      .join(", ");
+
+    const value = readable || data?.display_name || null;
+    reverseLocationCache.set(key, value);
+    return value;
+  } catch {
+    return null;
+  }
+}
+
 export default function ActCard({ act, titleact }) {
   const navigate = useNavigate();
   const id = act.id;
@@ -67,10 +104,14 @@ useEffect(() => {
         const city = actsdata?.user?.city || null;
         const country = actsdata?.user?.country || null;
         const firstTaskWithAddress = allTeamTasks.find((t) => t?.address && String(t.address).trim().length > 0);
+        const firstTaskWithCoords = allTeamTasks.find((t) => t?.lat != null && t?.lng != null);
         if (city || country) {
           setLocation([city, country].filter(Boolean).join(', '));
         } else if (firstTaskWithAddress) {
           setLocation(firstTaskWithAddress.address);
+        } else if (firstTaskWithCoords) {
+          const resolved = await reverseGeocodeTask(firstTaskWithCoords.lat, firstTaskWithCoords.lng);
+          setLocation(resolved || 'no location');
         } else {
           setLocation('no location');
         }
