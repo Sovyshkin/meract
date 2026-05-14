@@ -497,6 +497,10 @@
   justify-content: center;
 }
 
+.modalOverlayTop {
+  z-index: 4000;
+}
+
 .modalContent {
   background: rgba(0, 0, 0, 0.95);
   border: 1px solid rgba(255, 255, 255, 0.3);
@@ -1223,4 +1227,406 @@ position: absolute;
 
 .chatQuickActionItem:hover {
   background: rgba(0, 147, 255, 0.2);
+}
+
+/* Fullscreen Chat Overlay */
+.fullscreenChatOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3000;
+  display: flex;
+  flex-direction: column;
+  background: rgba(0, 0, 0, 0.92);
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.fullscreenChatHeader {
+  display: flex;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.fullscreenChatBackBtn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  margin-right: 16px;
+}
+
+.fullscreenChatBackBtn img {
+  width: 24px;
+  height: 24px;
+  filter: brightness(0) invert(1);
+}
+
+.fullscreenChatTitle {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 600;
+  font-family: "Oxanium", sans-serif;
+  margin: 0;
+}
+
+.fullscreenChatTabs {
+  display: flex;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.fullscreenChatTab {
+  flex: 1;
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
+  color: #8f8f8f;
+  font-family: "Oxanium", sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.fullscreenChatTabActive {
+  color: #009dff;
+  border-bottom-color: #009dff;
+}
+
+.fullscreenChatMessages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fullscreenChatMsg {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  width: fit-content;
+  max-width: 75%;
+  word-wrap: break-word;
+  animation: msgIn 0.2s ease;
+}
+
+@keyframes msgIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fullscreenChatMsgOwn {
+  align-self: flex-end;
+  background: rgba(0, 147, 255, 0.15);
+  border: 1px solid rgba(0, 147, 255, 0.3);
+  border-radius: 12px 12px 4px 12px;
+}
+
+.fullscreenChatMsgOther {
+  align-self: flex-start;
+  border-radius: 12px 12px 12px 4px;
+}
+
+.fullscreenChatUsername {
+  font-size: 12px;
+  font-weight: 600;
+  color: #7fd7ff;
+  margin-bottom: 4px;
+}
+
+.fullscreenChatText {
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.4;
+  margin: 0;
+  word-break: break-word;
+}
+
+.fullscreenChatTime {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 4px;
+  align-self: flex-end;
+}
+
+.fullscreenNoMessages {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 14px;
+  text-align: center;
+  padding: 40px 20px;
+  font-style: italic;
+}
+
+.fullscreenChatInputArea {
+  padding: 12px 20px 20px;
+  flex-shrink: 0;
+}
+
+.fullscreenChatInputWrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 24px;
+  padding: 8px 8px 8px 16px;
+}
+
+.fullscreenChatInput {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 15px;
+  outline: none;
+  font-family: "Oxanium", sans-serif;
+}
+
+.fullscreenChatInput::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.fullscreenChatSendBtn {
+  width: 40px !important;
+  min-width: 40px !important;
+  max-width: 40px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
+  border-radius: 50% !important;
+  border: none;
+  background: #0093ff !important;
+  color: #fff;
+  font-size: 18px !important;
+  line-height: 40px !important;
+  text-align: center;
+  cursor: pointer;
+  display: block;
+  transition: background 0.2s, transform 0.15s;
+  flex-shrink: 0;
+  box-sizing: border-box !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: hidden;
+}
+
+.fullscreenChatSendBtn:hover:not(:disabled) {
+  background: #007acc;
+  transform: scale(1.05);
+}
+
+.fullscreenChatSendBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.fullscreenChatActionsWrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.fullscreenChatActionBtn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 32px;
+  text-align: center;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fullscreenChatQuickMenu {
+  position: absolute;
+  bottom: 40px;
+  right: 0;
+  min-width: 148px;
+  background: rgba(18, 18, 20, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  z-index: 10;
+}
+
+.fullscreenChatQuickItem {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: #fff;
+  font-size: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+  font-family: "Oxanium", sans-serif;
+}
+
+.fullscreenChatQuickItem:hover {
+  background: rgba(0, 147, 255, 0.2);
+}
+
+/* Pinned Messages in Fullscreen */
+.fullscreenPinnedSection {
+  background: linear-gradient(90deg, rgba(0, 147, 255, 0.95), rgba(0, 147, 255, 0.78));
+  border-bottom: 1px solid rgba(0, 147, 255, 1);
+  padding: 10px 20px;
+  margin-bottom: 8px;
+}
+
+.fullscreenPinnedTitle {
+  color: #cfe9ff;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.fullscreenPinnedMsg {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 200, 0, 0.15);
+}
+
+.fullscreenPinnedMsg:last-child {
+  border-bottom: none;
+}
+
+.fullscreenPinnedContent {
+  flex: 1;
+}
+
+.fullscreenPinnedUsername {
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.fullscreenPinnedText {
+  font-size: 13px;
+  color: #fff;
+  margin: 0;
+}
+
+.fullscreenUnpinBtn {
+  background: transparent;
+  border: none;
+  color: #ffc800;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.fullscreenUnpinBtn:hover {
+  opacity: 1;
+}
+
+/* Poll in Fullscreen */
+.fullscreenPollCard {
+  background: rgba(29, 29, 31, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 14px;
+  padding: 16px;
+  margin: 0 20px 12px;
+}
+
+.fullscreenPollTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 8px;
+}
+
+.fullscreenPollDesc {
+  font-size: 13px;
+  color: #b9b9b9;
+  margin-bottom: 12px;
+}
+
+.fullscreenPollOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fullscreenPollOptionBtn {
+  position: relative;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.fullscreenPollOptionBtn:hover {
+  background: rgba(0, 147, 255, 0.15);
+}
+
+.fullscreenPollFill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, #0298ff, #1ab7ff);
+  opacity: 0.7;
+  z-index: 0;
+}
+
+.fullscreenPollLabel,
+.fullscreenPollPercent {
+  position: relative;
+  z-index: 1;
+}
+
+.fullscreenPollLabel {
+  font-weight: 600;
+}
+
+.fullscreenPollPercent {
+  color: #d6e7ff;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.fullscreenPollFooter {
+  font-size: 12px;
+  color: #888;
+  margin-top: 10px;
+  text-align: center;
 }

@@ -103,6 +103,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const [teamChatMessage, setTeamChatMessage] = useState('');
   const [activeChat, setActiveChat] = useState('general');
   const [showChatQuickActions, setShowChatQuickActions] = useState(false);
+  const [showFullscreenChat, setShowFullscreenChat] = useState(false);
   const [selectedStreamerId, setSelectedStreamerId] = useState(null);
   const [heroStreams, setHeroStreams] = useState([]);
   const [showHeroPicker, setShowHeroPicker] = useState(false);
@@ -1761,12 +1762,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     }
   }, [showChatPanel]);
 
-  // Auto-show chat overlay for streamer when publishing starts
-  useEffect(() => {
-    if (isSelectedStreamer && (isPublishing || isStreamActive)) {
-      setShowChatPanel(true);
-    }
-  }, [isSelectedStreamer, isPublishing, isStreamActive]);
+  // Chat panel auto-show removed - now opens only on button click
 
   // Auto-scroll chat overlay to bottom on new messages
   useEffect(() => {
@@ -2477,8 +2473,8 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                   <img src={tasks_image} alt="Tasks" />
                 </button>
                 <button
-                  className={`${styles.actionButton} ${showChatPanel ? styles.active : ''}`}
-                  onClick={() => setShowChatPanel(v => !v)}
+                  className={`${styles.actionButton} ${showChatPanel || showFullscreenChat ? styles.active : ''}`}
+                  onClick={() => setShowFullscreenChat(true)}
                 >
                   <img src={messages} alt="Chat" />
                 </button>
@@ -2982,7 +2978,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
           {/* Add Task Modal (Navigator) */}
           {showAddTaskModal && (
-            <div className={styles.modalOverlay} onClick={() => setShowAddTaskModal(false)}>
+            <div className={`${styles.modalOverlay} ${styles.modalOverlayTop}`} onClick={() => setShowAddTaskModal(false)}>
               <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
                 <h3 style={{ color: 'white', marginBottom: '16px' }}>Add New Task</h3>
                 <p style={{ color: '#BFBFBF', marginBottom: '6px', fontSize: '13px' }}>Description *</p>
@@ -3106,7 +3102,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
           {/* Propose Task for Voting Modal (Navigator) */}
           {showProposeTaskModal && (
-            <div className={styles.modalOverlay} onClick={() => setShowProposeTaskModal(false)}>
+            <div className={`${styles.modalOverlay} ${styles.modalOverlayTop}`} onClick={() => setShowProposeTaskModal(false)}>
               <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
                 <h3 style={{ color: 'white', marginBottom: '16px' }}>Propose Task for Voting</h3>
                 <p style={{ color: '#BFBFBF', fontSize: '13px', marginBottom: '12px' }}>
@@ -3228,6 +3224,232 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                   >Propose</button>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Fullscreen Chat Overlay */}
+          {showFullscreenChat && (
+            <div className={styles.fullscreenChatOverlay}>
+              <div className={styles.fullscreenChatHeader}>
+                <button
+                  className={styles.fullscreenChatBackBtn}
+                  onClick={() => setShowFullscreenChat(false)}
+                >
+                  <img src={back} alt="Close" />
+                </button>
+                <h2 className={styles.fullscreenChatTitle}>Chat</h2>
+              </div>
+
+              {hasTeamChatAccess && teamChatId && (
+                <div className={styles.fullscreenChatTabs}>
+                  <button
+                    onClick={() => setActiveChat('general')}
+                    className={`${styles.fullscreenChatTab} ${activeChat === 'general' ? styles.fullscreenChatTabActive : ''}`}
+                  >
+                    General
+                  </button>
+                  <button
+                    onClick={() => setActiveChat('team')}
+                    className={`${styles.fullscreenChatTab} ${activeChat === 'team' ? styles.fullscreenChatTabActive : ''}`}
+                  >
+                    Team
+                  </button>
+                </div>
+              )}
+
+              {/* General Chat */}
+              {activeChat === 'general' && (
+                <>
+                  {activePoll && (
+                    <div className={styles.fullscreenPollCard}>
+                      <div className={styles.fullscreenPollTitle}>{activePoll.title}</div>
+                      {activePoll.description && (
+                        <div className={styles.fullscreenPollDesc}>{activePoll.description}</div>
+                      )}
+                      <div className={styles.fullscreenPollOptions}>
+                        {activePoll.options?.map((opt) => (
+                          <button
+                            key={opt.id}
+                            className={styles.fullscreenPollOptionBtn}
+                            onClick={() => handleVote(opt.id)}
+                          >
+                            <span className={styles.fullscreenPollFill} style={{ width: `${opt.percent || 0}%` }} />
+                            <span className={styles.fullscreenPollLabel}>{opt.text}</span>
+                            <span className={styles.fullscreenPollPercent}>{opt.percent || 0}%</span>
+                          </button>
+                        ))}
+                      </div>
+                      <div className={styles.fullscreenPollFooter}>
+                        {activePoll.totalVotes} votes · Ends {new Date(activePoll.endsAt).toLocaleTimeString()}
+                      </div>
+                    </div>
+                  )}
+                  {pinnedMessages.length > 0 && (
+                    <div className={styles.fullscreenPinnedSection}>
+                      <div className={styles.fullscreenPinnedTitle}>Pinned Messages</div>
+                      {pinnedMessages.map((m) => (
+                        <div key={`fs-pin-${m.id}`} className={styles.fullscreenPinnedMsg}>
+                          <div className={styles.fullscreenPinnedContent}>
+                            <span className={styles.fullscreenPinnedUsername}>{m.user?.username || 'User'}</span>
+                            <p className={styles.fullscreenPinnedText}>{m.text || m.message || m.content}</p>
+                          </div>
+                          {(isNavigator || isInitiator) && (
+                            <button
+                              className={styles.fullscreenUnpinBtn}
+                              onClick={() => unpinMessage(m.id)}
+                            >
+                              ×
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className={styles.fullscreenChatMessages}>
+                    {chatMessages.filter(m => (m.message || m.content || '').trim()).length === 0 ? (
+                      <div className={styles.fullscreenNoMessages}>No messages yet. Be the first!</div>
+                    ) : (
+                      chatMessages.filter(m => (m.message || m.content || '').trim()).map((m, i) => {
+                        const isOwn = m.user?.id === currentUserId || m.userId === currentUserId;
+                        return (
+                          <div
+                            key={m.id || i}
+                            className={`${styles.fullscreenChatMsg} ${isOwn ? styles.fullscreenChatMsgOwn : styles.fullscreenChatMsgOther}`}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                              <div style={{ flex: 1 }}>
+                                <span className={styles.fullscreenChatUsername}>{m.user?.username || m.username || 'User'}</span>
+                                <p className={styles.fullscreenChatText}>{m.message || m.content}</p>
+                              </div>
+                              {(isNavigator || isInitiator) && (
+                                <button
+                                  className={styles.pinBtn}
+                                  onClick={() => pinMessage(m.id)}
+                                  title="Pin"
+                                  style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: '#ffc800',
+                                    cursor: 'pointer',
+                                    fontSize: '14px',
+                                    padding: '2px 4px',
+                                    marginLeft: '8px',
+                                    opacity: 0.6,
+                                    transition: 'opacity 0.2s',
+                                    flexShrink: 0,
+                                  }}
+                                >📌</button>
+                              )}
+                            </div>
+                            <span className={styles.fullscreenChatTime}>
+                              {new Date(m.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                        );
+                      })
+                    )}
+                    <div ref={chatEndRef} />
+                  </div>
+                  <div className={styles.fullscreenChatInputArea}>
+                    <div className={styles.fullscreenChatInputWrapper}>
+                      <input
+                        className={styles.fullscreenChatInput}
+                        value={chatMessage}
+                        onChange={e => setChatMessage(e.target.value)}
+                        onKeyDown={handleKeyPress}
+                        placeholder="Type a message..."
+                        disabled={sending}
+                      />
+                      {(isNavigator || isInitiator) && (
+                        <div className={styles.fullscreenChatActionsWrap}>
+                          <button
+                            className={styles.fullscreenChatActionBtn}
+                            onClick={() => setShowChatQuickActions(v => !v)}
+                            title="Actions"
+                          >
+                            +
+                          </button>
+                          {showChatQuickActions && (
+                            <div className={styles.fullscreenChatQuickMenu}>
+                              <button
+                                className={styles.fullscreenChatQuickItem}
+                                onClick={() => {
+                                  setShowChatQuickActions(false);
+                                  setShowAddTaskModal(true);
+                                }}
+                              >
+                                Add task
+                              </button>
+                              <button
+                                className={styles.fullscreenChatQuickItem}
+                                onClick={() => {
+                                  setShowChatQuickActions(false);
+                                  setShowProposeTaskModal(true);
+                                }}
+                              >
+                                Create poll
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      <button
+                        className={styles.fullscreenChatSendBtn}
+                        onClick={handleSendMessage}
+                        disabled={sending || !chatMessage.trim()}
+                      >
+                        ➤
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Team Chat */}
+              {activeChat === 'team' && hasTeamChatAccess && (
+                <>
+                  <div className={styles.fullscreenChatMessages}>
+                    {teamMessages.filter(m => (m.text || '').trim()).length === 0 ? (
+                      <div className={styles.fullscreenNoMessages}>No team messages yet.</div>
+                    ) : (
+                      teamMessages.filter(m => (m.text || '').trim()).map((m, i) => {
+                        const isOwn = m.sender?.id === currentUserId || m.senderId === currentUserId;
+                        return (
+                          <div
+                            key={m.id || i}
+                            className={`${styles.fullscreenChatMsg} ${isOwn ? styles.fullscreenChatMsgOwn : styles.fullscreenChatMsgOther}`}
+                          >
+                            <span className={styles.fullscreenChatUsername}>{m.sender?.login || m.sender?.email || 'User'}</span>
+                            <p className={styles.fullscreenChatText}>{m.text}</p>
+                            <span className={styles.fullscreenChatTime}>
+                              {new Date(m.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                        );
+                      })
+                    )}
+                    <div ref={teamChatEndRef} />
+                  </div>
+                  <div className={styles.fullscreenChatInputArea}>
+                    <div className={styles.fullscreenChatInputWrapper}>
+                      <input
+                        className={styles.fullscreenChatInput}
+                        value={teamChatMessage}
+                        onChange={e => setTeamChatMessage(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleSendTeamMessage()}
+                        placeholder="Team message..."
+                      />
+                      <button
+                        className={styles.fullscreenChatSendBtn}
+                        onClick={handleSendTeamMessage}
+                        disabled={!teamChatMessage.trim()}
+                      >
+                        ➤
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </>
