@@ -303,6 +303,7 @@ const useChat = (actId, chatId = null) => {
     clearAddedTask: () => setAddedTask(null),
     activePoll,
     clearActivePoll: () => setActivePoll(null),
+    setActivePoll,
   };
 };
 

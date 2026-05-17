@@ -268,7 +268,7 @@ useEffect(() => {
 
       <div className={styles.contentWrapper}>
         <div className={styles.header}>
-          <div className={styles.backButton} onClick={() => navigate("/guilds")}>
+          <div className={styles.backButton} onClick={() => window.history.back()}>
             <img src={arrowLeft} alt="Back" className={styles.backIcon} />
             <p className={styles.backText}>Back</p>
         </div>

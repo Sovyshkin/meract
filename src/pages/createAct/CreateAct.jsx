@@ -425,7 +425,7 @@ export default function CreateAct() {
     <div className={styles.container}>
       {/* Header */}
       <div className={styles.header}>
-        <div className={styles.backButton} onClick={() => navigate('/acts')}>
+        <div className={styles.backButton} onClick={() => window.history.back()}>
           <img src={arrowLeft} alt="Back" className={styles.backIcon} />
         </div>
         <h1>New act</h1>

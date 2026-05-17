@@ -36,7 +36,7 @@ export default function StreamHostPage() {
             <h2>Error: No Act ID provided</h2>
             <p>Please select a valid act to start streaming.</p>
             <button
-              onClick={() => navigate("/acts")}
+              onClick={() => window.history.back()}
               style={{
                 padding: "10px 20px",
                 marginTop: "1rem",
@@ -62,8 +62,8 @@ export default function StreamHostPage() {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <button className={styles.backButton} onClick={() => navigate("/acts")}>
-          ← Back to Acts
+        <button className={styles.backButton} onClick={() => window.history.back()}>
+          ← Back
         </button>
         <h1 className={styles.title}>Live Streaming</h1>
       </div>

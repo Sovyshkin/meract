@@ -50,7 +50,7 @@ export default function RankFilters() {
       <div className={styles.actsPage}>
         <div className="header">
           <div className={styles.header_cont}>
-            <img src={back} alt="back" onClick={() => navigate('/rank')} style={{ cursor: 'pointer' }} />
+            <img src={back} alt="back" onClick={() => window.history.back()} style={{ cursor: 'pointer' }} />
             <div className="name"><h1>Sorting the leaders</h1></div>
             <img src={notification} alt="notification" onClick={() => navigate('/notifications')} style={{ cursor: 'pointer' }} />
           </div>

@@ -107,7 +107,7 @@ export default function MyActsPage() {
                 src={filter} 
                 alt="filter" 
                 className={styles.filterIcon} 
-                onClick={() => navigate('/filters')} 
+                onClick={() => navigate('/filters')}
                 style={{ cursor: 'pointer' }}
               />
             </div>

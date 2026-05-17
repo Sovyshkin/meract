@@ -15,4 +15,9 @@ export const geoApi = {
     const response = await api.get("/geo/cities", { params: { country, q } });
     return response.data;
   },
+
+  reverseGeocode: async (lat, lng) => {
+    const response = await api.get("/geo/reverse", { params: { lat, lng } });
+    return response.data?.address ?? null; // English address string or null
+  },
 };

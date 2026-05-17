@@ -672,7 +672,7 @@ flex-direction: column;
 }
 .savebutton {
   position: fixed;
-  bottom: 20px;
+  bottom: max(20px, env(safe-area-inset-bottom));
   left: 20px;
   right: 20px;
   z-index: 100;

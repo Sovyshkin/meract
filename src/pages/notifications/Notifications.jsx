@@ -222,7 +222,7 @@ const Notifications = () => {
     <div className={styles.container}>
       <div className={styles.header}>
         <div className={styles.header_cont}>
-          <img src={back} alt="back" onClick={() => navigate('/acts')} style={{ cursor: 'pointer' }} />
+          <img src={back} alt="back" onClick={() => window.history.back()} style={{ cursor: 'pointer' }} />
           <div className={styles.name}>
             <h1>Notifications</h1>
           </div>

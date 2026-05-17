@@ -145,13 +145,93 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const [newTaskLat, setNewTaskLat] = useState(null);
   const [newTaskLng, setNewTaskLng] = useState(null);
   const [newTaskGettingLocation, setNewTaskGettingLocation] = useState(false);
+  const [addTaskLocationInit, setAddTaskLocationInit] = useState(false);
+  const [proposeTaskLocationInit, setProposeTaskLocationInit] = useState(false);
+
+  useEffect(() => {
+    if (showAddTaskModal && !addTaskLocationInit && newTaskLat == null) {
+      setAddTaskLocationInit(true);
+      const tryGeolocation = () => {
+        const geo = navigator.geolocation;
+        if (!geo) {
+          const iframe = document.createElement('iframe');
+          iframe.style.display = 'none';
+          document.body.appendChild(iframe);
+          try {
+            const win = iframe.contentWindow;
+            if (win?.navigator?.geolocation) {
+              win.navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                  setNewTaskLat(pos.coords.latitude);
+                  setNewTaskLng(pos.coords.longitude);
+                  document.body.removeChild(iframe);
+                },
+                () => { document.body.removeChild(iframe); },
+                { enableHighAccuracy: false, timeout: 15000 }
+              );
+            } else { document.body.removeChild(iframe); }
+          } catch { try { document.body.removeChild(iframe); } catch {} }
+        } else {
+          geo.getCurrentPosition(
+            (pos) => {
+              setNewTaskLat(pos.coords.latitude);
+              setNewTaskLng(pos.coords.longitude);
+            },
+            () => {},
+            { enableHighAccuracy: false, timeout: 15000 }
+          );
+        }
+      };
+      tryGeolocation();
+    }
+    if (!showAddTaskModal) setAddTaskLocationInit(false);
+  }, [showAddTaskModal, addTaskLocationInit, newTaskLat]);
+
+  useEffect(() => {
+    if (showProposeTaskModal && !proposeTaskLocationInit && newTaskLat == null) {
+      setProposeTaskLocationInit(true);
+      const tryGeolocation = () => {
+        const geo = navigator.geolocation;
+        if (!geo) {
+          const iframe = document.createElement('iframe');
+          iframe.style.display = 'none';
+          document.body.appendChild(iframe);
+          try {
+            const win = iframe.contentWindow;
+            if (win?.navigator?.geolocation) {
+              win.navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                  setNewTaskLat(pos.coords.latitude);
+                  setNewTaskLng(pos.coords.longitude);
+                  document.body.removeChild(iframe);
+                },
+                () => { document.body.removeChild(iframe); },
+                { enableHighAccuracy: false, timeout: 15000 }
+              );
+            } else { document.body.removeChild(iframe); }
+          } catch { try { document.body.removeChild(iframe); } catch {} }
+        } else {
+          geo.getCurrentPosition(
+            (pos) => {
+              setNewTaskLat(pos.coords.latitude);
+              setNewTaskLng(pos.coords.longitude);
+            },
+            () => {},
+            { enableHighAccuracy: false, timeout: 15000 }
+          );
+        }
+      };
+      tryGeolocation();
+    }
+    if (!showProposeTaskModal) setProposeTaskLocationInit(false);
+  }, [showProposeTaskModal, proposeTaskLocationInit, newTaskLat]);
 
   debugLog("StreamViewer - Initial streamData:", streamData);
 
   // Use chat hook
   const actId = streamData?.id || channelName?.replace("act_", "");
   const { user } = useAuthStore();
-  const { messages: chatMessages, sendMessage: sendChatMessage, sending, fetchMessages: fetchChatMessages, pinnedMessages, pinMessage, unpinMessage, proposeTask, addTask, addedTask, clearAddedTask, activePoll, clearActivePoll } = useChat(actId);
+  const { messages: chatMessages, sendMessage: sendChatMessage, sending, fetchMessages: fetchChatMessages, pinnedMessages, pinMessage, unpinMessage, proposeTask, addTask, addedTask, clearAddedTask, activePoll, clearActivePoll, setActivePoll } = useChat(actId);
 
   // Spot Agent state
   const {
@@ -685,7 +765,15 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       setActivePoll(updated);
       toast.success("Vote cast!");
     } catch (err) {
-      toast.error(err.message || "Failed to vote");
+      const apiMsg = err?.response?.data?.message || '';
+      const msg = apiMsg.toLowerCase();
+      if (msg.includes('already voted') || msg.includes('already vote')) {
+        toast.warning("You have already voted in this poll");
+      } else if (apiMsg) {
+        toast.error(apiMsg);
+      } else {
+        toast.error("Failed to vote");
+      }
     }
   };
 
@@ -1046,8 +1134,17 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       );
 
       // Захватываем камеру и микрофон заново
-      const videoTrack = await AgoraRTC.createCameraVideoTrack();
-      const audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+      // Mobile-friendly video constraints for better browser permission compatibility
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      
+      const videoTrack = await AgoraRTC.createCameraVideoTrack({
+        encoderConfig: isMobile ? '480p_1' : { width: 640, height: 480 },
+        optimizationMode: 'detail',
+      });
+      const audioTrack = await AgoraRTC.createMicrophoneAudioTrack({
+        echoCancellation: true,
+        noiseSuppression: true,
+      });
 
       localVideoTrackRef.current = videoTrack;
       localAudioTrackRef.current = audioTrack;
@@ -1104,9 +1201,18 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     try {
       debugLog("🎥 Starting to publish stream...");
       
+      // Mobile-friendly video constraints for better browser permission compatibility
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      
       // Захватываем камеру и микрофон
-      const videoTrack = await AgoraRTC.createCameraVideoTrack();
-      const audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+      const videoTrack = await AgoraRTC.createCameraVideoTrack({
+        encoderConfig: isMobile ? '480p_1' : { width: 640, height: 480 },
+        optimizationMode: 'detail',
+      });
+      const audioTrack = await AgoraRTC.createMicrophoneAudioTrack({
+        echoCancellation: true,
+        noiseSuppression: true,
+      });
       
       setLocalVideoTrack(videoTrack);
       setLocalAudioTrack(audioTrack);
@@ -2147,7 +2253,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                   if (!isSelectedStreamer) {
                     await disconnectFromStream();
                   }
-                  navigate(`/acts/${actId}`);
+                  window.history.back();
                 }}
               />
               {!isSelectedStreamer ?
@@ -2221,7 +2327,26 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
             )}
           </div>
 
-          <div className={styles.videoContainer}>
+          <div className={styles.videoContainer} style={{ position: 'relative' }}>
+            {/* Viewer count badge - always show for both streamer and viewers */}
+            <div className={styles.viewerCountBadge} style={{ 
+              position: 'absolute', 
+              top: '70px', 
+              right: '12px', 
+              zIndex: 10,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              borderRadius: '20px',
+              background: 'rgba(0, 0, 0, 0.7)',
+              backdropFilter: 'blur(8px)',
+            }}>
+              <span className={styles.viewerCountDot} />
+              <span className={styles.viewerCountText}>
+                {viewerCount} watching
+              </span>
+            </div>
             {/* Для стримера показываем локальное видео */}
             {isSelectedStreamer ? (
               <div 

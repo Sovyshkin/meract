@@ -37,8 +37,61 @@ const TeamDetail = () => {
     const [showTaskForm, setShowTaskForm] = useState(false);
     const [taskFormData, setTaskFormData] = useState({ id: null, description: '', address: '', lat: null, lng: null });
     const [gettingLocation, setGettingLocation] = useState(false);
-    
-    const { 
+    const [taskLocationInit, setTaskLocationInit] = useState(false);
+
+    // Автозапрос геолокации при открытии формы создания задания
+    useEffect(() => {
+        if (showTaskForm && !taskLocationInit && taskFormData.lat == null) {
+            setTaskLocationInit(true);
+            // Пробуем получить геолокацию через iframe запрос (более надёжно для Safari)
+            const tryGeolocation = () => {
+                const geo = navigator.geolocation;
+                if (!geo) {
+                    // Пробуем через резервный метод - iframe с Geolocation API
+                    const iframe = document.createElement('iframe');
+                    iframe.style.display = 'none';
+                    iframe.style.position = 'absolute';
+                    document.body.appendChild(iframe);
+                    try {
+                        const win = iframe.contentWindow;
+                        if (win && win.navigator && win.navigator.geolocation) {
+                            win.navigator.geolocation.getCurrentPosition(
+                                (pos) => {
+                                    setTaskFormData(prev => ({ ...prev, lat: pos.coords.latitude, lng: pos.coords.longitude }));
+                                    document.body.removeChild(iframe);
+                                },
+                                () => {
+                                    document.body.removeChild(iframe);
+                                },
+                                { enableHighAccuracy: false, timeout: 15000 }
+                            );
+                        } else {
+                            document.body.removeChild(iframe);
+                        }
+                    } catch {
+                        try { document.body.removeChild(iframe); } catch {}
+                    }
+                } else {
+                    geo.getCurrentPosition(
+                        (pos) => {
+                            setTaskFormData(prev => ({ ...prev, lat: pos.coords.latitude, lng: pos.coords.longitude }));
+                        },
+                        (err) => {
+                            // Игнорируем ошибки - пользователь может вручную указать место на карте
+                            console.log('Geolocation auto-init failed:', err.message);
+                        },
+                        { enableHighAccuracy: false, timeout: 15000 }
+                    );
+                }
+            };
+            tryGeolocation();
+        }
+        if (!showTaskForm) {
+            setTaskLocationInit(false);
+        }
+    }, [showTaskForm, taskLocationInit, taskFormData.lat]);
+
+    const {
         heroes, 
         navigators, 
         agents, 
@@ -75,13 +128,28 @@ const TeamDetail = () => {
         removeMember,
         tasks,
         addTask,
-        removeTask,
-        updateTask,
-        saveCurrentTeam,
-        deleteTeam,
         resetCurrentTeam,
-        getTeamById
+        getTeamById,
+        saveCurrentTeam,
+        updateTask,
+        deleteTeam,
+        removeTask,
     } = useTeamStore();
+
+    // Set current time when component mounts (new team creation)
+    useEffect(() => {
+        // Always set current time on mount, regardless of stored values
+        const now = new Date();
+        const time = now.toTimeString().slice(0, 5);
+        const date = now.toISOString().split('T')[0];
+        
+        setHeroVotingTime(time);
+        setHeroVotingDate(date);
+        setNavigatorVotingTime(time);
+        setNavigatorVotingDate(date);
+        setAgentVotingTime(time);
+        setAgentVotingDate(date);
+    }, []);
 
     const isEditingExistingTeam = currentTeamId && getTeamById(currentTeamId);
 

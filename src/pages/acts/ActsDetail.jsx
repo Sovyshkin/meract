@@ -36,6 +36,7 @@ import share from'../../images/sharewhite.png';
 import { actApi } from "../../shared/api/act";
 import { pollApi } from "../../shared/api/pollApi";
 import { profileApi } from "../../shared/api/profile";
+import { geoApi } from "../../shared/api/geo";
 import { buildPreviewUrl } from "../../shared/utils/previewUrl";
 import { useSoundStore } from "../../shared/stores/soundStore";
 import { toast } from "react-toastify";
@@ -281,7 +282,17 @@ export default function ActDetail() {
                 const taskWithCoords = team.tasks.find(t => t.lat != null && t.lng != null);
                 if (taskWithCoords) {
                   console.log('[DEBUG location] Found task with coords:', taskWithCoords);
-                  setStreamLocation({ lat: taskWithCoords.lat, lng: taskWithCoords.lng, address: taskWithCoords.address || null });
+                  // Try to get English address via reverse geocoding
+                  let address = null;
+                  if (taskWithCoords.lat != null && taskWithCoords.lng != null) {
+                    try {
+                      address = await geoApi.reverseGeocode(taskWithCoords.lat, taskWithCoords.lng);
+                    } catch (_addrErr) {
+                      // fallback to stored address if reverse geocode fails
+                      address = taskWithCoords.address || null;
+                    }
+                  }
+                  setStreamLocation({ lat: taskWithCoords.lat, lng: taskWithCoords.lng, address });
                   break;
                 }
               }
@@ -411,7 +422,10 @@ export default function ActDetail() {
   }, [id]);
 
   const handleVote = async (pollId, optionId, endsAt) => {
-    if (userVotes[pollId] !== undefined) return;
+    if (userVotes[pollId] !== undefined) {
+      toast.info('You have already voted in this poll');
+      return;
+    }
     if (endsAt && Date.now() > new Date(endsAt).getTime()) {
       toast.warning('Voting deadline has passed');
       return;
@@ -421,8 +435,16 @@ export default function ActDetail() {
       setUserVotes(prev => ({ ...prev, [pollId]: optionId }));
       const data = await pollApi.getActivePolls(id);
       setPolls(Array.isArray(data) ? data : []);
-    } catch {
-      toast.error("Failed to vote");
+    } catch (err) {
+      const msg = err?.response?.data?.message || '';
+      if (msg.toLowerCase().includes('already voted') || msg.toLowerCase().includes('already vote')) {
+        toast.warning('You have already voted in this poll');
+        setUserVotes(prev => ({ ...prev, [pollId]: optionId }));
+      } else if (msg) {
+        toast.error(msg);
+      } else {
+        toast.error("Failed to vote");
+      }
     }
   };
 
@@ -601,7 +623,7 @@ const handleRateAct = async () => {
         <div style={topBannerStyle} />
         <div className={styles.contentWrapper}>
           <div className={styles.header}>
-            <div className={styles.backButton} onClick={() => navigate("/acts")}>
+            <div className={styles.backButton} onClick={() => window.history.back()}>
               <img src={arrowLeft} alt="Back" className={styles.backIcon} />
             </div>
           </div>
@@ -617,7 +639,7 @@ const handleRateAct = async () => {
 
       <div className={styles.contentWrapper}>
         <div className={styles.header}>
-          <div className={styles.backButton} onClick={() => navigate("/acts")}>
+          <div className={styles.backButton} onClick={() => window.history.back()}>
             <img src={arrowLeft} alt="Back" className={styles.backIcon} />
           </div>
 
@@ -652,7 +674,7 @@ const handleRateAct = async () => {
                   Heroes: {allHeroes.join(', ')}
                 </p>
               )}
-              <div style={{ display: 'flex', gap: '15px' }}>
+              <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'center' }}>
                 <div style={{ display: 'flex', gap: '5px', cursor: 'pointer' }} onClick={() => setShowRatingModal(true)}>
                   <img src={star} alt="" style={{ width: '20px', height: '20px' }} />
                   <p style={{ color: '#00F300' }}>{rating}</p>
@@ -663,9 +685,27 @@ const handleRateAct = async () => {
                   : <p className={styles.desc} style={{ color: '#c0c0c0' }}>{seasons || 0} Seasons</p>
                 }
                 {isLive === 'ONLINE' && streamLocation && (
-                  <div style={{ background: '#1a3a1a', padding: '4px 10px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    <span style={{ color: '#00FF00', fontSize: '12px' }}>📍</span>
-                    <p className={styles.desc} style={{ color: '#00FF00', fontSize: '12px' }}>
+                  <div style={{ 
+                    background: 'rgba(0, 255, 0, 0.08)', 
+                    padding: '6px 12px', 
+                    borderRadius: '12px', 
+                    border: '1px solid rgba(0, 255, 0, 0.2)',
+                    display: 'inline-flex', 
+                    alignItems: 'center', 
+                    gap: '6px',
+                    maxWidth: '100%',
+                    overflow: 'hidden',
+                  }}>
+                    <span style={{ color: '#00FF00', fontSize: '14px', flexShrink: 0 }}>📍</span>
+                    <p style={{ 
+                      color: '#00FF00', 
+                      fontSize: '12px', 
+                      margin: 0,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      fontFamily: 'Oxanium, sans-serif',
+                    }}>
                       {streamLocation.address || `${streamLocation.lat?.toFixed(4)}, ${streamLocation.lng?.toFixed(4)}`}
                     </p>
                   </div>
@@ -1095,25 +1135,53 @@ const handleRateAct = async () => {
                   const voted = userVotes[poll.id] !== undefined;
                   const isPollClosed = poll.endsAt && Date.now() > new Date(poll.endsAt).getTime();
                   return (
-                    <div key={poll.id} style={{ marginTop: '12px', background: '#1a1a1a', borderRadius: '12px', padding: '14px' }}>
-                      <p style={{ color: 'white', fontWeight: 'bold', marginBottom: '8px' }}>{poll.title}</p>
+                    <div key={poll.id} style={{ 
+                      marginTop: '12px', 
+                      background: 'rgba(29, 29, 31, 0.88)', 
+                      border: '1px solid rgba(255, 255, 255, 0.13)', 
+                      borderRadius: '14px', 
+                      padding: '16px' 
+                    }}>
+                      {/* Header */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                        <p style={{ color: '#fff', fontSize: '15px', fontWeight: '700', margin: 0, flex: 1 }}>{poll.title}</p>
+                        {voted && (
+                          <span style={{ 
+                            background: '#009DFF', 
+                            color: 'white', 
+                            fontSize: '10px', 
+                            fontWeight: '700', 
+                            padding: '2px 8px', 
+                            borderRadius: '10px',
+                            flexShrink: 0,
+                            marginLeft: '8px'
+                          }}>
+                            VOTED
+                          </span>
+                        )}
+                      </div>
+                      {poll.description && (
+                        <p style={{ color: '#b9b9b9', fontSize: '13px', marginBottom: '12px', marginTop: '4px' }}>{poll.description}</p>
+                      )}
+                      
+                      {/* Options */}
                       {poll.options.map((opt) => {
                         const isChosen = userVotes[poll.id] === opt.id;
                         const isLeading = voted && opt.percent === Math.max(...poll.options.map(o => o.percent));
                         return (
                           <div
                             key={opt.id}
-                            onClick={() => handleVote(poll.id, opt.id, poll.endsAt)}
+                            onClick={() => !voted && !isPollClosed && handleVote(poll.id, opt.id, poll.endsAt)}
                             style={{
                               display: 'flex',
                               alignItems: 'center',
                               gap: '10px',
                               marginBottom: '8px',
                               cursor: voted || isPollClosed ? 'default' : 'pointer',
-                              padding: '8px 10px',
-                              borderRadius: '8px',
-                              border: isChosen ? '1px solid #009DFF' : '1px solid #333',
-                              background: isPollClosed ? 'rgba(255,255,255,0.03)' : '#111',
+                              padding: '12px 14px',
+                              borderRadius: '10px',
+                              border: isChosen ? '1px solid #009DFF' : '1px solid rgba(255, 255, 255, 0.12)',
+                              background: isPollClosed ? 'rgba(255,255,255,0.03)' : 'rgba(255, 255, 255, 0.05)',
                               position: 'relative',
                               overflow: 'hidden',
                               opacity: isPollClosed ? 0.65 : 1,
@@ -1124,27 +1192,44 @@ const handleRateAct = async () => {
                               <div style={{
                                 position: 'absolute', left: 0, top: 0, bottom: 0,
                                 width: `${opt.percent}%`,
-                                background: isLeading ? 'rgba(0,157,255,0.15)' : 'rgba(255,255,255,0.05)',
+                                background: 'linear-gradient(90deg, #0298ff, #1ab7ff)',
+                                opacity: 0.7,
                                 transition: 'width 0.4s ease',
-                                borderRadius: '8px',
+                                borderRadius: '10px',
                               }} />
                             )}
-                            <span style={{ position: 'relative', color: isChosen ? '#009DFF' : 'white', flex: 1, zIndex: 1 }}>{opt.text}</span>
+                            {/* Checkmark for chosen option */}
+                            {isChosen && (
+                              <span style={{ position: 'relative', fontSize: '14px', zIndex: 1 }}>✓</span>
+                            )}
+                            <span style={{ position: 'relative', color: isChosen ? '#fff' : '#e8e8e8', flex: 1, zIndex: 1, fontWeight: '600' }}>{opt.text}</span>
                             {voted && (
-                              <span style={{ position: 'relative', color: isLeading ? '#009DFF' : '#b5b3b3', fontWeight: 'bold', zIndex: 1 }}>
+                              <span style={{ position: 'relative', color: isLeading ? '#d6e7ff' : '#b5b3b3', fontWeight: '700', fontSize: '13px', zIndex: 1 }}>
                                 {opt.percent}%
                               </span>
                             )}
                           </div>
                         );
                       })}
-                      {poll.endsAt && (
-                        <p style={{ color: '#888', fontSize: '12px', marginTop: '4px' }}>
-                          {isPollClosed
-                            ? `Voting ended: ${new Date(poll.endsAt).toLocaleString()}`
-                            : `Ends: ${new Date(poll.endsAt).toLocaleString()}`}
-                        </p>
-                      )}
+                      
+                      {/* Footer */}
+                      <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center',
+                        marginTop: '10px',
+                        paddingTop: '10px',
+                        borderTop: '1px solid rgba(255, 255, 255, 0.1)'
+                      }}>
+                        <span style={{ color: '#888', fontSize: '12px' }}>
+                          {poll.totalVotes} {poll.totalVotes === 1 ? 'vote' : 'votes'}
+                        </span>
+                        {poll.endsAt && (
+                          <span style={{ color: '#888', fontSize: '12px' }}>
+                            {isPollClosed ? 'Ended' : `Ends ${new Date(poll.endsAt).toLocaleTimeString()}`}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   );
                 })}

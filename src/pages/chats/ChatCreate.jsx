@@ -73,7 +73,7 @@ export default function ChatCreate() {
       <div className={styles.actsPage}>
         <div className="header">
           <div className={styles.header_cont}>
-            <img src={back} alt="back" onClick={() => navigate('/chats')} style={{cursor: 'pointer'}}/>
+            <img src={back} alt="back" onClick={() => window.history.back()} style={{cursor: 'pointer'}}/>
             <div className="name"><h1>New chat</h1></div>
             <div></div>
           </div>

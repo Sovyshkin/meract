@@ -3,6 +3,18 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { toast } from 'react-toastify';
 
+// Helper function to format current datetime for datetime-local input
+const getDefaultVotingDatetime = () => {
+  const now = new Date();
+  const date = now.toISOString().split('T')[0];
+  const time = now.toTimeString().slice(0, 5);
+  return { date, time };
+};
+
+const _defaultHeroDt = getDefaultVotingDatetime();
+const _defaultNavDt = getDefaultVotingDatetime();
+const _defaultAgentDt = getDefaultVotingDatetime();
+
 const useTeamStore = create(
   persist(
     (set, get) => ({
@@ -29,14 +41,14 @@ const useTeamStore = create(
       agentMethod: 'voting_candidates',
 
       // Данные для полей ввода текущей команды
-      heroVotingStartTime: '10:30',
-      heroVotingStartDate: '2026-02-13',
+      heroVotingStartTime: _defaultHeroDt.time,
+      heroVotingStartDate: _defaultHeroDt.date,
       heroVotingHours: 24,
-      navigatorVotingStartTime: '10:30',
-      navigatorVotingStartDate: '2026-02-13',
+      navigatorVotingStartTime: _defaultNavDt.time,
+      navigatorVotingStartDate: _defaultNavDt.date,
       navigatorVotingHours: 24,
-      agentVotingStartTime: '10:30',
-      agentVotingStartDate: '2026-02-13',
+      agentVotingStartTime: _defaultAgentDt.time,
+      agentVotingStartDate: _defaultAgentDt.date,
       agentVotingHours: 24,
 
       // Получить все команды
@@ -59,6 +71,7 @@ const useTeamStore = create(
       // Создать новую команду
       createNewTeam: () => {
         const newTeamId = Date.now().toString();
+        const nowDatetime = getDefaultVotingDatetime();
         set({ 
           currentTeamId: newTeamId,
           heroes: [],
@@ -71,14 +84,14 @@ const useTeamStore = create(
           heroMethod: 'voting_candidates',
           navigatorMethod: 'voting_candidates',
           agentMethod: 'voting_candidates',
-          heroVotingStartTime: '10:30',
-          heroVotingStartDate: '2026-02-13',
+          heroVotingStartTime: nowDatetime.time,
+          heroVotingStartDate: nowDatetime.date,
           heroVotingHours: 24,
-          navigatorVotingStartTime: '10:30',
-          navigatorVotingStartDate: '2026-02-13',
+          navigatorVotingStartTime: nowDatetime.time,
+          navigatorVotingStartDate: nowDatetime.date,
           navigatorVotingHours: 24,
-          agentVotingStartTime: '10:30',
-          agentVotingStartDate: '2026-02-13',
+          agentVotingStartTime: nowDatetime.time,
+          agentVotingStartDate: nowDatetime.date,
           agentVotingHours: 24,
         });
         return newTeamId;
@@ -88,6 +101,7 @@ const useTeamStore = create(
       loadTeamForEditing: (teamId) => {
         const team = get().teams.find(t => t.id === teamId);
         if (team) {
+          const defaultDt = getDefaultVotingDatetime();
           set({
             currentTeamId: team.id,
             heroes: team.heroes || [],
@@ -100,14 +114,14 @@ const useTeamStore = create(
             heroMethod: team.heroMethod || 'voting_candidates',
             navigatorMethod: team.navigatorMethod || 'voting_candidates',
             agentMethod: team.agentMethod || 'voting_candidates',
-            heroVotingStartTime: team.heroVotingStartTime || '10:30',
-            heroVotingStartDate: team.heroVotingStartDate || '2026-02-13',
+            heroVotingStartTime: team.heroVotingStartTime || defaultDt.time,
+            heroVotingStartDate: team.heroVotingStartDate || defaultDt.date,
             heroVotingHours: team.heroVotingHours || 24,
-            navigatorVotingStartTime: team.navigatorVotingStartTime || '10:30',
-            navigatorVotingStartDate: team.navigatorVotingStartDate || '2026-02-13',
+            navigatorVotingStartTime: team.navigatorVotingStartTime || defaultDt.time,
+            navigatorVotingStartDate: team.navigatorVotingStartDate || defaultDt.date,
             navigatorVotingHours: team.navigatorVotingHours || 24,
-            agentVotingStartTime: team.agentVotingStartTime || '10:30',
-            agentVotingStartDate: team.agentVotingStartDate || '2026-02-13',
+            agentVotingStartTime: team.agentVotingStartTime || defaultDt.time,
+            agentVotingStartDate: team.agentVotingStartDate || defaultDt.date,
             agentVotingHours: team.agentVotingHours || 24,
           });
         }
@@ -189,6 +203,7 @@ const useTeamStore = create(
 
       // Добавляем недостающую функцию setTeamData
       setTeamData: (data) => {
+        const defDt = getDefaultVotingDatetime();
         set({
           teamName: data.name || '',
           heroes: data.heroes || [],
@@ -200,14 +215,14 @@ const useTeamStore = create(
           heroMethod: data.heroMethod || 'voting_candidates',
           navigatorMethod: data.navigatorMethod || 'voting_candidates',
           agentMethod: data.agentMethod || 'voting_candidates',
-          heroVotingStartTime: data.heroVotingStartTime || '10:30',
-          heroVotingStartDate: data.heroVotingStartDate || '2026-02-13',
+          heroVotingStartTime: data.heroVotingStartTime || defDt.time,
+          heroVotingStartDate: data.heroVotingStartDate || defDt.date,
           heroVotingHours: data.heroVotingHours || 24,
-          navigatorVotingStartTime: data.navigatorVotingStartTime || '10:30',
-          navigatorVotingStartDate: data.navigatorVotingStartDate || '2026-02-13',
+          navigatorVotingStartTime: data.navigatorVotingStartTime || defDt.time,
+          navigatorVotingStartDate: data.navigatorVotingStartDate || defDt.date,
           navigatorVotingHours: data.navigatorVotingHours || 24,
-          agentVotingStartTime: data.agentVotingStartTime || '10:30',
-          agentVotingStartDate: data.agentVotingStartDate || '2026-02-13',
+          agentVotingStartTime: data.agentVotingStartTime || defDt.time,
+          agentVotingStartDate: data.agentVotingStartDate || defDt.date,
           agentVotingHours: data.agentVotingHours || 24,
         });
       },
@@ -272,29 +287,45 @@ const useTeamStore = create(
       setAgentVotingDate: (date) => set({ agentVotingStartDate: date }),
       setAgentVotingHours: (hours) => set({ agentVotingHours: hours }),
       
-      // Очистка текущей команды
-      resetCurrentTeam: () => set({
-        currentTeamId: null,
-        heroes: [],
-        navigators: [],
-        agents: [],
-        tasks: [],
-        teamName: '',
-        isHeroRecruitmentOpen: false,
-        isNavigatorRecruitmentOpen: false,
-        heroMethod: 'voting_candidates',
-        navigatorMethod: 'voting_candidates',
-        agentMethod: 'voting_candidates',
-        heroVotingStartTime: '10:30',
-        heroVotingStartDate: '2026-02-13',
-        heroVotingHours: 24,
-        navigatorVotingStartTime: '10:30',
-        navigatorVotingStartDate: '2026-02-13',
-        navigatorVotingHours: 24,
-        agentVotingStartTime: '10:30',
-        agentVotingStartDate: '2026-02-13',
-        agentVotingHours: 24,
-      }),
+      // Очистка текущей команды и установка текущего времени
+      resetCurrentTeam: () => {
+        const nowDt = getDefaultVotingDatetime();
+        set({
+          currentTeamId: null,
+          heroes: [],
+          navigators: [],
+          agents: [],
+          tasks: [],
+          teamName: '',
+          isHeroRecruitmentOpen: false,
+          isNavigatorRecruitmentOpen: false,
+          heroMethod: 'voting_candidates',
+          navigatorMethod: 'voting_candidates',
+          agentMethod: 'voting_candidates',
+          heroVotingStartTime: nowDt.time,
+          heroVotingStartDate: nowDt.date,
+          heroVotingHours: 24,
+          navigatorVotingStartTime: nowDt.time,
+          navigatorVotingStartDate: nowDt.date,
+          navigatorVotingHours: 24,
+          agentVotingStartTime: nowDt.time,
+          agentVotingStartDate: nowDt.date,
+          agentVotingHours: 24,
+        });
+      },
+
+      // Принудительно установить текущее время для всех полей
+      setCurrentTimeToAll: () => {
+        const nowDt = getDefaultVotingDatetime();
+        set({
+          heroVotingStartTime: nowDt.time,
+          heroVotingStartDate: nowDt.date,
+          navigatorVotingStartTime: nowDt.time,
+          navigatorVotingStartDate: nowDt.date,
+          agentVotingStartTime: nowDt.time,
+          agentVotingStartDate: nowDt.date,
+        });
+      },
     }),
     {
       name: 'team-storage',

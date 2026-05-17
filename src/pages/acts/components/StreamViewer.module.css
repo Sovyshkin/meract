@@ -784,9 +784,10 @@
   background-color: #E74209;
   border: none;
   border-radius: 8px;
-  padding: 5px;
-  max-width: 60px;
+  padding: 5px 10px;
+  min-width: 70px;
   align-items:center;
+  flex-shrink: 0;
 }
 .live {
   font-family: "Oxanium", sans-serif;
@@ -1629,4 +1630,48 @@ position: absolute;
   color: #888;
   margin-top: 10px;
   text-align: center;
+}
+
+
+/* Viewer count badge */
+.viewerCountBadge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  z-index: 10;
+}
+
+.viewerCountDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #FF3B57;
+  animation: viewerPulse 2s infinite;
+}
+
+@keyframes viewerPulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(0.85);
+  }
+}
+
+.viewerCountText {
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }

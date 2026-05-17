@@ -28,8 +28,8 @@ const SettingsPage = () => {
                   <img 
                     src={back} 
                     alt="back" 
-                    onClick={() => navigate('/acts')} 
-                    style={{ cursor: 'pointer' }} 
+                    onClick={() => window.history.back()}
+                    style={{ cursor: 'pointer' }}
                   />
                   <div className={styles.name}>
                     <div className="name"><h1>Leaders</h1></div>

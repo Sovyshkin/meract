@@ -846,7 +846,7 @@ const SecurityPage = () => {
             {/* Header */}
             <div className={styles.header}>
                 <div className={styles.header_cont}>
-                    <img src={back} alt="back" onClick={() => navigate('/settings')} className={styles.backBtn} />
+                    <img src={back} alt="back" onClick={() => window.history.back()} className={styles.backBtn} />
                     <div className="name"><h1>Security</h1></div>
                     <div></div>
                 </div>

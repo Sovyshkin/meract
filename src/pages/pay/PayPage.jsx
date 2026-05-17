@@ -49,7 +49,7 @@ const PayPage = () => {
                     <img 
                         src={back} 
                         alt="back" 
-                        onClick={() => navigate('/acts')} 
+                        onClick={() => window.history.back()} 
                         style={{ cursor: 'pointer' }} 
                     />
                     <div className={styles.name}>

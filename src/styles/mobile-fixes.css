@@ -1,0 +1,59 @@
+/* Mobile safe area fixes for all pages */
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+@media (max-width: 768px) {
+  body {
+    /* Reserve space for home indicator on iOS */
+    padding-bottom: max(20px, env(safe-area-inset-bottom)) !important;
+  }
+  
+  /* Ensure scrollable containers work */
+  #root {
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Add bottom padding to containers */
+  .container {
+    padding-bottom: max(40px, env(safe-area-inset-bottom)) !important;
+  }
+  
+  /* Fixed buttons at bottom need extra space */
+  .item,
+  .savebutton {
+    padding-bottom: max(20px, env(safe-area-inset-bottom)) !important;
+  }
+  
+  /* For buttons at bottom */
+  .button,
+  button[class*="button"],
+  button[class*="savebutton"],
+  button[class*="Button"] {
+    padding-bottom: max(16px, env(safe-area-inset-bottom)) !important;
+  }
+}
+
+/* Large mobile devices */
+@media (min-width: 769px) and (max-width: 1024px) {
+  body {
+    padding-bottom: 20px !important;
+  }
+  
+  .container {
+    padding-bottom: 40px !important;
+  }
+  
+  .item,
+  .savebutton {
+    padding-bottom: 20px !important;
+  }
+}

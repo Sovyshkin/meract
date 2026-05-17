@@ -194,7 +194,7 @@ const PayStore = () => {
     <div className={styles.container}>
       <div className={styles.header}>
         <div className={styles.header_cont}>
-          <img src={back} alt="back" onClick={() => navigate('/wallet')} style={{ cursor: 'pointer' }} />
+          <img src={back} alt="back" onClick={() => window.history.back()} style={{ cursor: 'pointer' }} />
           <div className="name"><h1>Meract shop</h1></div>
           <img src={notification} alt="notifications" onClick={() => navigate('/notifications')} />
         </div>
