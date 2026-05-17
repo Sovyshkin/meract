@@ -451,7 +451,7 @@ useEffect(() => {
               </div>
             )}
 
-            {!isAdmin && isMember && memberTab === 1 && (
+            {!isAdmin && isMember && (myInvites.length === 0 || memberTab === 1) && (
               <div style={{display:'flex', flexDirection:'column', gap:'10px', marginTop: '10px'}}>
                 {members.filter(m => m.login || m.email).map((member) => (
                   <div key={member.id} className={styles.members}>
