@@ -202,10 +202,10 @@ const Notifications = () => {
   }, [markAllRead]);
 
   const handleAccept = useCallback(async (card) => {
-    if (card.type === 'stream_invite' && card.metadata?.actId) {
-      navigate(`/stream/${card.metadata.actId}`);
-    } else if (card.type === 'act_invite' && card.metadata?.actId) {
-      navigate(`/acts/${card.metadata.actId}`);
+    if (card.type === 'stream_invite' && (card.metadata?.actPublicId || card.metadata?.actId)) {
+      navigate(`/stream/${card.metadata?.actPublicId || card.metadata?.actId}`);
+    } else if (card.type === 'act_invite' && (card.metadata?.actPublicId || card.metadata?.actId)) {
+      navigate(`/acts/${card.metadata?.actPublicId || card.metadata?.actId}`);
     } else if (card.type === 'guild_invite' && card.metadata?.guildId) {
       navigate(`/guilds/${card.metadata.guildId}`);
     }

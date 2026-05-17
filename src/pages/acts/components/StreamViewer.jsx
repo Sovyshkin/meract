@@ -228,10 +228,16 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
   debugLog("StreamViewer - Initial streamData:", streamData);
 
-  // Use chat hook
-  const actId = streamData?.id || channelName?.replace("act_", "");
+  // `actRef` can be public UUID or numeric id from URL/state.
+  const actRef = id || streamData?.publicId || streamData?.id || channelName?.replace("act_", "");
+  // Numeric id is still required by sockets and some chat payloads.
+  const numericActId = useMemo(() => {
+    const raw = actualStreamData?.id ?? streamData?.id;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }, [actualStreamData?.id, streamData?.id]);
   const { user } = useAuthStore();
-  const { messages: chatMessages, sendMessage: sendChatMessage, sending, fetchMessages: fetchChatMessages, pinnedMessages, pinMessage, unpinMessage, proposeTask, addTask, addedTask, clearAddedTask, activePoll, clearActivePoll, setActivePoll } = useChat(actId);
+  const { messages: chatMessages, sendMessage: sendChatMessage, sending, fetchMessages: fetchChatMessages, pinnedMessages, pinMessage, unpinMessage, proposeTask, addTask, addedTask, clearAddedTask, activePoll, clearActivePoll, setActivePoll } = useChat(numericActId);
 
   // Spot Agent state
   const {
@@ -242,7 +248,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     fetchCandidates,
     fetchAssigned,
     apply,
-  } = useSpotAgent(actId);
+  } = useSpotAgent(numericActId);
 
   const [actualStreamData, setActualStreamData] = useState(streamData);
 
@@ -362,7 +368,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     loading: loadingRecordings,
     error: recordingsError,
     reload: reloadRecordings,
-  } = useRecordings(actId, selectedStreamerId ? Number(selectedStreamerId) : undefined);
+  } = useRecordings(numericActId, selectedStreamerId ? Number(selectedStreamerId) : undefined);
 
   useEffect(() => {
     if (selectedStreamerId) {
@@ -464,14 +470,14 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const actualChannelName = selectedHeroStream?.channelName
     ? selectedHeroStream.channelName
     : (selectedStreamerId
-      ? `act_${actId}_hero_${selectedStreamerId}`
+      ? `act_${numericActId || actRef}_hero_${selectedStreamerId}`
     : (channelName?.startsWith("act_")
       ? channelName
-      : `act_${channelName || streamData?.id || "default"}`));
+      : `act_${channelName || numericActId || actRef || "default"}`));
 
   // ВАЖНО: WebSocket подключение к MainGateway
   useEffect(() => {
-    if (!actId || !currentUserId) {
+    if (!numericActId || !currentUserId) {
       debugLog("Waiting for actId and userId...");
       return;
     }
@@ -484,7 +490,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       transports: ['websocket'],
       path: '/socket.io',
       query: {
-        actId: actId,
+        actId: numericActId,
         userId: currentUserId,
         token: useAuthStore.getState().getToken()
       },
@@ -503,7 +509,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
         toast.success('Connection restored');
       }
 
-      socket.emit('joinAct', { actId: parseInt(actId) });
+      socket.emit('joinAct', { actId: numericActId });
     });
 
     socket.on('reconnect_attempt', (attemptNumber) => {
@@ -574,20 +580,20 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     return () => {
       debugLog('🔌 Cleaning up WebSocket...');
       if (socketRef.current) {
-        socketRef.current.emit('leaveAct', { actId: parseInt(actId) });
+        socketRef.current.emit('leaveAct', { actId: numericActId });
         socketRef.current.disconnect();
       }
     };
-  }, [actId, currentUserId, user?.token, isSelectedStreamer]);
+  }, [numericActId, currentUserId, user?.token, isSelectedStreamer]);
 
   // Load actual stream data from server
   useEffect(() => {
     const loadStreamData = async () => {
-      if (!actId) return;
+      if (!actRef) return;
 
       try {
-        debugLog("StreamViewer - Loading stream data for actId:", actId);
-        const response = await api.get(`/act/find-by-id/${actId}`);
+        debugLog("StreamViewer - Loading stream data for actRef:", actRef);
+        const response = await api.get(`/act/find-by-id/${actRef}`);
         debugLog("StreamViewer - Loaded stream data:", response.data);
         setActualStreamData(response.data);
       } catch (error) {
@@ -597,30 +603,30 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     };
 
     loadStreamData();
-  }, [actId, streamData]);
+  }, [actRef, streamData]);
 
   const loadHeroStreams = useCallback(async () => {
-    if (!actId) return;
+    if (!actRef) return;
     try {
-      const data = await actApi.getHeroStreams(actId);
+      const data = await actApi.getHeroStreams(actRef);
       setHeroStreams(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error loading hero streams:', err);
       // Keep last known state to avoid UI fallback to "Stream will start soon".
     }
-  }, [actId]);
+  }, [actRef]);
 
   useEffect(() => {
-    if (!actId) return;
+    if (!actRef) return;
     loadHeroStreams();
     const timer = setInterval(() => {
       loadHeroStreams();
     }, 2500);
     return () => clearInterval(timer);
-  }, [actId, loadHeroStreams]);
+  }, [actRef, loadHeroStreams]);
 
   useEffect(() => {
-    if (!actId || !selectedStreamerId || !isSelectedHeroOnline) {
+    if (!actRef || !selectedStreamerId || !isSelectedHeroOnline) {
       setViewerCount(0);
       return;
     }
@@ -628,7 +634,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     let active = true;
     const loadViewersCount = async () => {
       try {
-        const data = await actApi.getHeroStreamViewersCount(actId, selectedStreamerId);
+        const data = await actApi.getHeroStreamViewersCount(actRef, selectedStreamerId);
         if (!active) return;
         const count = Number(data?.viewersCount ?? 0);
         setViewerCount(Number.isFinite(count) ? Math.max(0, count) : 0);
@@ -646,11 +652,11 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       active = false;
       clearInterval(timer);
     };
-  }, [actId, selectedStreamerId, isSelectedHeroOnline]);
+  }, [actRef, selectedStreamerId, isSelectedHeroOnline]);
 
   const heroStatusSocketRef = useRef(null);
   useEffect(() => {
-    if (!actId) return;
+    if (!numericActId) return;
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
     const wsBase = apiUrl.replace(/\/api$/, '');
     const token = useAuthStore.getState().getToken();
@@ -662,11 +668,11 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     heroStatusSocketRef.current = socket;
 
     socket.on('connect', () => {
-      socket.emit('joinStream', { actId: Number(actId) });
+      socket.emit('joinStream', { actId: numericActId });
     });
 
     const applyHeroStatus = (payload, status) => {
-      if (payload?.actId && String(payload.actId) !== String(actId)) return;
+      if (payload?.actId && String(payload.actId) !== String(numericActId)) return;
       const heroUserId = payload?.heroUserId;
       if (!heroUserId) return;
       setHeroStreams((prev) =>
@@ -698,7 +704,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
     socket.on('taskToggled', async ({ actId: payloadActId, taskId, isCompleted, completedAt, updatedBy }) => {
       void updatedBy;
-      if (payloadActId && String(payloadActId) !== String(actId)) return;
+      if (payloadActId && String(payloadActId) !== String(numericActId)) return;
       const normalizedTaskId = Number(taskId);
       const normalizedCompleted = Boolean(isCompleted);
 
@@ -716,7 +722,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       // Ensure viewers see fresh status even if backend emits partial payload.
       if (isTasksModalOpen) {
         try {
-          const response = await api.get(`/act/find-by-id/${actId}`);
+          const response = await api.get(`/act/find-by-id/${actRef}`);
           const freshAct = response?.data;
           const teamTasks = (freshAct?.teams ?? []).flatMap((t) => t.tasks ?? []);
           setTasks(teamTasks);
@@ -728,7 +734,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     });
 
     socket.on('tasksSnapshotUpdated', ({ actId: payloadActId, tasks: snapshotTasks }) => {
-      if (String(payloadActId) !== String(actId)) return;
+      if (String(payloadActId) !== String(numericActId)) return;
       const nextTasks = Array.isArray(snapshotTasks) ? snapshotTasks : [];
       setTasks(nextTasks);
       setCompletedTaskIds(new Set(nextTasks.filter((t) => t.isCompleted).map((t) => t.id)));
@@ -738,7 +744,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       socket.disconnect();
       heroStatusSocketRef.current = null;
     };
-  }, [actId, selectedStreamerId, isTasksModalOpen]);
+  }, [numericActId, actRef, selectedStreamerId, isTasksModalOpen]);
 
   // Fetch spot agent data when spotAgentCount > 0
   useEffect(() => {
@@ -900,13 +906,13 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
     try {
       await forceResetAgoraClient();
-      await actApi.startHeroStream(actId, selectedStreamerId);
+      await actApi.startHeroStream(actRef, selectedStreamerId);
       backendStarted = true;
 
       debugLog(`🎥 Starting stream for ${isSelectedStreamer ? 'publisher' : 'subscriber'}:`, actualChannelName);
       debugLog("🎥 User ID:", userIdNum);
       const role = 'publisher';
-      const token = (await actApi.getHeroStreamToken(actId, selectedStreamerId, role, 3600))?.token;
+      const token = (await actApi.getHeroStreamToken(actRef, selectedStreamerId, role, 3600))?.token;
       debugLog("🎥 Token received:", token ? "✅" : "❌");
 
       if (!token) {
@@ -979,7 +985,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
       if (backendStarted && !isTransientStartConflict) {
         try {
-          await actApi.stopHeroStream(actId, selectedStreamerId);
+          await actApi.stopHeroStream(actRef, selectedStreamerId);
         } catch (rollbackErr) {
           console.error('Rollback stop hero stream failed:', rollbackErr);
         }
@@ -1115,7 +1121,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       await forceResetAgoraClient();
 
       const role = 'publisher';
-      const token = (await actApi.getHeroStreamToken(actId, selectedStreamerId, role, 3600))?.token;
+      const token = (await actApi.getHeroStreamToken(actRef, selectedStreamerId, role, 3600))?.token;
       if (!token) throw new Error('No token received');
 
       const client = AgoraRTC.createClient({ mode: 'live', codec: 'vp8' });
@@ -1370,7 +1376,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       const primaryHeroId = selectedStreamerId;
       let stoppedHeroId = primaryHeroId;
       try {
-        const stopResult = await stopHeroStreamRequest(actId, primaryHeroId);
+        const stopResult = await stopHeroStreamRequest(actRef, primaryHeroId);
         setHeroStreams((prev) =>
           prev.map((item) =>
             String(item.heroUserId) === String(primaryHeroId)
@@ -1388,7 +1394,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
           throw primaryErr;
         }
         // Fallback for stale selected hero id on UI side.
-        const stopResult = await stopHeroStreamRequest(actId, fallbackHeroId);
+        const stopResult = await stopHeroStreamRequest(actRef, fallbackHeroId);
         setHeroStreams((prev) =>
           prev.map((item) =>
             String(item.heroUserId) === String(fallbackHeroId)
@@ -1510,7 +1516,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
         debugLog("👀 User ID:", userIdNum);
 
         const role = 'subscriber';
-        const token = (await actApi.getHeroStreamToken(actId, selectedStreamerId, role, 3600))?.token;
+        const token = (await actApi.getHeroStreamToken(actRef, selectedStreamerId, role, 3600))?.token;
         debugLog("👀 Token received:", token ? "✅" : "❌");
 
         if (!token) {
@@ -1750,7 +1756,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const handleRateAct = async () => {
     if (hasRated) return;
     try {
-      const response = await actApi.rateAct(actId, ratingValue);
+      const response = await actApi.rateAct(actRef, ratingValue);
       if (response) {
         setCurrentRating(response.rating);
         setCurrentRatingsCount(response.ratingsCount);
@@ -1772,11 +1778,11 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
   // Настраиваем командный чат (только для членов команды)
   useEffect(() => {
-    if (!actId) return;
+    if (!actRef) return;
     const setupTeamChat = async () => {
       try {
         // Always use backend find-or-create to avoid duplicated team chats between users.
-        const teamChat = await chatApi.joinActTeam(actId);
+        const teamChat = await chatApi.joinActTeam(actRef);
         if (teamChat?.id) {
           setTeamChatId(teamChat.id);
           setHasTeamChatAccess(true);
@@ -1792,7 +1798,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       }
     };
     setupTeamChat();
-  }, [actId]);
+  }, [actRef]);
 
   // WebSocket для командного чата
   const fetchTeamMessages = useCallback(async () => {
@@ -1913,10 +1919,10 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
   // Fetch tasks when modal is opened
   const fetchTasks = async () => {
-    if (!actId) return;
+    if (!actRef) return;
     let teamTasks = [];
     try {
-      const response = await api.get(`/act/find-by-id/${actId}`);
+      const response = await api.get(`/act/find-by-id/${actRef}`);
       const freshAct = response?.data;
       if (freshAct) {
         setActualStreamData(freshAct);
@@ -1955,7 +1961,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
         : t
     ));
     try {
-      const updated = await api.patch(`/act/${actId}/team-tasks/${taskId}/toggle`);
+      const updated = await api.patch(`/act/${actRef}/team-tasks/${taskId}/toggle`);
       setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updated.data } : t));
       // Server emits taskToggled to chat room on successful toggle.
     } catch (err) {
@@ -1977,7 +1983,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   useEffect(() => {
     if (!isTasksModalOpen) return;
     fetchTasks();
-  }, [isTasksModalOpen, actId]);
+  }, [isTasksModalOpen, actRef]);
 
   useEffect(() => {
     if (!isTasksModalOpen) return;
@@ -1987,7 +1993,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     }, 5000);
 
     return () => clearInterval(syncTimer);
-  }, [isTasksModalOpen, actId, actualStreamData]);
+  }, [isTasksModalOpen, actRef, actualStreamData]);
 
   useEffect(() => {
     if (addedTask) {
@@ -2282,7 +2288,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                     >
                       <div className={styles.dpopitem}>
                         <img src={streaminfo} alt="" />
-                        <div className={styles.menuItem} onClick={() => navigate(`/acts/${actId}`)}>
+                        <div className={styles.menuItem} onClick={() => navigate(`/acts/${actRef}`)}>
                           information about the act
                         </div>
                       </div>
@@ -3202,7 +3208,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                       const teamId = actualStreamData?.teams?.[0]?.id;
                       if (newTaskDescription.trim() && teamId) {
                         addTask({
-                          actId, teamId,
+                          actId: numericActId, teamId,
                           description: newTaskDescription.trim(),
                           address: newTaskAddress.trim() || undefined,
                           lat: newTaskLat ?? undefined,
@@ -3328,7 +3334,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                     onClick={() => {
                       if (newTaskDescription.trim()) {
                         proposeTask({
-                          actId,
+                          actId: numericActId,
                           description: newTaskDescription.trim(),
                           address: newTaskAddress.trim() || undefined,
                           lat: newTaskLat ?? undefined,

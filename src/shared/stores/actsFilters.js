@@ -1,10 +1,10 @@
 import { create } from 'zustand';
 
 export const useFilterStore = create((set) => ({
-  actType: 1,
-  heroMethod: 1,
-  navMethod: 1,
-  selectedLang: "Russian",
+  actType: 0,
+  heroMethod: 0,
+  navMethod: 0,
+  selectedLang: "English",
   selectedDistance: "1km",
   selectedStatus: "active",
   minRating: 1.0,
@@ -26,13 +26,13 @@ export const useFilterStore = create((set) => ({
   setDistanceRange: (idx, minKm, maxKm) => set({ selectedRangeIdx: idx, minDistanceKm: minKm, maxDistanceKm: maxKm }),
 
   resetFilters: () => set({ 
-    actType: 1, 
-    heroMethod: 1, 
-    navMethod: 1, 
+    actType: 0, 
+    heroMethod: 0, 
+    navMethod: 0, 
     selectedLang: "English", 
     selectedDistance: "1km",
     selectedStatus: "active",
-    minRating: 0, 
+    minRating: 1.0, 
     maxRating: 10.0,
     minDistanceKm: null,
     maxDistanceKm: null,

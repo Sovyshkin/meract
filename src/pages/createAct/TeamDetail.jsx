@@ -12,6 +12,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import agent from '../../images/agent.png';
 import useTeamStore from '../../shared/stores/teamStore';
 import { profileApi } from '../../shared/api/profile';
+import api from '../../shared/api/api';
 import 'leaflet/dist/leaflet.css';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
@@ -35,7 +36,9 @@ const TeamDetail = () => {
     const processedMemberRef = useRef(null);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [showTaskForm, setShowTaskForm] = useState(false);
-    const [taskFormData, setTaskFormData] = useState({ id: null, description: '', address: '', lat: null, lng: null });
+    const [taskFormData, setTaskFormData] = useState({ id: null, description: '', address: '', lat: null, lng: null, imageUrl: null });
+    const [taskIconOptions, setTaskIconOptions] = useState([]);
+    const [taskIconsLoading, setTaskIconsLoading] = useState(false);
     const [gettingLocation, setGettingLocation] = useState(false);
     const [taskLocationInit, setTaskLocationInit] = useState(false);
 
@@ -90,6 +93,22 @@ const TeamDetail = () => {
             setTaskLocationInit(false);
         }
     }, [showTaskForm, taskLocationInit, taskFormData.lat]);
+
+    useEffect(() => {
+        const loadTaskIcons = async () => {
+            setTaskIconsLoading(true);
+            try {
+                const res = await api.get('/icon-pack/active', { params: { type: 'TASK' } });
+                const icons = Array.isArray(res.data?.icons) ? res.data.icons : [];
+                setTaskIconOptions(icons);
+            } catch {
+                setTaskIconOptions([]);
+            } finally {
+                setTaskIconsLoading(false);
+            }
+        };
+        loadTaskIcons();
+    }, []);
 
     const {
         heroes, 
@@ -234,7 +253,7 @@ const TeamDetail = () => {
     };
 
     const openAddTask = () => {
-        setTaskFormData({ id: null, description: '', address: '', lat: null, lng: null });
+        setTaskFormData({ id: null, description: '', address: '', lat: null, lng: null, imageUrl: null });
         setShowTaskForm(true);
     };
 
@@ -276,6 +295,7 @@ const TeamDetail = () => {
                 address: taskFormData.address,
                 lat: taskFormData.lat,
                 lng: taskFormData.lng,
+                imageUrl: taskFormData.imageUrl || null,
             });
             toast.success('Task updated');
         } else {
@@ -285,6 +305,7 @@ const TeamDetail = () => {
                 address: taskFormData.address,
                 lat: taskFormData.lat,
                 lng: taskFormData.lng,
+                imageUrl: taskFormData.imageUrl || null,
             });
             toast.success('Task added');
         }
@@ -465,6 +486,7 @@ const TeamDetail = () => {
                 {/* Navigator Method Selector */}
                 <div style={{display:'flex', gap:'8px', marginBottom:'16px', flexWrap:'wrap'}}>
                     {[
+                        { value: 'disabled', label: 'Off' },
                         { value: 'fixed', label: 'Fixed' },
                         { value: 'voting_candidates', label: 'Voting (my candidates)' },
                         { value: 'open_voting', label: 'Open voting' },
@@ -611,7 +633,7 @@ const TeamDetail = () => {
                     ))}
                 </div>
 
-                {agentMethod !== 'open_voting' && (
+                {agentMethod !== 'disabled' && agentMethod !== 'open_voting' && (
                     <div className={styles.teamsGrid}> 
                         {(agentMethod === 'fixed' ? agents.slice(0, 1) : agents).map((agentItem) => (
                             <div className={styles.paragraph} key={agentItem.id}>
@@ -657,7 +679,7 @@ const TeamDetail = () => {
                     </div>
                 )}
 
-                {(agentMethod === 'open_voting' || agentMethod === 'voting_candidates') && (
+                {agentMethod !== 'disabled' && (agentMethod === 'open_voting' || agentMethod === 'voting_candidates') && (
                     <div className={styles.recruitmentDetails}>
                         <p style={{color:'#aaa', fontSize:'13px', marginBottom:'12px'}}>
                             {agentMethod === 'open_voting'
@@ -720,7 +742,14 @@ const TeamDetail = () => {
                         }}
                     >
                         <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => openEditTask(task)}>
-                            <p style={{ color: '#fff', margin: 0, fontWeight: 600 }}>
+                            <p style={{ color: '#fff', margin: 0, fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                {task.imageUrl ? (
+                                    <img
+                                        src={task.imageUrl}
+                                        alt="task icon"
+                                        style={{ width: '20px', height: '20px', objectFit: 'contain', borderRadius: '6px' }}
+                                    />
+                                ) : null}
                                 {idx + 1}. {task.description}
                             </p>
                             {task.address && (
@@ -876,6 +905,48 @@ const TeamDetail = () => {
                         <h3 style={{ color: '#fff', marginBottom: '16px' }}>
                             {taskFormData.id ? 'Edit task' : 'New task'}
                         </h3>
+
+                        {/* Task icon */}
+                        <p style={{ color: '#BFBFBF', marginBottom: '6px', fontSize: '13px' }}>Task icon</p>
+                        <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', marginBottom: '14px', paddingBottom: '4px' }}>
+                            <div
+                                role="button"
+                                onClick={() => setTaskFormData(prev => ({ ...prev, imageUrl: null }))}
+                                style={{
+                                    minWidth: '42px',
+                                    height: '42px',
+                                    borderRadius: '10px',
+                                    border: taskFormData.imageUrl ? '1px solid rgba(255,255,255,0.2)' : '2px solid #FF3B57',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: '#aaa',
+                                    fontSize: '12px',
+                                    cursor: 'pointer',
+                                    background: 'rgba(255,255,255,0.04)',
+                                }}
+                            >
+                                None
+                            </div>
+                            {!taskIconsLoading && taskIconOptions.map((icon) => (
+                                <div
+                                    key={icon.id}
+                                    role="button"
+                                    onClick={() => setTaskFormData(prev => ({ ...prev, imageUrl: icon.url }))}
+                                    style={{
+                                        minWidth: '42px',
+                                        height: '42px',
+                                        borderRadius: '10px',
+                                        border: taskFormData.imageUrl === icon.url ? '2px solid #FF3B57' : '1px solid rgba(255,255,255,0.2)',
+                                        padding: '3px',
+                                        cursor: 'pointer',
+                                        background: 'rgba(255,255,255,0.04)',
+                                    }}
+                                >
+                                    <img src={icon.url} alt={icon.name || 'task icon'} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                </div>
+                            ))}
+                        </div>
 
                         {/* Description */}
                         <p style={{ color: '#BFBFBF', marginBottom: '6px', fontSize: '13px' }}>Description *</p>

@@ -378,14 +378,30 @@ export default function CreateAct() {
     };
 
     const result = await createSequel(sequelData);
-    if (result) {
+    if (result?.id) {
+      try {
+        // Auto-create first season so user immediately sees it in Season list
+        await api.post(`/sequel/${result.id}/chapters`, { title: "Season 1" });
+      } catch {
+        // non-blocking; sequel is still created
+      }
+
       toast.success("Sequel created successfully!");
-      // Обновляем список сиквелов
-      api.get("/sequel/my-sequels").then(r => {
-        setMySequels(r.data || []);
-        // Автовыбор нового сиквела
-        if (result.id) setSelectedSequel(result);
+
+      api.get("/sequel/my-sequels").then((r) => {
+        const updatedSequels = r.data || [];
+        setMySequels(updatedSequels);
+
+        const createdSequel = updatedSequels.find((s) => s.id === result.id);
+        if (createdSequel) {
+          setSelectedSequel(createdSequel);
+          const firstChapter = (createdSequel.chapters || [])[0] || null;
+          if (firstChapter?.id) {
+            setSelectedChapterId(firstChapter.id);
+          }
+        }
       }).catch(() => {});
+
       closeModal();
     }
   };

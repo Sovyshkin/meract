@@ -35,10 +35,10 @@ const useTeamStore = create(
       isHeroRecruitmentOpen: false,
       isNavigatorRecruitmentOpen: false,
       
-      // Метод подбора для каждой роли: 'fixed' | 'voting_candidates' | 'open_voting'
+      // Метод подбора для каждой роли: 'fixed' | 'voting_candidates' | 'open_voting' | 'disabled'
       heroMethod: 'voting_candidates',
       navigatorMethod: 'voting_candidates',
-      agentMethod: 'voting_candidates',
+      agentMethod: 'disabled',
 
       // Данные для полей ввода текущей команды
       heroVotingStartTime: _defaultHeroDt.time,
@@ -83,7 +83,7 @@ const useTeamStore = create(
           isNavigatorRecruitmentOpen: false,
           heroMethod: 'voting_candidates',
           navigatorMethod: 'voting_candidates',
-          agentMethod: 'voting_candidates',
+          agentMethod: 'disabled',
           heroVotingStartTime: nowDatetime.time,
           heroVotingStartDate: nowDatetime.date,
           heroVotingHours: 24,
@@ -113,7 +113,7 @@ const useTeamStore = create(
             isNavigatorRecruitmentOpen: team.isNavigatorRecruitmentOpen || false,
             heroMethod: team.heroMethod || 'voting_candidates',
             navigatorMethod: team.navigatorMethod || 'voting_candidates',
-            agentMethod: team.agentMethod || 'voting_candidates',
+            agentMethod: team.agentMethod || 'disabled',
             heroVotingStartTime: team.heroVotingStartTime || defaultDt.time,
             heroVotingStartDate: team.heroVotingStartDate || defaultDt.date,
             heroVotingHours: team.heroVotingHours || 24,
@@ -154,7 +154,7 @@ const useTeamStore = create(
           isNavigatorRecruitmentOpen: state.isNavigatorRecruitmentOpen,
           heroMethod: state.heroMethod || 'voting_candidates',
           navigatorMethod: state.navigatorMethod || 'voting_candidates',
-          agentMethod: state.agentMethod || 'voting_candidates',
+          agentMethod: state.agentMethod || 'disabled',
           heroVotingStartTime: state.heroVotingStartTime,
           heroVotingStartDate: state.heroVotingStartDate,
           heroVotingHours: state.heroVotingHours,
@@ -214,7 +214,7 @@ const useTeamStore = create(
           isNavigatorRecruitmentOpen: data.isNavigatorRecruitmentOpen || false,
           heroMethod: data.heroMethod || 'voting_candidates',
           navigatorMethod: data.navigatorMethod || 'voting_candidates',
-          agentMethod: data.agentMethod || 'voting_candidates',
+          agentMethod: data.agentMethod || 'disabled',
           heroVotingStartTime: data.heroVotingStartTime || defDt.time,
           heroVotingStartDate: data.heroVotingStartDate || defDt.date,
           heroVotingHours: data.heroVotingHours || 24,
@@ -301,7 +301,7 @@ const useTeamStore = create(
           isNavigatorRecruitmentOpen: false,
           heroMethod: 'voting_candidates',
           navigatorMethod: 'voting_candidates',
-          agentMethod: 'voting_candidates',
+          agentMethod: 'disabled',
           heroVotingStartTime: nowDt.time,
           heroVotingStartDate: nowDt.date,
           heroVotingHours: 24,

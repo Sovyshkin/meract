@@ -34,7 +34,11 @@ export default function ActsPage() {
   const unreadCount = useNotificationStore((s) => s.unreadCount);
   const userLocation = useAuthStore((s) => s.location);
 
-  const { selectedRangeIdx, setDistanceRange } = useFilterStore();
+  const {
+    selectedRangeIdx,
+    selectedStatus,
+    setDistanceRange,
+  } = useFilterStore();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -79,9 +83,17 @@ export default function ActsPage() {
     ? locationRanges[selectedRangeIdx]
     : null;
 
+  // Slider options: backend ranges + explicit "All" as the rightmost selectable option
+  const sliderOptions = useMemo(
+    () => [...locationRanges, { id: 'all', label: 'All' }],
+    [locationRanges],
+  );
+  const allOptionIndex = sliderOptions.length - 1;
+  const sliderValue = selectedRangeIdx < 0 ? allOptionIndex : selectedRangeIdx;
+
   const handleSliderChange = (e) => {
     const idx = parseInt(e.target.value);
-    if (idx < 0 || locationRanges.length === 0) {
+    if (idx === allOptionIndex || locationRanges.length === 0) {
       setDistanceRange(-1, null, null);
     } else {
       const r = locationRanges[idx];
@@ -106,15 +118,47 @@ export default function ActsPage() {
     });
   }, [searchedActs, activeRange]);
 
+  const filteredByStatusActs = useMemo(() => {
+    const now = Date.now();
+    const tenMinutesMs = 10 * 60 * 1000;
+    const sixHoursMs = 6 * 60 * 60 * 1000;
+
+    if (selectedStatus === "active") {
+      return visibleActs.filter((act) => act.status === "ONLINE");
+    }
+
+    if (selectedStatus === "inactive") {
+      return visibleActs.filter((act) => act.status !== "ONLINE");
+    }
+
+    if (selectedStatus === "Starting now (in 10 mins or less)") {
+      return visibleActs.filter((act) => {
+        if (act.status !== "PLANNED" || !act.scheduledAt) return false;
+        const delta = new Date(act.scheduledAt).getTime() - now;
+        return delta >= 0 && delta <= tenMinutesMs;
+      });
+    }
+
+    if (selectedStatus === "Starting soon (10 mins - 6 hours)") {
+      return visibleActs.filter((act) => {
+        if (act.status !== "PLANNED" || !act.scheduledAt) return false;
+        const delta = new Date(act.scheduledAt).getTime() - now;
+        return delta > tenMinutesMs && delta <= sixHoursMs;
+      });
+    }
+
+    return visibleActs;
+  }, [visibleActs, selectedStatus]);
+
   const groupedCategories = useMemo(() => {
     const categorizedGroups = categories
       .map((category) => ({
         ...category,
-        acts: visibleActs.filter((act) => Number(act.categoryId) === Number(category.id)),
+        acts: filteredByStatusActs.filter((act) => Number(act.categoryId) === Number(category.id)),
       }))
       .filter((group) => group.acts.length > 0);
 
-    const uncategorizedActs = visibleActs.filter((act) => act.categoryId == null);
+    const uncategorizedActs = filteredByStatusActs.filter((act) => act.categoryId == null);
     if (uncategorizedActs.length > 0) {
       categorizedGroups.push({
         id: 'uncategorized',
@@ -124,7 +168,7 @@ export default function ActsPage() {
     }
 
     return categorizedGroups;
-  }, [categories, visibleActs]);
+  }, [categories, filteredByStatusActs]);
 
   return (
     <div className={styles.container}>
@@ -199,41 +243,44 @@ export default function ActsPage() {
                 <div
                   className={styles.activeTrack}
                   style={{
-                    width: selectedRangeIdx < 0
+                    width: sliderOptions.length <= 1
                       ? '0%'
-                      : `${((selectedRangeIdx + 1) / locationRanges.length) * 100}%`
+                      : `${(sliderValue / (sliderOptions.length - 1)) * 100}%`
                   }}
                 />
-                {locationRanges.map((r, i) => (
-                  <div
-                    key={r.id}
-                    style={{
-                      position: 'absolute',
-                      left: `${(i / (locationRanges.length - 1 || 1)) * 100}%`,
-                      transform: 'translateX(-50%)',
-                      top: '24px',
-                      fontSize: '10px',
-                      color: selectedRangeIdx === i ? '#3264fe' : '#888',
-                      whiteSpace: 'nowrap',
-                      pointerEvents: 'none',
-                    }}
-                  >
-                    {r.label}
-                  </div>
-                ))}
-
                 <input
                   type="range"
-                  min="-1"
-                  max={locationRanges.length - 1}
-                  value={selectedRangeIdx}
+                  min="0"
+                  max={sliderOptions.length - 1}
+                  value={sliderValue}
                   step="1"
                   onChange={handleSliderChange}
                   className={styles.hiddenInput}
                 />
               </div>
+              <div
+                className={styles.locationLabelsRow}
+                style={{
+                  gridTemplateColumns: `repeat(${Math.max(sliderOptions.length, 1)}, minmax(0, 1fr))`,
+                }}
+              >
+                {sliderOptions.map((r, i) => (
+                  <span
+                    key={r.id}
+                    className={`${styles.locationLabel} ${
+                      i === 0
+                        ? styles.locationLabelStart
+                        : i === sliderOptions.length - 1
+                          ? styles.locationLabelEnd
+                          : styles.locationLabelCenter
+                    } ${(selectedRangeIdx < 0 ? i === allOptionIndex : selectedRangeIdx === i) ? styles.activeLoc : ""}`}
+                  >
+                    {r.label}
+                  </span>
+                ))}
+              </div>
               {activeRange && (
-                <p style={{ color: '#888', fontSize: '12px', marginTop: '32px', textAlign: 'right' }}>
+                <p style={{ color: '#888', fontSize: '12px', marginTop: '8px', textAlign: 'right' }}>
                   {activeRange.minKm}–{activeRange.maxKm} km
                 </p>
               )}

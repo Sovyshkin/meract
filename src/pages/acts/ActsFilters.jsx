@@ -21,8 +21,8 @@ export default function ActsFilters() {
   selectedLang: store.selectedLang,
   selectedDistance: store.selectedDistance,
   selectedStatus: store.selectedStatus,
-  minRating: store.minRating || 0,
-  maxRating: store.maxRating || 10.0,
+  minRating: store.minRating ?? 1.0,
+  maxRating: store.maxRating ?? 10.0,
 });
 
 const [sliderMin, setSliderMin] = useState(localFilters.minRating);
@@ -35,7 +35,12 @@ const [sliderMax, setSliderMax] = useState(localFilters.maxRating);
 
   const langOptions = ["Russian", "English"];
   const distanceOptions = ["1km", "10km"];
-  const statusOptions = ["active", "inactive"];
+  const statusOptions = [
+    "active",
+    "inactive",
+    "Starting now (in 10 mins or less)",
+    "Starting soon (10 mins - 6 hours)",
+  ];
 
   const handleSliderOne = (e) => {
   const value = parseFloat(e.target.value);
@@ -119,20 +124,6 @@ const handleSliderTwo = (e) => {
   }}
 ></div>
 
-<div 
-  className={styles.thumbcont}
-  style={{ left: `${((sliderMin - minVal) / range) * 100}%` }}
->
-  <p style={{ color: 'white', fontSize: '16px', margin: 0 }}>{Number(sliderMin).toFixed(1)}</p>
-</div>
-
-<div 
-  className={styles.thumbcont}
-  style={{ left: `${((sliderMax - minVal) / range) * 100}%` }}
->
-  <p style={{ color: 'white', fontSize: '16px', margin: 0 }}>{Number(sliderMax).toFixed(1)}</p>
-</div>
-
     <input 
       type="range" 
       min="0" 
@@ -153,6 +144,10 @@ const handleSliderTwo = (e) => {
       className={styles.hiddenInput}
       style={{ zIndex: sliderMin > maxValue / 2 ? 11 : 12 }}
     />
+  </div>
+  <div className={styles.sliderValuesRow}>
+    <span>{Number(sliderMin).toFixed(1)}</span>
+    <span>{Number(sliderMax).toFixed(1)}</span>
   </div>
 </div>
 

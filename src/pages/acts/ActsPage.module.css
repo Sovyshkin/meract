@@ -352,6 +352,9 @@ button {
   margin: 0;
   color: #0092FE;
   font-weight: bold;
+  margin-left: auto;
+  text-align: right;
+  min-width: 48px;
 }
 
 .customRangeWrapper {
@@ -360,6 +363,7 @@ button {
   height: 28px; 
   display: flex;
   align-items: center;
+  margin-top: 2px;
 }
 
 .rangeTrack {
@@ -432,6 +436,44 @@ button {
 .hiddenInput::-moz-range-track {
   background: transparent;
   border: none;
+}
+
+.sliderValuesRow {
+  width: 100%;
+  margin-top: 8px;
+  display: flex;
+  justify-content: space-between;
+  color: #fff;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.locationLabelsRow {
+  width: 100%;
+  margin-top: 8px;
+  display: grid;
+  align-items: center;
+  gap: 0;
+}
+
+.locationLabel {
+  font-size: 12px;
+  color: #888;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.locationLabelStart {
+  text-align: left;
+}
+
+.locationLabelCenter {
+  text-align: center;
+}
+
+.locationLabelEnd {
+  text-align: right;
 }
 
 

@@ -44,12 +44,16 @@ async function reverseGeocodeTask(lat, lng) {
 
 export default function ActCard({ act, titleact }) {
   const navigate = useNavigate();
-  const id = act.id;
+  const id = act.publicId || act.id;
 const [isLive, setIsLive] = useState(null);
 const [title, setTitle] = useState('');
 const [description, setDescription] = useState('');
 const [heroes, setHeroes] = useState('no heroes');
 const [navigator, setNavigator] = useState('no navigators');
+const [heroMethod, setHeroMethod] = useState('');
+const [navigatorMethod, setNavigatorMethod] = useState('');
+const [scheduledAt, setScheduledAt] = useState(act.scheduledAt || null);
+const [countdownText, setCountdownText] = useState('');
 const [location, setLocation] = useState('no location');
 const [distance, setDistance] = useState('no distance');
 const [streamLocation, setStreamLocation] = useState(null);
@@ -89,6 +93,9 @@ useEffect(() => {
         setIsLive(effectiveStatus);
         setTitle(actsdata.title || actsdata.name || 'Untitled');
         setDescription(actsdata.description || 'No description');
+        setHeroMethod(actsdata.heroMethods || '');
+        setNavigatorMethod(actsdata.navigatorMethods || '');
+        setScheduledAt(actsdata.scheduledAt || null);
 
         const allRoleConfigs = (actsdata.teams || []).flatMap(t => t.roleConfigs || []);
         const allTeamTasks = (actsdata.teams || []).flatMap(t => t.tasks || []);
@@ -152,6 +159,39 @@ useEffect(() => {
   }
 }, [id, act.previewFileName]);
 
+useEffect(() => {
+  if (!scheduledAt) {
+    setCountdownText('');
+    return;
+  }
+
+  const formatRemaining = () => {
+    const diff = new Date(scheduledAt).getTime() - Date.now();
+    if (!Number.isFinite(diff) || diff <= 0) {
+      setCountdownText('');
+      return;
+    }
+    const totalMinutes = Math.floor(diff / 60000);
+    const days = Math.floor(totalMinutes / (60 * 24));
+    const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+    const minutes = totalMinutes % 60;
+
+    if (days > 0) {
+      setCountdownText(`${days}d ${hours}h`);
+      return;
+    }
+    if (hours > 0) {
+      setCountdownText(`${hours}h ${minutes}m`);
+      return;
+    }
+    setCountdownText(`${minutes}m`);
+  };
+
+  formatRemaining();
+  const timer = setInterval(formatRemaining, 30000);
+  return () => clearInterval(timer);
+}, [scheduledAt]);
+
 const addCacheBuster = (url) => {
   if (!url || url === default_back) return url;
   const separator = url.includes('?') ? '&' : '?';
@@ -190,8 +230,20 @@ useEffect(() => {
   };
 
   const handleCardClick = () => {
-    navigate("/acts/" + act.id, { state: { act } });
+    navigate("/acts/" + (act.publicId || act.id), { state: { act } });
   };
+
+  const heroText = heroMethod === 'VOTING'
+    ? 'Voting'
+    : heroMethod === 'BIDDING'
+      ? 'Bidding'
+      : heroes;
+
+  const navigatorText = navigatorMethod === 'VOTING'
+    ? 'Voting'
+    : navigatorMethod === 'BIDDING'
+      ? 'Bidding'
+      : navigator;
 
   if (act.isMock) {
     return (
@@ -210,6 +262,11 @@ useEffect(() => {
                   <p className={styles.live}>Live</p>
                 </div>
               )}
+              {isLive !== 'ONLINE' && countdownText && (
+                <div className={styles.online}>
+                  <p className={styles.live}>Starts in {countdownText}</p>
+                </div>
+              )}
               <div style={{display:'flex',gap:'5px', alignItems:'baseline'}}>
                 <h1 className={styles.title}>{title}</h1>
                 <div style={{display:'flex',gap:'5px'}}>
@@ -219,8 +276,8 @@ useEffect(() => {
               </div>
               <p className={styles.desc}>{description}</p>
               <div style={{gap:'2px', background:'#181818', width:'fit-content', padding:'4px 5px', borderRadius:'10px'}}>
-                <p className={styles.desc} style={{fontSize:'small',color:'white',fontWeight:'bolder'}}>Heroes: {heroes}</p>
-                <p className={styles.desc} style={{fontSize:'small',color:'white', fontWeight:'bolder'}}>Navigator: {navigator}</p>
+                <p className={styles.desc} style={{fontSize:'small',color:'white',fontWeight:'bolder'}}>Heroes: {heroText}</p>
+                <p className={styles.desc} style={{fontSize:'small',color:'white', fontWeight:'bolder'}}>Navigator: {navigatorText}</p>
               </div>
               <div style={{display:'flex', gap:'5px', alignItems:'center'}}>
                 <div style={{ background:'#111111', width:'fit-content', padding:'4px 5px', borderRadius:'8px', border:'none'}}>
@@ -286,6 +343,11 @@ useEffect(() => {
               <p className={styles.live}>Live</p>
             </div>
           )}
+          {isLive !== 'ONLINE' && countdownText && (
+            <div className={styles.online}>
+              <p className={styles.live}>Starts in {countdownText}</p>
+            </div>
+          )}
           <div style={{display:'flex',gap:'5px', alignItems:'baseline'}}>
             <h1 className={styles.title}>{title}</h1>
             <div style={{display:'flex',gap:'5px'}}>
@@ -295,8 +357,8 @@ useEffect(() => {
           </div>
           <p className={styles.desc}>{description}</p>
           <div style={{gap:'2px', background:'#181818', width:'fit-content', padding:'4px 5px', borderRadius:'10px'}}>
-            <p className={styles.desc} style={{fontSize:'small',color:'white',fontWeight:'bolder'}}>Heroes: {heroes}</p>
-            <p className={styles.desc} style={{fontSize:'small',color:'white', fontWeight:'bolder'}}>Navigator: {navigator}</p>
+            <p className={styles.desc} style={{fontSize:'small',color:'white',fontWeight:'bolder'}}>Heroes: {heroText}</p>
+            <p className={styles.desc} style={{fontSize:'small',color:'white', fontWeight:'bolder'}}>Navigator: {navigatorText}</p>
           </div>
           <div style={{display:'flex', gap:'5px', alignItems:'center'}}>
             <div style={{ background:'#111111', width:'fit-content', padding:'4px 5px', borderRadius:'8px', border:'none'}}>

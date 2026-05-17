@@ -214,6 +214,8 @@ export default function ActDetail() {
   const [actTeams, setActTeams] = useState([]);
   const [selectedTeamId, setSelectedTeamId] = useState(null);
   const [streamLocation, setStreamLocation] = useState(null);
+  const [nowTs, setNowTs] = useState(Date.now());
+  const [actPreviewFileName, setActPreviewFileName] = useState(null);
 
   // Загрузка деталей акта
   useEffect(() => {
@@ -242,6 +244,7 @@ export default function ActDetail() {
           setIsLive(effectiveStatus);
           setTitle(data.title || 'Untitled');
           setDescription(data.description || 'No description available');
+          setActPreviewFileName(data.previewFileName || null);
           
           if (data.startedAt) {
             setDate(new Date(data.startedAt).getFullYear().toString());
@@ -421,6 +424,11 @@ export default function ActDetail() {
     return () => clearInterval(interval);
   }, [id]);
 
+  useEffect(() => {
+    const timer = setInterval(() => setNowTs(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const handleVote = async (pollId, optionId, endsAt) => {
     if (userVotes[pollId] !== undefined) {
       toast.info('You have already voted in this poll');
@@ -559,6 +567,22 @@ export default function ActDetail() {
       ),
     ),
   );
+  const scheduledTs = scheduledAt ? new Date(scheduledAt).getTime() : null;
+  const isUpcoming = Number.isFinite(scheduledTs) && scheduledTs > nowTs;
+  const formatCountdown = (targetTs) => {
+    if (!targetTs || targetTs <= nowTs) return null;
+    const diffMs = targetTs - nowTs;
+    const totalSec = Math.floor(diffMs / 1000);
+    const days = Math.floor(totalSec / 86400);
+    const hours = Math.floor((totalSec % 86400) / 3600);
+    const mins = Math.floor((totalSec % 3600) / 60);
+    const secs = totalSec % 60;
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h ${mins}m`;
+    if (mins > 0) return `${mins}m ${secs}s`;
+    return `${secs}s`;
+  };
+  const actStartsIn = isUpcoming ? formatCountdown(scheduledTs) : null;
   const canStartAct = (isOwner || isHero) && isLive !== 'ONLINE';
 
   const handleStart = async () => {
@@ -582,7 +606,7 @@ export default function ActDetail() {
     navigate(`/stream/${id}`, { state: { act: { id, title, description } } });
   };
 
-  const bannerUrl = iconguild;
+  const bannerUrl = buildPreviewUrl(actPreviewFileName) || iconguild;
   const topBannerStyle = {
     backgroundImage: `url(${bannerUrl})`,
     position: 'absolute',
@@ -757,7 +781,7 @@ const handleRateAct = async () => {
                     disabled={isLive !== 'ONLINE'}
                     style={isLive !== 'ONLINE' ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
                   >
-                    {isLive === 'PLANNED' ? 'Scheduled' : isLive === 'OFFLINE' ? 'Ended' : 'Watch'}
+                    {isUpcoming && actStartsIn ? `Starts in ${actStartsIn}` : isLive === 'PLANNED' ? 'Scheduled' : isLive === 'OFFLINE' ? 'Ended' : 'Watch'}
                   </button>
                 )}
               </div>
@@ -799,7 +823,7 @@ const handleRateAct = async () => {
                 const thumb = buildPreviewUrl(ep.previewFileName);
                 return (
                   <div key={ep.id}
-                    onClick={() => !isCurrent && navigate(`/acts/${ep.id}`)}
+                    onClick={() => !isCurrent && navigate(`/acts/${ep.publicId || ep.id}`)}
                     style={{
                       display: 'flex', alignItems: 'center', gap: '12px',
                       padding: '10px 14px', borderRadius: '14px', marginBottom: '8px',
@@ -889,7 +913,7 @@ const handleRateAct = async () => {
 
           const getVotingStatus = (votingStartAt, votingDeadline) => {
             if (!votingStartAt && !votingDeadline) return null;
-            const now = Date.now();
+            const now = nowTs;
             if (votingDeadline && now > votingDeadline.getTime()) return 'closed';
             if (votingStartAt && now < votingStartAt.getTime()) return 'not_started';
             return 'open';
@@ -981,8 +1005,8 @@ const handleRateAct = async () => {
                         </span>
                         <span>
                           {votingStatus === 'closed' && `Voting ended · ${votingDeadline ? formatDeadline(votingDeadline) : ''}`}
-                          {votingStatus === 'not_started' && `Voting starts ${votingStartAt ? formatDeadline(votingStartAt) : ''}`}
-                          {votingStatus === 'open' && votingDeadline && `Voting open until ${formatDeadline(votingDeadline)}`}
+                          {votingStatus === 'not_started' && `Voting starts in ${votingStartAt ? formatCountdown(votingStartAt.getTime()) || formatDeadline(votingStartAt) : ''}`}
+                          {votingStatus === 'open' && votingDeadline && `Voting ends in ${formatCountdown(votingDeadline.getTime()) || formatDeadline(votingDeadline)}`}
                         </span>
                       </div>
                     )}
@@ -1133,7 +1157,8 @@ const handleRateAct = async () => {
                 </p>
                 {polls.map((poll) => {
                   const voted = userVotes[poll.id] !== undefined;
-                  const isPollClosed = poll.endsAt && Date.now() > new Date(poll.endsAt).getTime();
+                  const pollEndsTs = poll.endsAt ? new Date(poll.endsAt).getTime() : null;
+                  const isPollClosed = pollEndsTs && nowTs > pollEndsTs;
                   return (
                     <div key={poll.id} style={{ 
                       marginTop: '12px', 
@@ -1226,7 +1251,7 @@ const handleRateAct = async () => {
                         </span>
                         {poll.endsAt && (
                           <span style={{ color: '#888', fontSize: '12px' }}>
-                            {isPollClosed ? 'Ended' : `Ends ${new Date(poll.endsAt).toLocaleTimeString()}`}
+                            {isPollClosed ? 'Ended' : `Ends in ${formatCountdown(pollEndsTs) || new Date(poll.endsAt).toLocaleTimeString()}`}
                           </span>
                         )}
                       </div>

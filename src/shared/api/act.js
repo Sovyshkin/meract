@@ -1,6 +1,17 @@
 // shared/api/act.js
 import api from "./api";
 
+const toIsoWithLocalOffset = (date, time) => {
+  if (!date || !time) return null;
+  const dt = new Date(`${date}T${time}:00`);
+  const pad = (num) => String(Math.floor(Math.abs(num))).padStart(2, "0");
+  const offsetMin = -dt.getTimezoneOffset();
+  const sign = offsetMin >= 0 ? "+" : "-";
+  const hours = pad(offsetMin / 60);
+  const mins = pad(offsetMin % 60);
+  return `${date}T${time}:00${sign}${hours}:${mins}`;
+};
+
 // Трансформируем команды для API
 const transformTeamsForApi = (teams) => {
   if (!teams || !Array.isArray(teams)) return [];
@@ -11,14 +22,14 @@ const transformTeamsForApi = (teams) => {
     // Обратная совместимость: если нет нового поля method — определяем по старым флагам
     const heroMethod = team.heroMethod || (team.isHeroRecruitmentOpen ? 'open_voting' : 'voting_candidates');
     const navigatorMethod = team.navigatorMethod || (team.isNavigatorRecruitmentOpen ? 'open_voting' : 'voting_candidates');
-    const agentMethod = team.agentMethod || 'voting_candidates';
+    const agentMethod = team.agentMethod || 'disabled';
 
     // Герои
     if (heroMethod === 'open_voting') {
       roles.push({
         role: 'hero',
         openVoting: true,
-        votingStartAt: `${team.heroVotingStartDate}T${team.heroVotingStartTime}:00`,
+        votingStartAt: toIsoWithLocalOffset(team.heroVotingStartDate, team.heroVotingStartTime),
         votingDurationHours: Number(team.heroVotingHours) || 24,
       });
     } else if (heroMethod === 'fixed' && team.heroes?.length > 0) {
@@ -32,7 +43,7 @@ const transformTeamsForApi = (teams) => {
         role: 'hero',
         openVoting: false,
         candidateUserIds: team.heroes.map(h => h.id),
-        votingStartAt: `${team.heroVotingStartDate}T${team.heroVotingStartTime}:00`,
+        votingStartAt: toIsoWithLocalOffset(team.heroVotingStartDate, team.heroVotingStartTime),
         votingDurationHours: Number(team.heroVotingHours) || 24,
       });
     }
@@ -42,7 +53,7 @@ const transformTeamsForApi = (teams) => {
       roles.push({
         role: 'navigator',
         openVoting: true,
-        votingStartAt: `${team.navigatorVotingStartDate}T${team.navigatorVotingStartTime}:00`,
+        votingStartAt: toIsoWithLocalOffset(team.navigatorVotingStartDate, team.navigatorVotingStartTime),
         votingDurationHours: Number(team.navigatorVotingHours) || 24,
       });
     } else if (navigatorMethod === 'fixed' && team.navigators?.length > 0) {
@@ -56,17 +67,19 @@ const transformTeamsForApi = (teams) => {
         role: 'navigator',
         openVoting: false,
         candidateUserIds: team.navigators.map(n => n.id),
-        votingStartAt: `${team.navigatorVotingStartDate}T${team.navigatorVotingStartTime}:00`,
+        votingStartAt: toIsoWithLocalOffset(team.navigatorVotingStartDate, team.navigatorVotingStartTime),
         votingDurationHours: Number(team.navigatorVotingHours) || 24,
       });
     }
 
     // Спот-агенты
-    if (agentMethod === 'open_voting') {
+    if (agentMethod === 'disabled') {
+      // Spot agents are optional. Do not send spot_agent role when disabled.
+    } else if (agentMethod === 'open_voting') {
       roles.push({
         role: 'spot_agent',
         openVoting: true,
-        votingStartAt: `${team.agentVotingStartDate}T${team.agentVotingStartTime}:00`,
+        votingStartAt: toIsoWithLocalOffset(team.agentVotingStartDate, team.agentVotingStartTime),
         votingDurationHours: Number(team.agentVotingHours) || 24,
       });
     } else if (agentMethod === 'fixed' && team.agents?.length > 0) {
@@ -80,7 +93,7 @@ const transformTeamsForApi = (teams) => {
         role: 'spot_agent',
         openVoting: false,
         candidateUserIds: team.agents.map(a => a.id),
-        votingStartAt: `${team.agentVotingStartDate}T${team.agentVotingStartTime}:00`,
+        votingStartAt: toIsoWithLocalOffset(team.agentVotingStartDate, team.agentVotingStartTime),
         votingDurationHours: Number(team.agentVotingHours) || 24,
       });
     }
@@ -89,6 +102,7 @@ const transformTeamsForApi = (teams) => {
       name: team.name,
       roles,
       tasks: (team.tasks || []).map((task) => ({
+        imageUrl: task.imageUrl || null,
         description: task.description,
         address: task.address || null,
         lat: task.lat ?? null,
