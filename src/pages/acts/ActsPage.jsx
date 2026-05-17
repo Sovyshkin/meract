@@ -119,32 +119,12 @@ export default function ActsPage() {
   }, [searchedActs, activeRange]);
 
   const filteredByStatusActs = useMemo(() => {
-    const now = Date.now();
-    const tenMinutesMs = 10 * 60 * 1000;
-    const sixHoursMs = 6 * 60 * 60 * 1000;
-
     if (selectedStatus === "active") {
       return visibleActs.filter((act) => act.status === "ONLINE");
     }
 
     if (selectedStatus === "inactive") {
       return visibleActs.filter((act) => act.status !== "ONLINE");
-    }
-
-    if (selectedStatus === "Starting now (in 10 mins or less)") {
-      return visibleActs.filter((act) => {
-        if (act.status !== "PLANNED" || !act.scheduledAt) return false;
-        const delta = new Date(act.scheduledAt).getTime() - now;
-        return delta >= 0 && delta <= tenMinutesMs;
-      });
-    }
-
-    if (selectedStatus === "Starting soon (10 mins - 6 hours)") {
-      return visibleActs.filter((act) => {
-        if (act.status !== "PLANNED" || !act.scheduledAt) return false;
-        const delta = new Date(act.scheduledAt).getTime() - now;
-        return delta > tenMinutesMs && delta <= sixHoursMs;
-      });
     }
 
     return visibleActs;

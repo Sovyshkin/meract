@@ -38,8 +38,6 @@ const [sliderMax, setSliderMax] = useState(localFilters.maxRating);
   const statusOptions = [
     "active",
     "inactive",
-    "Starting now (in 10 mins or less)",
-    "Starting soon (10 mins - 6 hours)",
   ];
 
   const handleSliderOne = (e) => {
