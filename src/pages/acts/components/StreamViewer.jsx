@@ -230,6 +230,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
   // `actRef` can be public UUID or numeric id from URL/state.
   const actRef = id || streamData?.publicId || streamData?.id || channelName?.replace("act_", "");
+  const [actualStreamData, setActualStreamData] = useState(streamData);
   // Numeric id is still required by sockets and some chat payloads.
   const numericActId = useMemo(() => {
     const raw = actualStreamData?.id ?? streamData?.id;
@@ -249,8 +250,6 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     fetchAssigned,
     apply,
   } = useSpotAgent(numericActId);
-
-  const [actualStreamData, setActualStreamData] = useState(streamData);
 
   // Spot Agent computed values
   const currentUserId = useMemo(() => {
