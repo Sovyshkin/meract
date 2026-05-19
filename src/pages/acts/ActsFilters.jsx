@@ -36,6 +36,7 @@ const [sliderMax, setSliderMax] = useState(localFilters.maxRating);
   const langOptions = ["Russian", "English"];
   const distanceOptions = ["1km", "10km"];
   const statusOptions = [
+    "all",
     "active",
     "inactive",
   ];

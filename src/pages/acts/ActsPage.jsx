@@ -119,6 +119,10 @@ export default function ActsPage() {
   }, [searchedActs, activeRange]);
 
   const filteredByStatusActs = useMemo(() => {
+    if (selectedStatus === "all") {
+      return visibleActs;
+    }
+
     if (selectedStatus === "active") {
       return visibleActs.filter((act) => act.status === "ONLINE");
     }

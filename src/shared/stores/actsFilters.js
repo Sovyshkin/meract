@@ -6,7 +6,7 @@ export const useFilterStore = create((set) => ({
   navMethod: 0,
   selectedLang: "English",
   selectedDistance: "1km",
-  selectedStatus: "active",
+  selectedStatus: "all",
   minRating: 1.0,
   maxRating: 10.0,
   // Фильтр по расстоянию (км): null = не задан (показывать всё)
@@ -31,7 +31,7 @@ export const useFilterStore = create((set) => ({
     navMethod: 0, 
     selectedLang: "English", 
     selectedDistance: "1km",
-    selectedStatus: "active",
+    selectedStatus: "all",
     minRating: 1.0, 
     maxRating: 10.0,
     minDistanceKm: null,
