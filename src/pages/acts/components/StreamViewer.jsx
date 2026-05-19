@@ -2424,11 +2424,11 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                       <button
                         onClick={() => setActiveChat('general')}
                         className={`${styles.chatTabBtn} ${activeChat === 'general' ? styles.chatTabBtnActive : ''}`}
-                      >General</button>
+                      >General chat</button>
                       <button
                         onClick={() => setActiveChat('team')}
                         className={`${styles.chatTabBtn} ${activeChat === 'team' ? styles.chatTabBtnActive : ''}`}
-                      >Team</button>
+                      >Player chat</button>
                     </div>
                   )}
 
@@ -3376,13 +3376,13 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                     onClick={() => setActiveChat('general')}
                     className={`${styles.fullscreenChatTab} ${activeChat === 'general' ? styles.fullscreenChatTabActive : ''}`}
                   >
-                    General
+                    General chat
                   </button>
                   <button
                     onClick={() => setActiveChat('team')}
                     className={`${styles.fullscreenChatTab} ${activeChat === 'team' ? styles.fullscreenChatTabActive : ''}`}
                   >
-                    Team
+                    Player chat
                   </button>
                 </div>
               )}
