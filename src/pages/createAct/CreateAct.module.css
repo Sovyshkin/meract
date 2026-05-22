@@ -616,23 +616,23 @@
 /* Mobile fix - ensure bottom content is visible */
 @media (max-width: 768px) {
   .container {
-    padding-bottom: max(40px, env(safe-area-inset-bottom)) !important;
+    padding-bottom: calc(120px + env(safe-area-inset-bottom)) !important;
     min-height: 100dvh;
     box-sizing: border-box;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .item {
-    padding-bottom: max(30px, env(safe-area-inset-bottom)) !important;
+    padding-bottom: calc(40px + env(safe-area-inset-bottom)) !important;
   }
 
   .savebutton {
-    padding-bottom: max(20px, env(safe-area-inset-bottom)) !important;
-    margin-bottom: 20px;
+    margin-bottom: calc(80px + env(safe-area-inset-bottom));
   }
 
   .button {
-    padding-bottom: max(20px, env(safe-area-inset-bottom)) !important;
-    margin-bottom: 20px;
+    margin-bottom: calc(40px + env(safe-area-inset-bottom));
   }
 }
 .item{
