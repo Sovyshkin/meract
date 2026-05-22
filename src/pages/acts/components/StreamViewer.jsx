@@ -2276,14 +2276,14 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   return (
     <div className={styles.container}>
      
-      {isSelectedStreamer && !isSelectedHeroOnline && !isPublishing && (
+      {isSelectedStreamer && !isPublishing && !isStreamActive && !isStartingStream && (
         <div className={styles.startstream}>
           <button 
             className={styles.startStreamButton}
-            onClick={startStream}
+            onClick={isSelectedHeroOnline ? reconnectAsStreamer : startStream}
             disabled={isStartingStream}
           >
-            {isStartingStream ? 'Starting...' : 'Start stream'}
+            {isStartingStream ? 'Starting...' : (isSelectedHeroOnline ? 'Reconnect stream' : 'Start stream')}
           </button>
         </div>
       )}
@@ -3645,4 +3645,3 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 };
 
 export default StreamViewer;
-
