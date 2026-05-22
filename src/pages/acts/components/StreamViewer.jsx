@@ -148,6 +148,34 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const [addTaskLocationInit, setAddTaskLocationInit] = useState(false);
   const [proposeTaskLocationInit, setProposeTaskLocationInit] = useState(false);
 
+  const ensureMediaPermissions = useCallback(async () => {
+    const isLocalhost =
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1";
+
+    if (!window.isSecureContext && !isLocalhost) {
+      throw new Error("Camera and microphone require HTTPS connection");
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error("Camera/microphone are not supported in this browser");
+    }
+
+    let probeStream = null;
+    try {
+      // Important for iOS/Android: request permissions immediately from user click flow.
+      probeStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    } catch (err) {
+      const deniedNames = ["NotAllowedError", "PermissionDeniedError", "SecurityError"];
+      if (deniedNames.includes(err?.name)) {
+        throw new Error("Camera/microphone access denied. Allow permissions in browser settings and try again.");
+      }
+      throw err;
+    } finally {
+      probeStream?.getTracks?.().forEach((track) => track.stop());
+    }
+  }, []);
+
   useEffect(() => {
     if (showAddTaskModal && !addTaskLocationInit && newTaskLat == null) {
       setAddTaskLocationInit(true);
@@ -881,6 +909,15 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       return;
     }
 
+    try {
+      await ensureMediaPermissions();
+    } catch (permissionErr) {
+      const msg = permissionErr?.message || "Camera/microphone permission is required";
+      setError(msg);
+      toast.error(msg);
+      return;
+    }
+
     // Cancel stale scheduled retry before a fresh start attempt.
     if (retryStartTimerRef.current) {
       clearTimeout(retryStartTimerRef.current);
@@ -1116,6 +1153,8 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     setError(null);
 
     try {
+      await ensureMediaPermissions();
+
       // Ensure local old client/tracks are fully dropped before rejoin with same UID.
       await forceResetAgoraClient();
 
@@ -3606,5 +3645,4 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 };
 
 export default StreamViewer;
-
 

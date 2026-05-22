@@ -197,6 +197,7 @@ export default function ActDetail() {
   const [userVotes, setUserVotes] = useState({});
 
   const [isLive, setIsLive] = useState('');
+  const [actRealId, setActRealId] = useState(null);
   const [title, setTitle] = useState('Loading');
   const [description, setDescription] = useState('loading');
   const [seasons, setSeasons] = useState('');
@@ -225,6 +226,7 @@ export default function ActDetail() {
         console.log("Act data:", data);
 
         if (data) {
+          setActRealId(data.id ?? null);
           let effectiveStatus = data.status;
           if (data.status === 'ONLINE') {
             try {
@@ -586,24 +588,30 @@ export default function ActDetail() {
   const canStartAct = (isOwner || isHero) && isLive !== 'ONLINE';
 
   const handleStart = async () => {
+    const targetActId = actRealId ?? id;
     if (isLive === 'ONLINE') {
-      navigate(`/stream/${id}`, { state: { act: { id, title, description } } });
+      navigate(`/stream/${targetActId}`, { state: { act: { id: targetActId, title, description } } });
       return;
     }
     setStartingAct(true);
     try {
-      await actApi.startAct(id);
+      await actApi.startAct(targetActId);
       setIsLive('ONLINE');
-      navigate(`/stream/${id}`, { state: { act: { id, title, description } } });
-    } catch {
-      toast.error('Failed to start act');
+      navigate(`/stream/${targetActId}`, { state: { act: { id: targetActId, title, description } } });
+    } catch (error) {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to start act';
+      toast.error(Array.isArray(message) ? message.join(", ") : String(message));
     } finally {
       setStartingAct(false);
     }
   };
 
   const join = () => {
-    navigate(`/stream/${id}`, { state: { act: { id, title, description } } });
+    const targetActId = actRealId ?? id;
+    navigate(`/stream/${targetActId}`, { state: { act: { id: targetActId, title, description } } });
   };
 
   const bannerUrl = buildPreviewUrl(actPreviewFileName) || iconguild;
