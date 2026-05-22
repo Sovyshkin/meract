@@ -628,10 +628,12 @@
   }
 
   .savebutton {
+    padding: 12px 24px;
     margin-bottom: calc(80px + env(safe-area-inset-bottom));
   }
 
   .button {
+    padding: 16px;
     margin-bottom: calc(40px + env(safe-area-inset-bottom));
   }
 }
