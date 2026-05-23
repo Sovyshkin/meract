@@ -161,19 +161,61 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       throw new Error("Camera/microphone are not supported in this browser");
     }
 
-    let probeStream = null;
-    try {
-      // Important for iOS/Android: request permissions immediately from user click flow.
-      probeStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    } catch (err) {
-      const deniedNames = ["NotAllowedError", "PermissionDeniedError", "SecurityError"];
-      if (deniedNames.includes(err?.name)) {
-        throw new Error("Camera/microphone access denied. Allow permissions in browser settings and try again.");
+    const permissionVariants = [
+      { video: true, audio: true },
+      { video: true, audio: false },
+      { video: false, audio: true },
+    ];
+
+    let lastError = null;
+    for (const constraints of permissionVariants) {
+      let probeStream = null;
+      try {
+        // Important for iOS/Android: request permissions immediately from user click flow.
+        probeStream = await navigator.mediaDevices.getUserMedia(constraints);
+        return;
+      } catch (err) {
+        lastError = err;
+      } finally {
+        probeStream?.getTracks?.().forEach((track) => track.stop());
       }
-      throw err;
-    } finally {
-      probeStream?.getTracks?.().forEach((track) => track.stop());
     }
+
+    const deniedNames = ["NotAllowedError", "PermissionDeniedError", "SecurityError"];
+    if (deniedNames.includes(lastError?.name)) {
+      throw new Error("Camera/microphone access denied. Allow permissions in browser settings and try again.");
+    }
+    throw lastError || new Error("Unable to access camera/microphone");
+  }, []);
+
+  const createPublishTracks = useCallback(async () => {
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    let videoTrack = null;
+    let audioTrack = null;
+
+    try {
+      videoTrack = await AgoraRTC.createCameraVideoTrack({
+        encoderConfig: isMobile ? '480p_1' : { width: 640, height: 480 },
+        optimizationMode: 'detail',
+      });
+    } catch (e) {
+      console.warn('Video track unavailable:', e);
+    }
+
+    try {
+      audioTrack = await AgoraRTC.createMicrophoneAudioTrack({
+        echoCancellation: true,
+        noiseSuppression: true,
+      });
+    } catch (e) {
+      console.warn('Audio track unavailable:', e);
+    }
+
+    if (!videoTrack && !audioTrack) {
+      throw new Error('No media tracks available to publish');
+    }
+
+    return { videoTrack, audioTrack };
   }, []);
 
   useEffect(() => {
@@ -1178,28 +1220,18 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       );
 
       // Захватываем камеру и микрофон заново
-      // Mobile-friendly video constraints for better browser permission compatibility
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      
-      const videoTrack = await AgoraRTC.createCameraVideoTrack({
-        encoderConfig: isMobile ? '480p_1' : { width: 640, height: 480 },
-        optimizationMode: 'detail',
-      });
-      const audioTrack = await AgoraRTC.createMicrophoneAudioTrack({
-        echoCancellation: true,
-        noiseSuppression: true,
-      });
+      const { videoTrack, audioTrack } = await createPublishTracks();
 
       localVideoTrackRef.current = videoTrack;
       localAudioTrackRef.current = audioTrack;
       setLocalVideoTrack(videoTrack);
       setLocalAudioTrack(audioTrack);
 
-      if (localVideoRef.current) {
+      if (localVideoRef.current && videoTrack) {
         videoTrack.play(localVideoRef.current, { mirror: false });
       }
 
-      await client.publish([videoTrack, audioTrack]);
+      await client.publish([videoTrack, audioTrack].filter(Boolean));
 
       setIsPublishing(true);
       setIsStreamActive(true);
@@ -1245,18 +1277,9 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     try {
       debugLog("🎥 Starting to publish stream...");
       
-      // Mobile-friendly video constraints for better browser permission compatibility
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
       
       // Захватываем камеру и микрофон
-      const videoTrack = await AgoraRTC.createCameraVideoTrack({
-        encoderConfig: isMobile ? '480p_1' : { width: 640, height: 480 },
-        optimizationMode: 'detail',
-      });
-      const audioTrack = await AgoraRTC.createMicrophoneAudioTrack({
-        echoCancellation: true,
-        noiseSuppression: true,
-      });
+      const { videoTrack, audioTrack } = await createPublishTracks();
       
       setLocalVideoTrack(videoTrack);
       setLocalAudioTrack(audioTrack);
@@ -1266,12 +1289,12 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       localAudioTrackRef.current = audioTrack;
 
       // Показываем превью стримеру
-      if (localVideoRef.current) {
+      if (localVideoRef.current && videoTrack) {
         videoTrack.play(localVideoRef.current, { mirror: false });
       }
 
       // Публикуем стрим
-      await client.publish([videoTrack, audioTrack]);
+      await client.publish([videoTrack, audioTrack].filter(Boolean));
       
       setIsPublishing(true);
       setIsStreamActive(true);
