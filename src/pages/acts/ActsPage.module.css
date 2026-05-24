@@ -550,3 +550,13 @@ button {
   -webkit-box-orient: vertical !important;
   overflow: hidden !important;
 }
+
+@media (max-width: 768px) {
+  .actsPage {
+    padding-bottom: calc(220px + env(safe-area-inset-bottom));
+  }
+
+  .savebutton {
+    bottom: calc(14px + env(safe-area-inset-bottom));
+  }
+}

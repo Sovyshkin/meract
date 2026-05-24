@@ -826,3 +826,12 @@ input:focus, .input:focus {
   border-radius: 12px;
   z-index: 2;
 }
+@media (max-width: 768px) {
+  .container {
+    padding-bottom: calc(110px + env(safe-area-inset-bottom));
+  }
+
+  .btncont {
+    margin-bottom: calc(10px + env(safe-area-inset-bottom));
+  }
+}

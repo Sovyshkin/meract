@@ -717,3 +717,12 @@ flex-direction: column;
   border: 1px dashed gray;
   border-radius: 12px;
 }
+@media (max-width: 768px) {
+  .container {
+    padding-bottom: calc(130px + env(safe-area-inset-bottom));
+  }
+
+  .item {
+    bottom: calc(14px + env(safe-area-inset-bottom));
+  }
+}

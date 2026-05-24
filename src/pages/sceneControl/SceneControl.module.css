@@ -393,3 +393,13 @@
     padding: 4px;
   }
 }
+
+@media (max-width: 768px) {
+  .glass {
+    padding-bottom: calc(36px + env(safe-area-inset-bottom));
+  }
+
+  .content {
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+  }
+}

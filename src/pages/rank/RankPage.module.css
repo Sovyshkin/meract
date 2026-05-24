@@ -609,3 +609,12 @@ flex-direction: column;
   margin: 40px 0;
   opacity: 0.5;
 }
+@media (max-width: 768px) {
+  .container {
+    padding-bottom: calc(130px + env(safe-area-inset-bottom));
+  }
+
+  .item {
+    bottom: calc(14px + env(safe-area-inset-bottom));
+  }
+}

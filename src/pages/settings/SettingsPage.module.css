@@ -683,3 +683,12 @@ flex-direction: column;
 .savebutton button {
   width: 100%;
 }
+@media (max-width: 768px) {
+  .container {
+    padding-bottom: calc(130px + env(safe-area-inset-bottom));
+  }
+
+  .item {
+    bottom: calc(14px + env(safe-area-inset-bottom));
+  }
+}

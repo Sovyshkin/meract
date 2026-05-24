@@ -213,3 +213,13 @@ button {
   height: 20px;
   cursor: pointer;
 }
+
+@media (max-width: 768px) {
+  .actsPage {
+    padding-bottom: calc(180px + env(safe-area-inset-bottom));
+  }
+
+  .savebutton {
+    bottom: calc(14px + env(safe-area-inset-bottom));
+  }
+}

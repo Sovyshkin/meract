@@ -189,3 +189,16 @@
     transform: translateY(0);
   }
 }
+
+@media (max-width: 768px) {
+  .floatingSpotAgentContainer {
+    bottom: calc(110px + env(safe-area-inset-bottom));
+    right: 12px;
+  }
+
+  .spotAgentError {
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    right: 12px;
+    left: 12px;
+  }
+}

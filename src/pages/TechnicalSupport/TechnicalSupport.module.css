@@ -542,3 +542,12 @@
   background-color: #E74209;
   color: white;
 }
+@media (max-width: 768px) {
+  .container {
+    padding-bottom: calc(36px + env(safe-area-inset-bottom));
+  }
+
+  .content {
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+  }
+}
