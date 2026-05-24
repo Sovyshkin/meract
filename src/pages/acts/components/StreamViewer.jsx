@@ -479,6 +479,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const MAX_RECONNECT_RETRIES = 4;
   const viewerRetryTimerRef = useRef(null);
   const viewerRetryCountRef = useRef(0);
+  const isSwitchingCameraRef = useRef(false);
   const MAX_VIEWER_CONNECT_RETRIES = 4;
   const viewerSubscribeInFlightRef = useRef(new Set());
   const heroAutoSelectedRef = useRef(false);
@@ -1316,10 +1317,13 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   // Переключение камеры (передняя/задняя)
   const switchCamera = useCallback(async () => {
     if (!localVideoTrackRef.current || !clientRef.current) return;
+    if (isSwitchingCameraRef.current) return;
 
     try {
+      isSwitchingCameraRef.current = true;
       const devices = await navigator.mediaDevices.enumerateDevices();
       const cameras = devices.filter(d => d.kind === 'videoinput');
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
       if (cameras.length < 2) {
         toast.info('Only one camera available');
@@ -1342,10 +1346,15 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
         return;
       }
 
-      // 1) Fast path for most browsers: switch device on existing track.
-      if (typeof localVideoTrackRef.current.setDevice === 'function') {
+      // 1) Desktop fast-path only. On mobile this may "succeed" without real switch.
+      if (!isMobile && typeof localVideoTrackRef.current.setDevice === 'function') {
         try {
+          const beforeDeviceId = localVideoTrackRef.current.getCurrentDeviceInfo?.()?.deviceId;
           await localVideoTrackRef.current.setDevice(newCamera.deviceId);
+          const afterDeviceId = localVideoTrackRef.current.getCurrentDeviceInfo?.()?.deviceId;
+          if (!beforeDeviceId || !afterDeviceId || beforeDeviceId === afterDeviceId) {
+            throw new Error('Camera did not actually change');
+          }
           setIsFacingFront(!isFacingFront);
           debugLog(`📷 Camera switched to ${isFacingFront ? 'back' : 'front'} via setDevice`);
           toast.success(`Camera: ${isFacingFront ? 'back' : 'front'}`);
@@ -1355,14 +1364,22 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
         }
       }
 
-      // 2) Fallback for mobile Safari/Android WebView: recreate track with facingMode.
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      // 2) Recreate track (mobile-preferred) with facingMode switch.
       const targetFacingMode = isFacingFront ? 'environment' : 'user';
-      const newVideoTrack = await AgoraRTC.createCameraVideoTrack({
-        encoderConfig: isMobile ? '480p_1' : { width: 640, height: 480 },
-        cameraId: newCamera.deviceId,
-        facingMode: targetFacingMode,
-      });
+      let newVideoTrack;
+      if (isMobile) {
+        // Mobile Safari/Chrome: facingMode-only is the most reliable.
+        newVideoTrack = await AgoraRTC.createCameraVideoTrack({
+          encoderConfig: '480p_1',
+          facingMode: targetFacingMode,
+        });
+      } else {
+        newVideoTrack = await AgoraRTC.createCameraVideoTrack({
+          encoderConfig: { width: 640, height: 480 },
+          cameraId: newCamera.deviceId,
+          facingMode: targetFacingMode,
+        });
+      }
 
       if (localVideoRef.current) {
         newVideoTrack.play(localVideoRef.current, { mirror: false });
@@ -1382,6 +1399,8 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     } catch (err) {
       console.error('Camera switch failed:', err);
       toast.error(`Failed to switch camera: ${err?.message || 'unknown error'}`);
+    } finally {
+      isSwitchingCameraRef.current = false;
     }
   }, [isFacingFront]);
 
