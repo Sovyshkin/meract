@@ -1691,11 +1691,57 @@ position: absolute;
 
 @media (max-width: 768px) {
   .chatContainer {
-    bottom: calc(88px + env(safe-area-inset-bottom));
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    bottom: calc(104px + env(safe-area-inset-bottom));
+    z-index: 10040;
   }
 
   .chatActions {
     margin-bottom: 0;
     gap: 12px;
+  }
+
+  .actionButton {
+    min-width: 48px;
+    min-height: 48px;
+  }
+
+  .startstream {
+    bottom: calc(104px + env(safe-area-inset-bottom));
+  }
+
+  .heroPickerOverlay {
+    padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .modalOverlay {
+    align-items: flex-end;
+    padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
+  }
+
+  .modalContent {
+    width: 100%;
+    max-width: 100%;
+    max-height: min(82vh, calc(100dvh - 30px - env(safe-area-inset-bottom)));
+  }
+
+  .fullscreenChatHeader {
+    padding-top: calc(10px + env(safe-area-inset-top));
+  }
+
+  .fullscreenChatInputArea {
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .closeMapButton {
+    top: calc(12px + env(safe-area-inset-top));
+    left: 12px;
+  }
+
+  .locateMeButton {
+    top: calc(12px + env(safe-area-inset-top));
+    right: 12px;
   }
 }
