@@ -422,6 +422,17 @@
   cursor: pointer;
   transition: all 0.2s ease;
 }
+
+@media (max-width: 768px) {
+  .container {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom));
+    box-sizing: border-box;
+  }
+
+  .savebutton {
+    margin-bottom: calc(28px + env(safe-area-inset-bottom));
+  }
+}
 .toggleBtn {
   color: #3abafe; /* Синий цвет */
   font-size: 14px;

@@ -868,6 +868,19 @@
   transition: all 0.2s ease;
 
 }
+
+@media (max-width: 768px) {
+  .startstream {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    transform: none;
+    width: auto;
+    max-width: none;
+    bottom: calc(84px + env(safe-area-inset-bottom));
+    z-index: 10050;
+  }
+}
 .menuContainer {
   position: relative; 
   display: flex;
