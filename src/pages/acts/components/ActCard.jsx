@@ -77,7 +77,7 @@ useEffect(() => {
         let effectiveStatus = actsdata.status;
         if (actsdata.status === 'ONLINE') {
           try {
-            const heroStreams = await actApi.getHeroStreams(id);
+            const heroStreams = await actApi.getHeroStreams(actsdata.id ?? id);
             const hasStreams = Array.isArray(heroStreams) && heroStreams.length > 0;
             const hasOnlineHero = Array.isArray(heroStreams)
               ? heroStreams.some((s) => s?.status === 'ONLINE')

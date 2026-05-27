@@ -119,6 +119,11 @@ export const actApi = {
     return response.data;
   },
 
+  getRecordingPlayback: async (id) => {
+    const response = await api.get(`/act/find-by-id/${id}/recording-playback`);
+    return response.data;
+  },
+
   getAct: async (id) => {
     const response = await api.get(`/act/find-by-id/${id}`);
     return response.data;

@@ -217,6 +217,8 @@ export default function ActDetail() {
   const [streamLocation, setStreamLocation] = useState(null);
   const [nowTs, setNowTs] = useState(Date.now());
   const [actPreviewFileName, setActPreviewFileName] = useState(null);
+  const [recordingStatus, setRecordingStatus] = useState(null);
+  const [canWatchAct, setCanWatchAct] = useState(false);
 
   // Загрузка деталей акта
   useEffect(() => {
@@ -230,7 +232,7 @@ export default function ActDetail() {
           let effectiveStatus = data.status;
           if (data.status === 'ONLINE') {
             try {
-              const heroStreams = await actApi.getHeroStreams(id);
+              const heroStreams = await actApi.getHeroStreams(data.id ?? id);
               const hasStreams = Array.isArray(heroStreams) && heroStreams.length > 0;
               const hasOnlineHero = Array.isArray(heroStreams)
                 ? heroStreams.some((s) => s?.status === 'ONLINE')
@@ -244,6 +246,21 @@ export default function ActDetail() {
           }
 
           setIsLive(effectiveStatus);
+          setRecordingStatus(data.recordingStatus ?? null);
+
+          if (effectiveStatus === 'OFFLINE') {
+            try {
+              await actApi.getRecordingPlayback(id);
+              setCanWatchAct(true);
+            } catch {
+              setCanWatchAct(
+                data.recordingStatus === 'completed' && Boolean(data.recordingUrl),
+              );
+            }
+          } else {
+            setCanWatchAct(false);
+          }
+
           setTitle(data.title || 'Untitled');
           setDescription(data.description || 'No description available');
           setActPreviewFileName(data.previewFileName || null);
@@ -614,6 +631,10 @@ export default function ActDetail() {
     navigate(`/stream/${targetActId}`, { state: { act: { id: targetActId, title, description } } });
   };
 
+  const handleWatchAct = () => {
+    navigate(`/acts/${id}/watch`);
+  };
+
   const bannerUrl = buildPreviewUrl(actPreviewFileName) || iconguild;
   const topBannerStyle = {
     backgroundImage: `url(${bannerUrl})`,
@@ -782,6 +803,13 @@ const handleRateAct = async () => {
                   >
                     {startingAct ? 'Starting...' : 'Start Act'}
                   </button>
+                ) : canWatchAct ? (
+                  <button
+                    className={styles.active}
+                    onClick={handleWatchAct}
+                  >
+                    Watch Act
+                  </button>
                 ) : (
                   <button
                     className={styles.active}
@@ -789,7 +817,15 @@ const handleRateAct = async () => {
                     disabled={isLive !== 'ONLINE'}
                     style={isLive !== 'ONLINE' ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
                   >
-                    {isUpcoming && actStartsIn ? `Starts in ${actStartsIn}` : isLive === 'PLANNED' ? 'Scheduled' : isLive === 'OFFLINE' ? 'Ended' : 'Watch'}
+                    {isUpcoming && actStartsIn
+                      ? `Starts in ${actStartsIn}`
+                      : isLive === 'PLANNED'
+                        ? 'Scheduled'
+                        : isLive === 'OFFLINE'
+                          ? recordingStatus === 'processing'
+                            ? 'Processing...'
+                            : 'Ended'
+                          : 'Watch'}
                   </button>
                 )}
               </div>

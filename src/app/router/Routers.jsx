@@ -57,6 +57,7 @@ import SecurityPage from "../../pages/settings/SecurityPage";
 import TechnicalSupport from "../../pages/TechnicalSupport/TechnicalSupport";
 import SupportPage from "../../pages/support/SupportPage";
 import ActDetail from "../../pages/acts/ActsDetail";
+import ActWatch from "../../pages/acts/ActWatch";
 import TeamDetail from "../../pages/createAct/TeamDetail";
 import MyActsPage from "../../pages/acts/MyActs";
 import CompanionProfile from "../../pages/chats/CompanionProfile";
@@ -120,6 +121,14 @@ export const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <ActDetail />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: "/acts/:id/watch",
+    element: (
+      <RequireAuth>
+        <ActWatch />
       </RequireAuth>
     ),
   },
