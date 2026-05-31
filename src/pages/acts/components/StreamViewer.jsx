@@ -985,8 +985,6 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
     try {
       await forceResetAgoraClient();
-      await actApi.startHeroStream(actRef, selectedStreamerId);
-      backendStarted = true;
 
       debugLog(`🎥 Starting stream for ${isSelectedStreamer ? 'publisher' : 'subscriber'}:`, actualChannelName);
       debugLog("🎥 User ID:", userIdNum);
@@ -1035,6 +1033,10 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       
       // Начинаем публикацию
       await startPublishing(client);
+
+      // Start backend hero-stream session only after media is published.
+      await actApi.startHeroStream(actRef, selectedStreamerId);
+      backendStarted = true;
 
       setHeroStreams((prev) =>
         prev.map((item) =>
@@ -3706,3 +3708,4 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 };
 
 export default StreamViewer;
+
