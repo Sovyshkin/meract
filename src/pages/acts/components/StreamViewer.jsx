@@ -989,7 +989,14 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       debugLog(`🎥 Starting stream for ${isSelectedStreamer ? 'publisher' : 'subscriber'}:`, actualChannelName);
       debugLog("🎥 User ID:", userIdNum);
       const role = 'publisher';
-      const token = (await actApi.getHeroStreamToken(actRef, selectedStreamerId, role, 3600))?.token;
+      const tokenResponse = await actApi.getHeroStreamToken(
+        actRef,
+        selectedStreamerId,
+        role,
+        3600,
+      );
+      const token = tokenResponse?.token;
+      const tokenChannelName = tokenResponse?.channelName || actualChannelName;
       debugLog("🎥 Token received:", token ? "✅" : "❌");
 
       if (!token) {
@@ -1024,7 +1031,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       
       await client.join(
         import.meta.env.VITE_AGORA_APP_ID,
-        actualChannelName,
+        tokenChannelName,
         token,
         userIdNum
       );
@@ -1204,7 +1211,14 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       await forceResetAgoraClient();
 
       const role = 'publisher';
-      const token = (await actApi.getHeroStreamToken(actRef, selectedStreamerId, role, 3600))?.token;
+      const tokenResponse = await actApi.getHeroStreamToken(
+        actRef,
+        selectedStreamerId,
+        role,
+        3600,
+      );
+      const token = tokenResponse?.token;
+      const tokenChannelName = tokenResponse?.channelName || actualChannelName;
       if (!token) throw new Error('No token received');
 
       const client = AgoraRTC.createClient({ mode: 'live', codec: 'vp8' });
@@ -1217,7 +1231,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
       await client.join(
         import.meta.env.VITE_AGORA_APP_ID,
-        actualChannelName,
+        tokenChannelName,
         token,
         userIdNum
       );
@@ -1617,7 +1631,14 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
         debugLog("👀 User ID:", userIdNum);
 
         const role = 'subscriber';
-        const token = (await actApi.getHeroStreamToken(actRef, selectedStreamerId, role, 3600))?.token;
+        const tokenResponse = await actApi.getHeroStreamToken(
+          actRef,
+          selectedStreamerId,
+          role,
+          3600,
+        );
+        const token = tokenResponse?.token;
+        const tokenChannelName = tokenResponse?.channelName || actualChannelName;
         debugLog("👀 Token received:", token ? "✅" : "❌");
 
         if (!token) {
@@ -1683,7 +1704,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
         
         await client.join(
           import.meta.env.VITE_AGORA_APP_ID,
-          actualChannelName,
+          tokenChannelName,
           token,
           userIdNum
         );
