@@ -41,6 +41,18 @@ import { buildPreviewUrl } from "../../shared/utils/previewUrl";
 import { useSoundStore } from "../../shared/stores/soundStore";
 import { toast } from "react-toastify";
 
+function getUserDisplayName(user, fallback = "User") {
+  return (
+    user?.username ||
+    user?.nickname ||
+    user?.login ||
+    user?.name ||
+    user?.fullName ||
+    user?.email ||
+    fallback
+  );
+}
+
 function buildRoleInfo(roleType, team, apiData, fallbackImg, currentUserId) {
   let method = null;
   const presetList = [];
@@ -62,7 +74,7 @@ function buildRoleInfo(roleType, team, apiData, fallbackImg, currentUserId) {
       method = 'fixed';
       const c = rc.candidates[0];
       const uid = c.user?.id ?? c.id;
-      presetList.push({ id: uid, teamCandidateId: c.id, name: c.user?.login || c.user?.email || `User #${uid}`, avatar: c.user?.avatarUrl || fallbackImg });
+      presetList.push({ id: uid, teamCandidateId: c.id, name: getUserDisplayName(c.user, `User #${uid}`), avatar: c.user?.avatarUrl || fallbackImg });
     } else if (!method && (rc.candidates?.length ?? 0) > 1) {
       method = 'voting_candidates';
       rc.candidates.forEach(c => {
@@ -70,7 +82,7 @@ function buildRoleInfo(roleType, team, apiData, fallbackImg, currentUserId) {
         presetList.push({
           id: uid,
           teamCandidateId: c.id,
-          name: c.user?.login || c.user?.email || `User #${uid}`,
+          name: getUserDisplayName(c.user, `User #${uid}`),
           avatar: c.user?.avatarUrl || fallbackImg,
           percent: '0',
         });
@@ -96,7 +108,7 @@ function buildRoleInfo(roleType, team, apiData, fallbackImg, currentUserId) {
       if (match) {
         pc.teamCandidateId = match.id;
         // обновляем имя из API — там есть email как fallback
-        pc.name = match.user?.login || match.user?.email || pc.name;
+        pc.name = getUserDisplayName(match.user, pc.name);
         if (totalVotes > 0) pc.percent = (((match._count?.votes || 0) / totalVotes) * 100).toFixed(0);
       }
     });
@@ -126,7 +138,7 @@ function buildRoleInfo(roleType, team, apiData, fallbackImg, currentUserId) {
     for (const cand of roleCands) {
       if (cand.votes?.some(v => v.voterId === currentUserId)) {
         myVotedCandidateId = cand.id;
-        myVotedCandidateName = cand.user?.login || cand.user?.email || null;
+        myVotedCandidateName = getUserDisplayName(cand.user, null);
         break;
       }
     }
@@ -138,7 +150,7 @@ function buildRoleInfo(roleType, team, apiData, fallbackImg, currentUserId) {
           myVotedCandidateId = tc.id; // teamCandidateId
           // Имя из presetList (уже обогащено) или напрямую из API
           const matched = presetList.find(p => p.teamCandidateId === tc.id);
-          myVotedCandidateName = matched?.name || tc.user?.login || tc.user?.email || null;
+          myVotedCandidateName = matched?.name || getUserDisplayName(tc.user, null);
           break;
         }
       }
@@ -150,7 +162,7 @@ function buildRoleInfo(roleType, team, apiData, fallbackImg, currentUserId) {
     return {
     id: uid,
     roleCandidateId: item.id,
-    name: item.user?.login || item.user?.email || `User #${uid}`,
+    name: getUserDisplayName(item.user, `User #${uid}`),
     avatar: item.user?.avatarUrl || fallbackImg,
     percent: totalRoleVotes > 0 ? ((item._count?.votes || 0) / totalRoleVotes * 100).toFixed(0) : '0',
   };
@@ -219,6 +231,7 @@ export default function ActDetail() {
   const [actPreviewFileName, setActPreviewFileName] = useState(null);
   const [recordingStatus, setRecordingStatus] = useState(null);
   const [canWatchAct, setCanWatchAct] = useState(false);
+  const [hasActStarted, setHasActStarted] = useState(false);
 
   // Загрузка деталей акта
   useEffect(() => {
@@ -247,6 +260,7 @@ export default function ActDetail() {
 
           setIsLive(effectiveStatus);
           setRecordingStatus(data.recordingStatus ?? null);
+          setHasActStarted(Boolean(data.startedAt));
 
           if (effectiveStatus === 'OFFLINE') {
             try {
@@ -670,13 +684,18 @@ const handleRateAct = async () => {
         toast.error("Failed to copy link");
       });
   };
+
+  const goToActsList = () => {
+    navigate('/acts', { replace: true });
+  };
+
   if (loading) {
     return (
       <div className={styles.container}>
         <div style={topBannerStyle} />
         <div className={styles.contentWrapper}>
           <div className={styles.header}>
-            <div className={styles.backButton} onClick={() => window.history.back()}>
+            <div className={styles.backButton} onClick={goToActsList}>
               <img src={arrowLeft} alt="Back" className={styles.backIcon} />
             </div>
           </div>
@@ -692,7 +711,7 @@ const handleRateAct = async () => {
 
       <div className={styles.contentWrapper}>
         <div className={styles.header}>
-          <div className={styles.backButton} onClick={() => window.history.back()}>
+          <div className={styles.backButton} onClick={goToActsList}>
             <img src={arrowLeft} alt="Back" className={styles.backIcon} />
           </div>
 
@@ -733,10 +752,11 @@ const handleRateAct = async () => {
                   <p style={{ color: '#00F300' }}>{rating}</p>
                 </div>
                 <p className={styles.desc} style={{ color: '#c0c0c0' }}>{date}</p>
-                {seasons && seasons == 1 
-                  ? <p className={styles.desc} style={{ color: '#c0c0c0' }}>1 Season</p>
-                  : <p className={styles.desc} style={{ color: '#c0c0c0' }}>{seasons || 0} Seasons</p>
-                }
+                {Number(seasons) > 0 && (
+                  <p className={styles.desc} style={{ color: '#c0c0c0' }}>
+                    {Number(seasons) === 1 ? '1 Season' : `${seasons} Seasons`}
+                  </p>
+                )}
                 {isLive === 'ONLINE' && streamLocation && (
                   <div style={{ 
                     background: 'rgba(0, 255, 0, 0.08)', 
@@ -822,7 +842,9 @@ const handleRateAct = async () => {
                       : isLive === 'PLANNED'
                         ? 'Scheduled'
                         : isLive === 'OFFLINE'
-                          ? recordingStatus === 'processing'
+                          ? !hasActStarted
+                            ? 'Not Started'
+                            : recordingStatus === 'processing'
                             ? 'Processing...'
                             : 'Ended'
                           : 'Watch'}
@@ -946,9 +968,9 @@ const handleRateAct = async () => {
         {/* Секции ролей — fixed / voting_candidates / open_voting */}
         {(() => {
           const ROLE_LABELS = {
-            navigator:  { title: 'Navigator voting', subtitle: 'Choose who will be the navigator for this act.' },
-            hero:       { title: 'Hero voting',      subtitle: 'Choose who will be the hero for this act.' },
-            spot_agent: { title: 'Spot agent voting', subtitle: 'Choose who will be the spot agent for this act.' },
+            navigator:  { votingTitle: 'Navigator voting', fixedTitle: 'Navigator', votingSubtitle: 'Choose who will be the navigator for this act.', fixedSubtitle: 'Assigned navigator for this act.' },
+            hero:       { votingTitle: 'Hero voting', fixedTitle: 'Hero', votingSubtitle: 'Choose who will be the hero for this act.', fixedSubtitle: 'Assigned hero for this act.' },
+            spot_agent: { votingTitle: 'Spot agent voting', fixedTitle: 'Spot agent', votingSubtitle: 'Choose who will be the spot agent for this act.', fixedSubtitle: 'Assigned spot agent for this act.' },
           };
 
           const formatDeadline = (date) => date.toLocaleString('en-GB', {
@@ -969,7 +991,12 @@ const handleRateAct = async () => {
           return uniqueRoles.map(role => {
             const roleInfo = roleCandidates[role] || { method: null, candidates: [] };
             const { method, candidates, votingDeadline, votingStartAt } = roleInfo;
-            const label = ROLE_LABELS[role] || { title: `Vote: ${role}`, subtitle: '' };
+            const label = ROLE_LABELS[role] || {
+              votingTitle: `Vote: ${role}`,
+              fixedTitle: role,
+              votingSubtitle: '',
+              fixedSubtitle: '',
+            };
             const maxPct = candidates.length > 0 ? Math.max(...candidates.map(c => parseFloat(c.percent) || 0)) : 0;
             const votingStatus = getVotingStatus(votingStartAt, votingDeadline);
             const votedInfo = votedRoles[role]; // { candidateName } | undefined
@@ -981,8 +1008,8 @@ const handleRateAct = async () => {
                 <div key={role} className={styles.parentnav}>
                   <div className={styles.navigators}>
                     <div className={styles.cardcontfirst}>
-                      <p className={styles.title} style={{ fontSize: '18px', margin: '0px' }}>{label.title}</p>
-                      <p className={styles.subtitle} style={{ fontSize: '14px', margin: '0px', color: 'rgb(181, 179, 179)' }}>{label.subtitle}</p>
+                      <p className={styles.title} style={{ fontSize: '18px', margin: '0px' }}>{label.fixedTitle}</p>
+                      <p className={styles.subtitle} style={{ fontSize: '14px', margin: '0px', color: 'rgb(181, 179, 179)' }}>{label.fixedSubtitle}</p>
                       {person ? (
                         <div className={styles.members} style={{ border: '1px solid #00c853', marginTop: '10px', cursor: 'default' }}>
                           <div className={styles.rankBadge}><img src={person.avatar} alt="avatar" className={styles.rankImg} /></div>
@@ -1009,13 +1036,13 @@ const handleRateAct = async () => {
                 <div className={styles.navigators}>
                   <div className={styles.cardcontfirst}>
                     <p className={styles.title} style={{ fontSize: '18px', margin: '0px' }}>
-                      {label.title}
+                      {label.votingTitle}
                       {loadingRoles && <span style={{ marginLeft: '10px', fontSize: '14px', color: '#888' }}>Loading...</span>}
                     </p>
                     <p className={styles.subtitle} style={{ fontSize: '14px', margin: '0px', color: 'rgb(181, 179, 179)' }}>
                       {isOpenVoting
                         ? 'Open voting — anyone can apply, the audience chooses the winner.'
-                        : label.subtitle}
+                        : label.votingSubtitle}
                     </p>
 
                     {/* Дедлайн голосования */}

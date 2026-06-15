@@ -47,6 +47,18 @@ const debugLog = (...args) => {
   }
 };
 
+function getUserDisplayName(user, fallback = "User") {
+  return (
+    user?.username ||
+    user?.nickname ||
+    user?.login ||
+    user?.name ||
+    user?.fullName ||
+    user?.email ||
+    fallback
+  );
+}
+
 function MapClickHandler({ onPick }) {
   useMapEvents({ click: (e) => onPick(e.latlng.lat, e.latlng.lng) });
   return null;
@@ -336,11 +348,13 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     return null;
   }, [user]);
   const currentUserLogin = useMemo(() => {
-    if (user?.login || user?.email) return user.login || user.email;
+    if (user?.username || user?.nickname || user?.login || user?.email) {
+      return user.username || user.nickname || user.login || user.email;
+    }
     const token = useAuthStore.getState().getToken();
     if (typeof token === 'string' && token) {
       const payload = parseJWT(token);
-      return payload?.login || payload?.email || null;
+      return payload?.username || payload?.nickname || payload?.login || payload?.email || null;
     }
     return null;
   }, [user]);
@@ -356,7 +370,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
         if (rc.role !== role) return false;
         return (rc.candidates || []).some((c) => {
           const candidateId = c.user?.id ?? c.userId;
-          const candidateLogin = c.user?.login || c.user?.email || null;
+          const candidateLogin = getUserDisplayName(c.user, null);
           const byId =
             currentUserId != null &&
             candidateId != null &&
@@ -2381,7 +2395,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                   if (!isSelectedStreamer) {
                     await disconnectFromStream();
                   }
-                  window.history.back();
+                  navigate('/acts', { replace: true });
                 }}
               />
               {!isSelectedStreamer ?
@@ -2537,7 +2551,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
             )}
           </div>
           
-          {(isPublishing || isStreamActive || (!isSelectedStreamer && isConnected)) && (
+          {(isPublishing || isStreamActive || isSelectedHeroOnline || isCurrentUserAllowedToStream || (Boolean(currentUserId) && (isHero || isInitiator))) && (
             <div className={styles.chatContainer}>
               {showChatPanel && (
                 <div className={styles.chatOverlay}>
@@ -2589,7 +2603,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                             {pinnedMessages.map((m) => (
                               <div key={`pin-${m.id}`} className={styles.pinnedMsg}>
                                 <div className={styles.pinnedMsgContent}>
-                                  <span className={styles.chatOverlayUsername}>{m.user?.username || 'User'}</span>
+                                  <span className={styles.chatOverlayUsername}>{getUserDisplayName(m.user)}</span>
                                   <p className={styles.chatOverlayText}>{m.text || m.message || m.content}</p>
                                 </div>
                                 {(isNavigator || isInitiator) && (
@@ -2605,7 +2619,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                         )}
                         {chatMessages.filter(m => (m.message || m.content || '').trim()).map((m, i) => (
                           <div key={m.id || i} className={styles.chatOverlayMsg}>
-                            <span className={styles.chatOverlayUsername}>{m.user?.username || m.username || 'User'}</span>
+                            <span className={styles.chatOverlayUsername}>{getUserDisplayName(m.user, m.username || 'User')}</span>
                             <p className={styles.chatOverlayText}>{m.message || m.content}</p>
                             {(isNavigator || isInitiator) && (
                               <button
@@ -2677,7 +2691,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                       <div className={styles.chatOverlayMessages}>
                         {teamMessages.filter(m => (m.text || '').trim()).map((m, i) => (
                           <div key={m.id || i} className={styles.chatOverlayMsg}>
-                            <span className={styles.chatOverlayUsername}>{m.sender?.login || m.sender?.email || 'User'}</span>
+                            <span className={styles.chatOverlayUsername}>{getUserDisplayName(m.sender)}</span>
                             <p className={styles.chatOverlayText}>{m.text}</p>
                           </div>
                         ))}
@@ -2715,13 +2729,20 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                 )}
                 <button
                   className={styles.actionButton}
-                  onClick={() => { requestLocation(); setShowMap(true); }}
+                  onClick={() => {
+                    setShowChatPanel(false);
+                    requestLocation();
+                    setShowMap(true);
+                  }}
                 >
                   <img src={geo} alt="Location" />
                 </button>
                 <button
                   className={styles.actionButton}
-                  onClick={() => setIsTasksModalOpen(true)}
+                  onClick={() => {
+                    setShowChatPanel(false);
+                    setIsTasksModalOpen(true);
+                  }}
                 >
                   <img src={tasks_image} alt="Tasks" />
                 </button>
@@ -3543,7 +3564,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                       {pinnedMessages.map((m) => (
                         <div key={`fs-pin-${m.id}`} className={styles.fullscreenPinnedMsg}>
                           <div className={styles.fullscreenPinnedContent}>
-                            <span className={styles.fullscreenPinnedUsername}>{m.user?.username || 'User'}</span>
+                            <span className={styles.fullscreenPinnedUsername}>{getUserDisplayName(m.user)}</span>
                             <p className={styles.fullscreenPinnedText}>{m.text || m.message || m.content}</p>
                           </div>
                           {(isNavigator || isInitiator) && (
@@ -3571,7 +3592,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                           >
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                               <div style={{ flex: 1 }}>
-                                <span className={styles.fullscreenChatUsername}>{m.user?.username || m.username || 'User'}</span>
+                                <span className={styles.fullscreenChatUsername}>{getUserDisplayName(m.user, m.username || 'User')}</span>
                                 <p className={styles.fullscreenChatText}>{m.message || m.content}</p>
                               </div>
                               {(isNavigator || isInitiator) && (
@@ -3672,7 +3693,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                             key={m.id || i}
                             className={`${styles.fullscreenChatMsg} ${isOwn ? styles.fullscreenChatMsgOwn : styles.fullscreenChatMsgOther}`}
                           >
-                            <span className={styles.fullscreenChatUsername}>{m.sender?.login || m.sender?.email || 'User'}</span>
+                            <span className={styles.fullscreenChatUsername}>{getUserDisplayName(m.sender)}</span>
                             <p className={styles.fullscreenChatText}>{m.text}</p>
                             <span className={styles.fullscreenChatTime}>
                               {new Date(m.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -3729,4 +3750,3 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 };
 
 export default StreamViewer;
-

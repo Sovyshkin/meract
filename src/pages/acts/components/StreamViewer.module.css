@@ -246,6 +246,8 @@
   align-items: center;
   margin-bottom: 40px;
   flex-shrink: 0;
+  position: relative;
+  z-index: 3;
 }
 
 .actionButton {
@@ -952,6 +954,8 @@ position: absolute;
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   box-sizing: border-box;
+  position: relative;
+  z-index: 1;
 }
 
 .chatOverlayMessages {

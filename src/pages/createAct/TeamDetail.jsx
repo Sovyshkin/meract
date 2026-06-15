@@ -5,7 +5,7 @@ import teamicon from '../../images/icon1.png';
 import points from '../../images/points.png';
 import styles from "./CreateAct.module.css";
 import trash from '../../images/trash.png';
-import navigator from '../../images/compas.png';
+import navigatorIcon from '../../images/compas.png';
 import { toast } from 'react-toastify';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -48,7 +48,7 @@ const TeamDetail = () => {
             setTaskLocationInit(true);
             // Пробуем получить геолокацию через iframe запрос (более надёжно для Safari)
             const tryGeolocation = () => {
-                const geo = navigator.geolocation;
+                const geo = window.navigator?.geolocation;
                 if (!geo) {
                     // Пробуем через резервный метод - iframe с Geolocation API
                     const iframe = document.createElement('iframe');
@@ -267,12 +267,13 @@ const TeamDetail = () => {
     };
 
     const handleUseMyLocation = () => {
-        if (!navigator.geolocation) {
+        const geo = window.navigator?.geolocation;
+        if (!geo) {
             toast.error('Geolocation is not supported by your browser');
             return;
         }
         setGettingLocation(true);
-        navigator.geolocation.getCurrentPosition(
+        geo.getCurrentPosition(
             (pos) => {
                 setTaskFormData(prev => ({ ...prev, lat: pos.coords.latitude, lng: pos.coords.longitude }));
                 setGettingLocation(false);
@@ -546,7 +547,7 @@ const TeamDetail = () => {
                                     style={{height:'260px', padding:'10px 0px', cursor: 'pointer'}}
                                 >
                                     <div className={styles.emptyPlaceholder}>
-                                        <img src={navigator} alt="Add icon" style={{width:'fit-content'}}/>
+                                        <img src={navigatorIcon} alt="Add icon" style={{width:'fit-content'}}/>
                                         <p style={{color:'#BFBFBF'}}>
                                             {navigatorMethod === 'fixed' ? 'Pick a navigator' : 'Add candidate'}
                                         </p>

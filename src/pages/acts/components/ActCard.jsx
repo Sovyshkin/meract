@@ -8,6 +8,18 @@ import { useEffect, useState } from "react";
 
 const reverseLocationCache = new Map();
 
+function getUserDisplayName(user, fallback = "") {
+  return (
+    user?.username ||
+    user?.nickname ||
+    user?.login ||
+    user?.name ||
+    user?.fullName ||
+    user?.email ||
+    fallback
+  );
+}
+
 async function reverseGeocodeTask(lat, lng) {
   if (lat == null || lng == null) return null;
   const key = `${Number(lat).toFixed(5)},${Number(lng).toFixed(5)}`;
@@ -54,6 +66,7 @@ const [heroMethod, setHeroMethod] = useState('');
 const [navigatorMethod, setNavigatorMethod] = useState('');
 const [scheduledAt, setScheduledAt] = useState(act.scheduledAt || null);
 const [countdownText, setCountdownText] = useState('');
+const [roleSummary, setRoleSummary] = useState({ hero: '', navigator: '' });
 const [location, setLocation] = useState('no location');
 const [distance, setDistance] = useState('no distance');
 const [streamLocation, setStreamLocation] = useState(null);
@@ -101,10 +114,27 @@ useEffect(() => {
         const allTeamTasks = (actsdata.teams || []).flatMap(t => t.tasks || []);
         const heroNames = allRoleConfigs
           .filter(rc => rc.role === 'hero')
-          .flatMap(rc => (rc.candidates || []).map(c => c.user?.login).filter(Boolean));
+          .flatMap(rc => (rc.candidates || []).map(c => getUserDisplayName(c.user)).filter(Boolean));
         const navNames = allRoleConfigs
           .filter(rc => rc.role === 'navigator')
-          .flatMap(rc => (rc.candidates || []).map(c => c.user?.login).filter(Boolean));
+          .flatMap(rc => (rc.candidates || []).map(c => getUserDisplayName(c.user)).filter(Boolean));
+
+        const getRoleSummary = (role) => {
+          const config = allRoleConfigs.find((rc) => rc.role === role);
+          if (!config) return '';
+          if (config.openVoting) return 'Open voting';
+          const names = (config.candidates || [])
+            .map((c) => getUserDisplayName(c.user))
+            .filter(Boolean);
+          if (names.length === 1) return names[0];
+          if (names.length > 1) return 'Voting';
+          return '';
+        };
+
+        setRoleSummary({
+          hero: getRoleSummary('hero'),
+          navigator: getRoleSummary('navigator'),
+        });
         setHeroes(heroNames.length > 0 ? heroNames.join(', ') : 'open voting');
         setNavigator(navNames.length > 0 ? navNames.join(', ') : 'open voting');
 
@@ -233,17 +263,17 @@ useEffect(() => {
     navigate("/acts/" + (act.publicId || act.id), { state: { act } });
   };
 
-  const heroText = heroMethod === 'VOTING'
+  const heroText = roleSummary.hero || (heroMethod === 'VOTING'
     ? 'Voting'
     : heroMethod === 'BIDDING'
       ? 'Bidding'
-      : heroes;
+      : heroes);
 
-  const navigatorText = navigatorMethod === 'VOTING'
+  const navigatorText = roleSummary.navigator || (navigatorMethod === 'VOTING'
     ? 'Voting'
     : navigatorMethod === 'BIDDING'
       ? 'Bidding'
-      : navigator;
+      : navigator);
 
   if (act.isMock) {
     return (
