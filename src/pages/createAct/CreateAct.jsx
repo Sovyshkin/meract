@@ -510,7 +510,7 @@ export default function CreateAct() {
       <div>
         <h4 className={styles.elsetitle}>Teams</h4>
         <p style={{color:'rgb(192, 192, 192)'}}>
-          Specify possible spot agents for which viewers will vote.
+          Create team and add users
         </p>
         <div className={styles.teamsGrid}> 
           {/* Отображаем все сохраненные команды */}

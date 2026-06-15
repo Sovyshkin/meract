@@ -9,6 +9,7 @@ import {
   Marker,
   Polyline,
   TileLayer,
+  useMap,
   useMapEvents,
 } from "react-leaflet";
 import { useNavigate } from "react-router-dom";
@@ -47,6 +48,21 @@ const debugLog = (...args) => {
   }
 };
 
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const getDistanceMeters = ([lat1, lng1], [lat2, lng2]) => {
+  const toRad = (value) => (value * Math.PI) / 180;
+  const earthRadius = 6371000;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLng / 2) ** 2;
+  return 2 * earthRadius * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+
 function getUserDisplayName(user, fallback = "User") {
   return (
     user?.username ||
@@ -61,6 +77,17 @@ function getUserDisplayName(user, fallback = "User") {
 
 function MapClickHandler({ onPick }) {
   useMapEvents({ click: (e) => onPick(e.latlng.lat, e.latlng.lng) });
+  return null;
+}
+
+function RecenterMap({ center }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!center) return;
+    map.panTo(center, { animate: true, duration: 0.4 });
+  }, [center, map]);
+
   return null;
 }
 
@@ -94,8 +121,10 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showMap, setShowMap] = useState(false);
   const [userPosition, setUserPosition] = useState([55.751244, 37.618423]);
+  const [streamerPosition, setStreamerPosition] = useState(null);
   const [locationGranted, setLocationGranted] = useState(false);
   const locationWatchRef = useRef(null);
+  const lastLocationEmitRef = useRef({ coords: null, time: 0 });
   const [isTasksModalOpen, setIsTasksModalOpen] = useState(false);
   const [tasks, setTasks] = useState([]);
   const [loadingTasks, setLoadingTasks] = useState(false);
@@ -785,6 +814,21 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     socket.on('heroStreamStarted', (payload) => applyHeroStatus(payload, 'ONLINE'));
     socket.on('heroStreamStopped', (payload) => applyHeroStatus(payload, 'ENDED'));
     socket.on('heroStreamFailed', (payload) => applyHeroStatus(payload, 'FAILED'));
+    socket.on('streamerLocationUpdated', (payload) => {
+      if (payload?.actId && String(payload.actId) !== String(numericActId)) return;
+      if (
+        selectedStreamerId &&
+        payload?.heroUserId &&
+        String(payload.heroUserId) !== String(selectedStreamerId)
+      ) {
+        return;
+      }
+
+      const lat = Number(payload?.lat);
+      const lng = Number(payload?.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+      setStreamerPosition([lat, lng]);
+    });
 
     socket.on('taskToggled', async ({ actId: payloadActId, taskId, isCompleted, completedAt, updatedBy }) => {
       void updatedBy;
@@ -879,6 +923,23 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     });
   }, []);
 
+  const publishStreamerPosition = useCallback((coords, force = false) => {
+    if (!isSelectedStreamer || !numericActId) return;
+
+    const now = Date.now();
+    const last = lastLocationEmitRef.current;
+    const movedMeters = last.coords ? getDistanceMeters(last.coords, coords) : Infinity;
+    if (!force && movedMeters < 8 && now - last.time < 5000) return;
+
+    lastLocationEmitRef.current = { coords, time: now };
+    heroStatusSocketRef.current?.emit('streamer:location:update', {
+      actId: numericActId,
+      heroUserId: selectedStreamerId || currentUserId,
+      lat: coords[0],
+      lng: coords[1],
+    });
+  }, [isSelectedStreamer, numericActId, selectedStreamerId, currentUserId]);
+
   // Функция запроса геолокации — должна вызываться по действию пользователя (user gesture)
   // чтобы браузер показал диалог разрешения
   const requestLocation = () => {
@@ -890,6 +951,10 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     const applyPosition = (position) => {
       const coords = [position.coords.latitude, position.coords.longitude];
       setUserPosition(coords);
+      if (isSelectedStreamer) {
+        setStreamerPosition(coords);
+        publishStreamerPosition(coords, true);
+      }
       setLocationGranted(true);
       if (locationWatchRef.current !== null) {
         navigator.geolocation.clearWatch(locationWatchRef.current);
@@ -897,7 +962,12 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       // watchPosition без высокой точности — работает везде
       locationWatchRef.current = navigator.geolocation.watchPosition(
         (pos) => {
-          setUserPosition([pos.coords.latitude, pos.coords.longitude]);
+          const nextCoords = [pos.coords.latitude, pos.coords.longitude];
+          setUserPosition(nextCoords);
+          if (isSelectedStreamer) {
+            setStreamerPosition(nextCoords);
+            publishStreamerPosition(nextCoords);
+          }
         },
         (err) => console.error('Watch error:', err),
         { enableHighAccuracy: false, maximumAge: 10000 }
@@ -1335,6 +1405,9 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       debugLog("🎥 Stream published successfully!");
       
       toast.success("Stream started successfully!");
+      if (!locationGranted) {
+        requestLocation();
+      }
       
     } catch (err) {
       console.error("Error publishing stream:", err);
@@ -1351,6 +1424,8 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
     try {
       isSwitchingCameraRef.current = true;
+      toast.info('Switching camera...');
+
       const devices = await navigator.mediaDevices.enumerateDevices();
       const cameras = devices.filter(d => d.kind === 'videoinput');
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -1396,32 +1471,74 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
       // 2) Recreate track (mobile-preferred) with facingMode switch.
       const targetFacingMode = isFacingFront ? 'environment' : 'user';
-      let newVideoTrack;
-      if (isMobile) {
-        // Mobile Safari/Chrome: facingMode-only is the most reliable.
-        newVideoTrack = await AgoraRTC.createCameraVideoTrack({
-          encoderConfig: '480p_1',
-          facingMode: targetFacingMode,
-        });
-      } else {
-        newVideoTrack = await AgoraRTC.createCameraVideoTrack({
-          encoderConfig: { width: 640, height: 480 },
-          cameraId: newCamera.deviceId,
-          facingMode: targetFacingMode,
-        });
+      const previousFacingMode = isFacingFront ? 'user' : 'environment';
+      const oldVideoTrack = localVideoTrackRef.current;
+      const baseEncoderConfig = isMobile ? '480p_1' : { width: 640, height: 480 };
+      const createAttempts = [
+        ...(isMobile
+          ? [
+              { encoderConfig: baseEncoderConfig, facingMode: targetFacingMode },
+              newCamera?.deviceId ? { encoderConfig: baseEncoderConfig, cameraId: newCamera.deviceId } : null,
+            ]
+          : [
+              newCamera?.deviceId ? { encoderConfig: baseEncoderConfig, cameraId: newCamera.deviceId } : null,
+              { encoderConfig: baseEncoderConfig, facingMode: targetFacingMode },
+            ]),
+      ].filter(Boolean);
+
+      try {
+        await clientRef.current.unpublish([oldVideoTrack]);
+      } catch (unpublishError) {
+        console.warn('Camera unpublish before switch failed:', unpublishError);
       }
+
+      oldVideoTrack.stop();
+      oldVideoTrack.close();
+      localVideoTrackRef.current = null;
+      setLocalVideoTrack(null);
+
+      // Android Chrome often needs a short moment to release the physical camera.
+      await wait(isMobile ? 500 : 150);
+
+      let newVideoTrack = null;
+      let lastCreateError = null;
+      for (const config of createAttempts) {
+        try {
+          newVideoTrack = await AgoraRTC.createCameraVideoTrack(config);
+          break;
+        } catch (createError) {
+          lastCreateError = createError;
+          console.warn('Camera switch create track attempt failed:', config, createError);
+          await wait(250);
+        }
+      }
+
+      if (!newVideoTrack) {
+        try {
+          const fallbackVideoTrack = await AgoraRTC.createCameraVideoTrack({
+            encoderConfig: baseEncoderConfig,
+            facingMode: previousFacingMode,
+          });
+          localVideoTrackRef.current = fallbackVideoTrack;
+          setLocalVideoTrack(fallbackVideoTrack);
+          if (localVideoRef.current) {
+            fallbackVideoTrack.play(localVideoRef.current, { mirror: false });
+          }
+          await clientRef.current.publish([fallbackVideoTrack]);
+        } catch (restoreError) {
+          console.warn('Failed to restore previous camera after switch failure:', restoreError);
+        }
+        throw lastCreateError || new Error('Could not start selected camera');
+      }
+
+      localVideoTrackRef.current = newVideoTrack;
+      setLocalVideoTrack(newVideoTrack);
 
       if (localVideoRef.current) {
         newVideoTrack.play(localVideoRef.current, { mirror: false });
       }
 
-      await clientRef.current.unpublish([localVideoTrackRef.current]);
       await clientRef.current.publish([newVideoTrack]);
-
-      localVideoTrackRef.current.stop();
-      localVideoTrackRef.current.close();
-      localVideoTrackRef.current = newVideoTrack;
-      setLocalVideoTrack(newVideoTrack);
       setIsFacingFront(!isFacingFront);
 
       debugLog(`📷 Camera switched to ${isFacingFront ? 'back' : 'front'}`);
@@ -2023,17 +2140,29 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   }, [teamMessages]);
 
   // Построение маршрута до задания через OSRM
-  const buildRouteToTask = async (taskId) => {
+  const getRouteStartPosition = () => {
+    if (streamerPosition) return streamerPosition;
+    if (isSelectedStreamer && userPosition) return userPosition;
+    if (startLocation) return [startLocation.latitude, startLocation.longitude];
+    return null;
+  };
+
+  const buildRouteToTask = async (taskId, options = {}) => {
     const pos = taskPositions[taskId];
     if (!pos) return;
     // Тоггл: клик по уже выбранному маркеру снимает маршрут
-    if (selectedTaskRouteId === taskId) {
+    if (selectedTaskRouteId === taskId && !options.refresh) {
       setSelectedTaskRouteId(null);
       setRouteCoordinates(null);
       return;
     }
 
-    const currentPosition = userPosition;
+    const currentPosition = getRouteStartPosition();
+    if (!currentPosition) {
+      toast.info('Waiting for streamer location');
+      return;
+    }
+
     const [fromLat, fromLng] = currentPosition;
     const [toLat, toLng] = pos;
     try {
@@ -2052,6 +2181,16 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       setSelectedTaskRouteId(taskId);
     }
   };
+
+  useEffect(() => {
+    if (!selectedTaskRouteId || !taskPositions[selectedTaskRouteId]) return;
+
+    const refreshTimer = setTimeout(() => {
+      void buildRouteToTask(selectedTaskRouteId, { refresh: true });
+    }, 300);
+
+    return () => clearTimeout(refreshTimer);
+  }, [streamerPosition, selectedTaskRouteId, taskPositions]);
 
   // Fetch tasks when modal is opened
   const fetchTasks = async () => {
@@ -2927,18 +3066,26 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                 Back
               </button>
 
-              {!locationGranted && (
+              {isSelectedStreamer && !locationGranted && (
                 <button
                   className={styles.locateMeButton}
                   onClick={requestLocation}
                 >
-                  📍 Allow my location
+                  📍 Share my location
                 </button>
+              )}
+
+              {!isSelectedStreamer && !streamerPosition && (
+                <div className={styles.locateMeButton}>
+                  Waiting for streamer location
+                </div>
               )}
 
               <MapContainer
                 center={
-                  startLocation
+                  streamerPosition
+                    ? streamerPosition
+                    : startLocation
                     ? [startLocation.latitude, startLocation.longitude]
                     : userPosition
                 }
@@ -2955,13 +3102,21 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                   url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
                 />
-                {locationGranted && (
+                <RecenterMap
+                  center={
+                    streamerPosition ||
+                    (startLocation
+                      ? [startLocation.latitude, startLocation.longitude]
+                      : userPosition)
+                  }
+                />
+                {streamerPosition && (
                   <CircleMarker
-                    center={userPosition}
+                    center={streamerPosition}
                     radius={10}
                     pathOptions={{
-                      color: '#005ce6',
-                      fillColor: '#0080ff',
+                      color: '#00F300',
+                      fillColor: '#00C853',
                       fillOpacity: 0.9,
                       weight: 2,
                     }}
