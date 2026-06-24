@@ -20,6 +20,7 @@ import gallery from '../../images/gallery.png';
 
 import { chatApi } from '../../shared/api/chat';
 import { useAuthStore } from '../../shared/stores/authStore';
+import { getDisplayName } from '../../shared/utils/displayName';
 
 const ChatSingle = () => {
   const navigate = useNavigate();
@@ -449,7 +450,7 @@ const formatLastSeen = (statusString) => {
               <img src={card.avatarUrl || userimg}  className={styles.rankImg} style={{color:'white',}}/>
             </div>
             <div className={styles.cardInfo}>
-              <p className={styles.userName}>{card.login || 'User'}</p>
+              <p className={styles.userName}>{getDisplayName(card, 'User')}</p>
               <p style={{ color: '#bbb', fontSize: '12px', margin: 0 }}>
                 last seen {formatLastSeen(card.status)}
               </p>

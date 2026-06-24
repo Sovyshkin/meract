@@ -2,11 +2,12 @@ import api from "./api";
 import axios from 'axios';
 import { useAuthStore } from "../stores/authStore";
 import { data } from "react-router-dom";
+import { normalizeUserDisplay } from "../utils/displayName";
 
 export const profileApi = {
   getProfile: async () => {
     const response = await api.get("/user/me");
-    return response.data;
+    return normalizeUserDisplay(response.data);
   },
    updateFullname: async (newfullname) => {
     const data = {
@@ -118,7 +119,7 @@ updateInfo: async (name, desc, avatarFile, coverFile, id) => {
   },
   getUserById: async (id) => {
     const response = await api.get(`/user/get-user/${id}`);
-    return response.data;
+    return normalizeUserDisplay(response.data);
   },
    status2fa: async () => {
     const response = await api.get(`/security/2fa/status`);

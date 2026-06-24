@@ -20,6 +20,7 @@ import gallery from '../../images/gallery.png';
 
 import { chatApi } from '../../shared/api/chat';
 import { useAuthStore } from '../../shared/stores/authStore';
+import { getDisplayName } from '../../shared/utils/displayName';
 
 const ActChat = () => {
   const navigate = useNavigate();
@@ -382,7 +383,7 @@ const ActChat = () => {
         src: src,
         isVideo: isVideo,
         time: msg.time,
-        senderName: msg.sender?.id === currentUser?.id ? 'You' : (card.login || 'User')
+        senderName: msg.sender?.id === currentUser?.id ? 'You' : getDisplayName(card, 'User')
       });
       setShowControls(true);
     }
@@ -415,7 +416,7 @@ const ActChat = () => {
               <img src={card.avatarUrl || userimg} alt="avatar" className={styles.rankImg} />
             </div>
             <div className={styles.cardInfo}>
-              <p className={styles.userName}>{card.login || 'User'}</p>
+              <p className={styles.userName}>{getDisplayName(card, 'User')}</p>
               <p style={{ color: '#bbb', fontSize: '12px', margin: 0 }}>
                 {card.status || 'offline'}
               </p>

@@ -5,20 +5,9 @@ import star from '../../../images/star.png';
 import { actApi } from "../../../shared/api/act";
 import { buildPreviewUrl } from "../../../shared/utils/previewUrl";
 import { useEffect, useState } from "react";
+import { getDisplayName } from "../../../shared/utils/displayName";
 
 const reverseLocationCache = new Map();
-
-function getUserDisplayName(user, fallback = "") {
-  return (
-    user?.username ||
-    user?.nickname ||
-    user?.login ||
-    user?.name ||
-    user?.fullName ||
-    user?.email ||
-    fallback
-  );
-}
 
 async function reverseGeocodeTask(lat, lng) {
   if (lat == null || lng == null) return null;
@@ -114,17 +103,17 @@ useEffect(() => {
         const allTeamTasks = (actsdata.teams || []).flatMap(t => t.tasks || []);
         const heroNames = allRoleConfigs
           .filter(rc => rc.role === 'hero')
-          .flatMap(rc => (rc.candidates || []).map(c => getUserDisplayName(c.user)).filter(Boolean));
+          .flatMap(rc => (rc.candidates || []).map(c => getDisplayName(c.user)).filter(Boolean));
         const navNames = allRoleConfigs
           .filter(rc => rc.role === 'navigator')
-          .flatMap(rc => (rc.candidates || []).map(c => getUserDisplayName(c.user)).filter(Boolean));
+          .flatMap(rc => (rc.candidates || []).map(c => getDisplayName(c.user)).filter(Boolean));
 
         const getRoleSummary = (role) => {
           const config = allRoleConfigs.find((rc) => rc.role === role);
           if (!config) return '';
           if (config.openVoting) return 'Open voting';
           const names = (config.candidates || [])
-            .map((c) => getUserDisplayName(c.user))
+            .map((c) => getDisplayName(c.user))
             .filter(Boolean);
           if (names.length === 1) return names[0];
           if (names.length > 1) return 'Voting';

@@ -104,7 +104,7 @@ const CompanionProfile = () => {
                     <img 
                         src={back} 
                         alt="back" 
-                        onClick={() => navigate(`/chat/${id}/${userId}`)} 
+                        onClick={() => navigate(`/chat/${id}/${userId}`, { replace: true })} 
                         style={{ cursor: 'pointer' }} 
                     />
                 </div>

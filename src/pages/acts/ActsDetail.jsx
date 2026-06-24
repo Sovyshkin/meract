@@ -40,18 +40,7 @@ import { geoApi } from "../../shared/api/geo";
 import { buildPreviewUrl } from "../../shared/utils/previewUrl";
 import { useSoundStore } from "../../shared/stores/soundStore";
 import { toast } from "react-toastify";
-
-function getUserDisplayName(user, fallback = "User") {
-  return (
-    user?.username ||
-    user?.nickname ||
-    user?.login ||
-    user?.name ||
-    user?.fullName ||
-    user?.email ||
-    fallback
-  );
-}
+import { getDisplayName } from "../../shared/utils/displayName";
 
 function buildRoleInfo(roleType, team, apiData, fallbackImg, currentUserId) {
   let method = null;
@@ -74,7 +63,7 @@ function buildRoleInfo(roleType, team, apiData, fallbackImg, currentUserId) {
       method = 'fixed';
       const c = rc.candidates[0];
       const uid = c.user?.id ?? c.id;
-      presetList.push({ id: uid, teamCandidateId: c.id, name: getUserDisplayName(c.user, `User #${uid}`), avatar: c.user?.avatarUrl || fallbackImg });
+      presetList.push({ id: uid, teamCandidateId: c.id, name: getDisplayName(c.user, `User #${uid}`), avatar: c.user?.avatarUrl || fallbackImg });
     } else if (!method && (rc.candidates?.length ?? 0) > 1) {
       method = 'voting_candidates';
       rc.candidates.forEach(c => {
@@ -82,7 +71,7 @@ function buildRoleInfo(roleType, team, apiData, fallbackImg, currentUserId) {
         presetList.push({
           id: uid,
           teamCandidateId: c.id,
-          name: getUserDisplayName(c.user, `User #${uid}`),
+          name: getDisplayName(c.user, `User #${uid}`),
           avatar: c.user?.avatarUrl || fallbackImg,
           percent: '0',
         });
@@ -108,7 +97,7 @@ function buildRoleInfo(roleType, team, apiData, fallbackImg, currentUserId) {
       if (match) {
         pc.teamCandidateId = match.id;
         // обновляем имя из API — там есть email как fallback
-        pc.name = getUserDisplayName(match.user, pc.name);
+        pc.name = getDisplayName(match.user, pc.name);
         if (totalVotes > 0) pc.percent = (((match._count?.votes || 0) / totalVotes) * 100).toFixed(0);
       }
     });
@@ -138,7 +127,7 @@ function buildRoleInfo(roleType, team, apiData, fallbackImg, currentUserId) {
     for (const cand of roleCands) {
       if (cand.votes?.some(v => v.voterId === currentUserId)) {
         myVotedCandidateId = cand.id;
-        myVotedCandidateName = getUserDisplayName(cand.user, null);
+        myVotedCandidateName = getDisplayName(cand.user, null);
         break;
       }
     }
@@ -150,7 +139,7 @@ function buildRoleInfo(roleType, team, apiData, fallbackImg, currentUserId) {
           myVotedCandidateId = tc.id; // teamCandidateId
           // Имя из presetList (уже обогащено) или напрямую из API
           const matched = presetList.find(p => p.teamCandidateId === tc.id);
-          myVotedCandidateName = matched?.name || getUserDisplayName(tc.user, null);
+          myVotedCandidateName = matched?.name || getDisplayName(tc.user, null);
           break;
         }
       }
@@ -162,7 +151,7 @@ function buildRoleInfo(roleType, team, apiData, fallbackImg, currentUserId) {
     return {
     id: uid,
     roleCandidateId: item.id,
-    name: getUserDisplayName(item.user, `User #${uid}`),
+    name: getDisplayName(item.user, `User #${uid}`),
     avatar: item.user?.avatarUrl || fallbackImg,
     percent: totalRoleVotes > 0 ? ((item._count?.votes || 0) / totalRoleVotes * 100).toFixed(0) : '0',
   };
@@ -410,7 +399,7 @@ export default function ActDetail() {
           await Promise.all(uniqueUserIds.map(async (uid) => {
             try {
               const u = await profileApi.getUserById(uid);
-              userDataMap[uid] = u.login || u.email || null;
+              userDataMap[uid] = getDisplayName(u, null);
             } catch { /* ignore */ }
           }));
           Object.values(map).forEach(ri => {
@@ -594,7 +583,7 @@ export default function ActDetail() {
           .filter((rc) => rc.role === 'hero')
           .flatMap((rc) =>
             (rc.candidates || []).map(
-              (c) => c.user?.login || c.user?.email || `User #${c.user?.id ?? c.userId}`,
+              (c) => getDisplayName(c.user, `User #${c.user?.id ?? c.userId}`),
             ),
           ),
       ),

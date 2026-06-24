@@ -6,6 +6,7 @@ import styles from "./SettingsPage.module.css";
 import close from '../../images/Close.png';
 import { profileApi } from '../../shared/api/profile';
 import { useAuthStore } from '../../shared/stores/authStore';
+import { getDisplayName } from '../../shared/utils/displayName';
 
 const PersonalData = () => {
     const navigate = useNavigate();
@@ -55,7 +56,7 @@ useEffect(() => {
         console.log(data, 'dataaaa');
 
         setAvatar(data.avatarUrl);
-        setUsername(data.login || "No login");
+        setUsername(getDisplayName(data, "No login"));
         setFullname(data.fullName || "no name");
         setDate(data.createdAt.split('T')[0]);
         setLang(data.communicationLanguages);

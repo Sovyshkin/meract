@@ -21,6 +21,7 @@ import gallery from '../../images/gallery.png';
 import { chatApi } from '../../shared/api/chat';
 import { useAuthStore } from '../../shared/stores/authStore';
 import { profileApi } from '../../shared/api/profile';
+import { getDisplayName } from '../../shared/utils/displayName';
 
 const ChatMulti = () => {
   const navigate = useNavigate();
@@ -469,7 +470,7 @@ const ChatMulti = () => {
             onClick={() => openFullScreenMedia(msg)}
           >
             {msg.sender?.id !== currentUser?.id && (
-              <span className={styles.senderName}>{msg.sender?.login || msg.sender?.email || 'User'}</span>
+              <span className={styles.senderName}>{getDisplayName(msg.sender, 'User')}</span>
             )}
             <p className={styles.msgText} dangerouslySetInnerHTML={{ __html: msg.displayText || '' }} />
             <span className={styles.msgTime}>{msg.time}</span>

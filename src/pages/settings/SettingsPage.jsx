@@ -28,7 +28,7 @@ const SettingsPage = () => {
                   <img 
                     src={back} 
                     alt="back" 
-                    onClick={() => window.history.back()}
+                    onClick={() => navigate('/acts', { replace: true })}
                     style={{ cursor: 'pointer' }}
                   />
                   <div className={styles.name}>

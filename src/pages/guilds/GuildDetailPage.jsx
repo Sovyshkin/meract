@@ -18,6 +18,7 @@ import guildsetting from '../../images/guildsetting.png';
 import { guildApi } from "../../shared/api/guild";
 import { profileApi } from "../../shared/api/profile";
 import { toast } from "react-toastify";
+import { getDisplayName } from "../../shared/utils/displayName";
 
 export default function GuildDetailPage() {
   const { id } = useParams();
@@ -418,7 +419,7 @@ useEffect(() => {
                         <img src={member.user.avatarUrl || userimg} alt="avatar" className={styles.rankImg} />
                       </div>
                       <div className={styles.cardInfo}>
-                        <p className={styles.userName}>{member.user.login || member.user.email}</p>
+                        <p className={styles.userName}>{getDisplayName(member.user)}</p>
                         {member.message && (
                           <p style={{color:'#888', fontSize:'12px', margin:'2px 0 0 0'}}>"{member.message}"</p>
                         )}
@@ -441,7 +442,7 @@ useEffect(() => {
                       <img src={member.avatarUrl || userimg} alt="avatar" className={styles.rankImg} />
                     </div>
                     <div className={styles.cardInfo}>
-                      <p className={styles.userName}>{member.login || member.email}</p>
+                      <p className={styles.userName}>{getDisplayName(member)}</p>
                       <p className={styles.userName} style={{ color: member.status === 'ACTIVE' ? '#00F300' : '#c0c0c0' }}>
                         {member.status == 'ACTIVE' ? <span>online</span> : <span>offline</span>}
                       </p>
@@ -459,7 +460,7 @@ useEffect(() => {
                       <img src={member.avatarUrl || userimg} alt="avatar" className={styles.rankImg} />
                     </div>
                     <div className={styles.cardInfo}>
-                      <p className={styles.userName}>{member.login || member.email}</p>
+                      <p className={styles.userName}>{getDisplayName(member)}</p>
                       <p className={styles.userName} style={{ color: member.status === 'ACTIVE' ? '#00F300' : '#c0c0c0' }}>
                         {member.status == 'ACTIVE' ? <span>online</span> : <span>offline</span>}
                       </p>
@@ -501,7 +502,7 @@ useEffect(() => {
                       <img src={member.avatarUrl || userimg} alt="avatar" className={styles.rankImg} />
                     </div>
                     <div className={styles.cardInfo}>
-                      <p className={styles.userName}>{member.login || member.email}</p>
+                      <p className={styles.userName}>{getDisplayName(member)}</p>
                       <p className={styles.userName} style={{ color: member.status === 'ACTIVE' ? '#00F300' : '#c0c0c0' }}>
                         {member.status == 'ACTIVE' ? <span>online</span> : <span>offline</span>}
                       </p>

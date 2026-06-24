@@ -13,10 +13,11 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../features/Auth/Login/hooks/useAuth';
 import { profileApi } from '../../shared/api/profile';
 import { useAuthStore } from '../../shared/stores/authStore';
+import { getDisplayName } from '../../shared/utils/displayName';
 
 const Menu = ({ onClose }) => {
     const cachedUser = useAuthStore((s) => s.user);
-    const [username, setName] = useState(cachedUser?.login || '');
+    const [username, setName] = useState(getDisplayName(cachedUser, ''));
     const [fullname, setFullName] = useState(cachedUser?.fullName || '');
     const [userimg, setImg] = useState(cachedUser?.avatarUrl);
     const navigate = useNavigate();
@@ -27,7 +28,7 @@ const Menu = ({ onClose }) => {
             try {
                 const data = await profileApi.getProfile();
                 if (data) {
-                    setName(data.login || '');
+                    setName(getDisplayName(data, ''));
                     setFullName(data.fullName || '');
                     setImg(data.avatarUrl);
                 }

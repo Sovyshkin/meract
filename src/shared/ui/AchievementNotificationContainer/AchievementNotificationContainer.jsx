@@ -5,6 +5,7 @@ import { toast } from "react-toastify";
 import { useAchievementStore } from "../../stores/achievementStore";
 import { useAuthStore } from "../../stores/authStore";
 import { achievementSocket } from "../../utils/achievementSocket";
+import { getDisplayName, isEmailLike, getEmailNickname } from "../../utils/displayName";
 
 
 export default function AchievementNotificationContainer() {
@@ -71,8 +72,9 @@ export default function AchievementNotificationContainer() {
         (data) => {
           console.log("Received personal achievement:", data);
           const achievement = data.achievement || data;
-          const userName =
-            data.userName || data.user?.login || data.user?.email;
+          const userName = isEmailLike(data.userName)
+            ? getEmailNickname(data.userName)
+            : data.userName || getDisplayName(data.user, "");
 
           addNotification({
             achievement,
@@ -99,8 +101,9 @@ export default function AchievementNotificationContainer() {
         (data) => {
           console.log("Received global achievement:", data);
           const achievement = data.achievement || data;
-          const userName =
-            data.userName || data.user?.login || data.user?.email;
+          const userName = isEmailLike(data.userName)
+            ? getEmailNickname(data.userName)
+            : data.userName || getDisplayName(data.user, "");
 
           toast.info(
             `${achievement.icon || "🎯"} ${userName || "Someone"} earned: ${achievement.name || "Achievement"}!`,

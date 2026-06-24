@@ -5,6 +5,7 @@ import styles from "../pay/PayPage.module.css";
 import back from "../../images/arrow-left.png";
 import searchIcon from "../../images/search.png";
 import userimg from "../../images/user.png";
+import { getDisplayName } from "../../shared/utils/displayName";
 
 
 const AddMember = () => {
@@ -43,7 +44,7 @@ const AddMember = () => {
             state: {
                 selectedMember: {
                     id: user.id,
-                    name: user.login ?? user.email ?? 'Unknown',
+                    name: getDisplayName(user, 'Unknown'),
                     imageUrl: null,
                     type: type
                 }
@@ -83,7 +84,7 @@ const AddMember = () => {
                                 <img src={userimg} alt="avatar" className={styles.rankImg} style={{ color: "white", fontSize: "small" }} />
                             </div>
                             <div className={styles.cardInfo}>
-                                <p className={styles.userName}>{user.login ?? user.email ?? 'Unknown'}</p>
+                                <p className={styles.userName}>{getDisplayName(user, 'Unknown')}</p>
                                 <p style={{ color: "rgb(173, 173, 173)", fontSize: "12px", margin: 0 }}>{user.email}</p>
                             </div>
                         </div>

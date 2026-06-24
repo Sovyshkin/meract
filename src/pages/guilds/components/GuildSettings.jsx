@@ -8,6 +8,7 @@ import arrowLeft from '../../../images/arrow-left.png';
 import iconguild from '../../../images/iconguild.png'; 
 import notification from '../../../images/notification.png';
 import { profileApi } from "../../../shared/api/profile";
+import { getDisplayName } from "../../../shared/utils/displayName";
 
 const GuildSettings = () => {
     const navigate = useNavigate();
@@ -241,7 +242,7 @@ const [settingAdmin, setSettingAdmin] = useState(null);
                   <option value="">Select member...</option>
                   {members.filter(m => m.id !== userid).map((member) => (
                     <option key={member.id} value={member.id}>
-                      {member.login || member.email}
+                      {getDisplayName(member)}
                     </option>
                   ))}
                 </select>
@@ -262,7 +263,7 @@ const [settingAdmin, setSettingAdmin] = useState(null);
                   {members.filter(m => m.login || m.email).map((member) => (
                     <div key={member.id} className={styles.card} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <p className={styles.subtitle}>{member.login || member.email}</p>
+                        <p className={styles.subtitle}>{getDisplayName(member)}</p>
                       </div>
                       <button
                         className={styles.savebutton}

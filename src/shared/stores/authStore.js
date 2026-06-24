@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { normalizeUserDisplay } from "../utils/displayName";
 
 const AUTH_STORAGE_KEY = "meract-auth";
 
@@ -18,8 +19,9 @@ export const useAuthStore = create(
       cachedLocation: null,
 
       setUser: (userData) => {
+        const rawUser = userData.user || userData;
         set({
-          user: userData.user || userData,
+          user: normalizeUserDisplay(rawUser),
           token: userData.token || userData.accessToken,
           isAuthenticated: true,
           isLoading: false,
@@ -108,8 +110,9 @@ export const useAuthStore = create(
 
       login: (userData) => {
         const token = userData.token || userData.accessToken;
+        const rawUser = userData.user || userData;
         set({
-          user: userData.user || userData,
+          user: normalizeUserDisplay(rawUser),
           token: token,
           isAuthenticated: true,
           isLoading: false,
