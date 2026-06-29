@@ -7,6 +7,7 @@ import close from '../../images/Close.png';
 import { profileApi } from '../../shared/api/profile';
 import { useAuthStore } from '../../shared/stores/authStore';
 import { getDisplayName } from '../../shared/utils/displayName';
+import AvatarCropModal from '../../shared/ui/AvatarCropModal/AvatarCropModal';
 
 const PersonalData = () => {
     const navigate = useNavigate();
@@ -25,6 +26,7 @@ const PersonalData = () => {
     const [location, setLocation] = useState('');
     const [browserTimezone, setBrowserTimezone] = useState('');
     const [locationPermission, setLocationPermission] = useState('prompt');
+    const [cropImageSrc, setCropImageSrc] = useState(null);
     const setAuthLocation = useAuthStore((state) => state.setLocation);
     const cachedLocation = useAuthStore((state) => state.cachedLocation);
     const setCachedLocation = useAuthStore((state) => state.setCachedLocation);
@@ -133,15 +135,26 @@ useEffect(() => {
         reader.readAsDataURL(blob);
     }));
 
-    const handleFileChange = async (event) => {
+    const handleFileChange = (event) => {
     const file = event.target.files[0];
     if (file) {
         const imageUrl = URL.createObjectURL(file);
-        setAvatar(imageUrl);
-
-        await UpdateLogo(file); 
+        setCropImageSrc(imageUrl);
     }
+    event.target.value = '';
 };
+
+    const handleCropCancel = () => {
+        if (cropImageSrc) URL.revokeObjectURL(cropImageSrc);
+        setCropImageSrc(null);
+    };
+
+    const handleCropSave = async (file) => {
+        const previewUrl = URL.createObjectURL(file);
+        setAvatar(previewUrl);
+        handleCropCancel();
+        await UpdateLogo(file);
+    };
 
 
     const triggerChange = () => fileInputRef.current.click();
@@ -251,6 +264,14 @@ const handleSave = async () => {
                 style={{ display: 'none' }} 
                 accept="image/*" 
             />
+
+           {cropImageSrc && (
+                <AvatarCropModal
+                    imageSrc={cropImageSrc}
+                    onCancel={handleCropCancel}
+                    onSave={handleCropSave}
+                />
+            )}
 
            {isModalOpen && (
     <div className={styles.modalOverlay} onClick={closeModal}>

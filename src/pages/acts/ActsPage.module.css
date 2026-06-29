@@ -448,6 +448,26 @@ button {
   line-height: 1;
 }
 
+.thumbcont {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 20;
+  pointer-events: none;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rangeThumb {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 4px rgba(0, 146, 254, 0.6));
+}
+
 .locationLabelsRow {
   width: 100%;
   margin-top: 8px;

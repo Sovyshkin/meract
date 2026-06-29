@@ -14,7 +14,7 @@ import useTeamStore from '../../shared/stores/teamStore';
 import { profileApi } from '../../shared/api/profile';
 import api from '../../shared/api/api';
 import 'leaflet/dist/leaflet.css';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 
 // Fix default marker icons for Vite/webpack
@@ -27,6 +27,15 @@ L.Icon.Default.mergeOptions({
 
 function MapClickHandler({ onPick }) {
   useMapEvents({ click: (e) => onPick(e.latlng.lat, e.latlng.lng) });
+  return null;
+}
+
+function RecenterMap({ center, zoom = 14 }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!center) return;
+    map.setView(center, zoom, { animate: true });
+  }, [center, zoom, map]);
   return null;
 }
 
@@ -983,6 +992,9 @@ const TeamDetail = () => {
                             >
                                 <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" attribution='&copy; OpenStreetMap &copy; CARTO' />
                                 <MapClickHandler onPick={handleTaskMapPick} />
+                                {taskFormData.lat != null && (
+                                  <RecenterMap center={[taskFormData.lat, taskFormData.lng]} zoom={14} />
+                                )}
                                 {taskFormData.lat != null && (
                                     <Marker position={[taskFormData.lat, taskFormData.lng]} />
                                 )}

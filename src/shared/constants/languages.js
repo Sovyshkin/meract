@@ -1,0 +1,18 @@
+export const COMMUNICATION_LANGUAGES = [
+  'English',
+  'Русский',
+  'Español',
+  'العربية',
+  'Português',
+  'Français',
+  'Deutsch',
+  'Bahasa Indonesia',
+  '中文',
+  '日本語',
+  '한국어',
+  'Italiano',
+  'Türkçe',
+  'हिन्दी',
+  'Polski',
+  'Nederlands',
+];

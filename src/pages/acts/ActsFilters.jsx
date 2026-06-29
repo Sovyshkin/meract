@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./ActsPage.module.css";
 import back from '../../images/arrow-left.png';
 import notification from '../../images/notification.png';
 import { useFilterStore } from '../../shared/stores/actsFilters';
 import thumb from '../../images/thumb.png';
+import { COMMUNICATION_LANGUAGES } from '../../shared/constants/languages';
 
 export default function ActsFilters() {
   const navigate = useNavigate();
@@ -33,7 +34,7 @@ const [sliderMax, setSliderMax] = useState(localFilters.maxRating);
   const [isOpen2, setIsOpen2] = useState(false);
   const [isOpen3, setIsOpen3] = useState(false);
 
-  const langOptions = ["Russian", "English"];
+  const langOptions = COMMUNICATION_LANGUAGES;
   const distanceOptions = ["1km", "10km"];
   const statusOptions = [
     "all",
@@ -131,7 +132,7 @@ const handleSliderTwo = (e) => {
       value={sliderMin} 
       onChange={handleSliderOne}
       className={styles.hiddenInput}
-      style={{ zIndex: sliderMin > maxValue / 2 ? 12 : 11 }} 
+      style={{ zIndex: 3 }}
     />
     <input 
       type="range" 
@@ -141,8 +142,20 @@ const handleSliderTwo = (e) => {
       value={sliderMax} 
       onChange={handleSliderTwo}
       className={styles.hiddenInput}
-      style={{ zIndex: sliderMin > maxValue / 2 ? 11 : 12 }}
+      style={{ zIndex: 4 }}
     />
+    <div
+      className={styles.thumbcont}
+      style={{ left: `${((sliderMin - minVal) / range) * 100}%` }}
+    >
+      <img src={thumb} alt="" className={styles.rangeThumb} />
+    </div>
+    <div
+      className={styles.thumbcont}
+      style={{ left: `${((sliderMax - minVal) / range) * 100}%` }}
+    >
+      <img src={thumb} alt="" className={styles.rangeThumb} />
+    </div>
   </div>
   <div className={styles.sliderValuesRow}>
     <span>{Number(sliderMin).toFixed(1)}</span>

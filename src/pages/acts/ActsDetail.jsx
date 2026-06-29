@@ -220,6 +220,7 @@ export default function ActDetail() {
   const [actPreviewFileName, setActPreviewFileName] = useState(null);
   const [recordingStatus, setRecordingStatus] = useState(null);
   const [canWatchAct, setCanWatchAct] = useState(false);
+  const [actStartedAt, setActStartedAt] = useState(null);
   const [hasActStarted, setHasActStarted] = useState(false);
 
   // Загрузка деталей акта
@@ -249,6 +250,7 @@ export default function ActDetail() {
 
           setIsLive(effectiveStatus);
           setRecordingStatus(data.recordingStatus ?? null);
+          setActStartedAt(data.startedAt ?? null);
           setHasActStarted(Boolean(data.startedAt));
 
           if (effectiveStatus === 'OFFLINE') {
@@ -605,7 +607,8 @@ export default function ActDetail() {
     return `${secs}s`;
   };
   const actStartsIn = isUpcoming ? formatCountdown(scheduledTs) : null;
-  const canStartAct = (isOwner || isHero) && isLive !== 'ONLINE';
+  const canStartAct =
+    (isOwner || isHero) && isLive !== 'ONLINE' && !actStartedAt;
 
   const handleStart = async () => {
     const targetActId = actRealId ?? id;

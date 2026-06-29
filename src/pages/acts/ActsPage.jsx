@@ -37,6 +37,8 @@ export default function ActsPage() {
   const {
     selectedRangeIdx,
     selectedStatus,
+    minRating,
+    maxRating,
     setDistanceRange,
   } = useFilterStore();
 
@@ -119,20 +121,21 @@ export default function ActsPage() {
   }, [searchedActs, activeRange]);
 
   const filteredByStatusActs = useMemo(() => {
+    let list = visibleActs;
+
     if (selectedStatus === "all") {
-      return visibleActs;
+      list = visibleActs;
+    } else if (selectedStatus === "active") {
+      list = visibleActs.filter((act) => act.status === "ONLINE");
+    } else if (selectedStatus === "inactive") {
+      list = visibleActs.filter((act) => act.status !== "ONLINE");
     }
 
-    if (selectedStatus === "active") {
-      return visibleActs.filter((act) => act.status === "ONLINE");
-    }
-
-    if (selectedStatus === "inactive") {
-      return visibleActs.filter((act) => act.status !== "ONLINE");
-    }
-
-    return visibleActs;
-  }, [visibleActs, selectedStatus]);
+    return list.filter((act) => {
+      if (act.rating == null) return true;
+      return act.rating >= minRating && act.rating <= maxRating;
+    });
+  }, [visibleActs, selectedStatus, minRating, maxRating]);
 
   const groupedCategories = useMemo(() => {
     const categorizedGroups = categories
