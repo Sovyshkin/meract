@@ -6,6 +6,7 @@ import api from "../../api/api";
 import styles from "./NavBar.module.css";
 import { useNotificationStore } from "../../stores/notificationStore";
 import { useAuthStore } from "../../stores/authStore";
+import { useT } from "../../hooks/useT";
 
 function ActIcon(props) {
   return (
@@ -65,17 +66,17 @@ function AchievementIcon(props) {
 export default function NavBar() {
   const location = useLocation();
   const navigate = useNavigate();
+  const t = useT();
   const [guildId, setGuildId] = useState(null);
   const chatUnreadCount = useNotificationStore((s) => s.chatUnreadCount);
   const cachedGuildId = useAuthStore((s) => s.cachedGuildId);
   const setCachedGuildId = useAuthStore((s) => s.setCachedGuildId);
 
   const navItems = [
-    { label: "Acts", icon: ActIcon, path: "/acts" },
-    { label: "Chat", icon: ChatIcon, path: "/chats",  },
-    // isGuildChat: true
-    { label: "Guilds", icon: GuildIcon, path: "/guilds" },
-    { label: "Rank", icon: RankIcon, path: "/rank" },
+    { label: t('navActs'), icon: ActIcon, path: "/acts" },
+    { label: t('navChat'), icon: ChatIcon, path: "/chats",  },
+    { label: t('navGuilds'), icon: GuildIcon, path: "/guilds" },
+    { label: t('navRank'), icon: RankIcon, path: "/rank" },
   ];
 
   useEffect(() => {

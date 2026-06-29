@@ -10,6 +10,9 @@ import { useNotificationStore } from "../shared/stores/notificationStore";
 import { notificationSocket } from "../shared/utils/notificationSocket";
 import api from "../shared/api/api";
 import { noticeApi } from "../shared/api/notifications";
+import { profileApi } from "../shared/api/profile";
+import { useI18nStore } from "../shared/stores/i18nStore";
+import { normalizeLanguage } from "../shared/constants/languages";
 import AchievementNotificationContainer from "../shared/ui/AchievementNotificationContainer/AchievementNotificationContainer";
 import "./App.css";
 import { router, technicalRouter } from "./router/Routers";
@@ -120,6 +123,19 @@ function App() {
 
     fetchLocationByIP();
   }, [isAuthenticated, setLocation]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    profileApi.getSelectedlang()
+      .then((data) => {
+        const lang = data?.languages?.[0];
+        if (lang) {
+          useI18nStore.getState().setLocaleFromLanguageName(normalizeLanguage(lang));
+        }
+      })
+      .catch(() => {});
+  }, [isAuthenticated]);
 
   return (
     <PasswordProtection>

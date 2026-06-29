@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import notification from '../../images/notification.png'
 import back from '../../images/arrow-left.png';
 import { profileApi } from '../../shared/api/profile';
+import { getLanguageLabel } from '../../shared/constants/languages';
 const SettingsPage = () => {
     const navigate = useNavigate();
     const [lang, setLang] = useState('English');
@@ -13,7 +14,7 @@ const SettingsPage = () => {
         try {
           const data = await profileApi.getSelectedlang();
           if (data?.languages && data.languages.length > 0) {
-            setLang(data.languages.join(', '));
+            setLang(data.languages.map(getLanguageLabel).join(', '));
           }
         } catch (e) {
           console.error('Failed to fetch languages:', e);

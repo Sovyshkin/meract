@@ -40,6 +40,7 @@ import { geoApi } from "../../shared/api/geo";
 import { buildPreviewUrl } from "../../shared/utils/previewUrl";
 import { useSoundStore } from "../../shared/stores/soundStore";
 import { toast } from "react-toastify";
+import { useT } from "../../shared/hooks/useT";
 import { getDisplayName } from "../../shared/utils/displayName";
 
 function buildRoleInfo(roleType, team, apiData, fallbackImg, currentUserId) {
@@ -170,6 +171,7 @@ function buildRoleInfo(roleType, team, apiData, fallbackImg, currentUserId) {
 export default function ActDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const t = useT();
   const user = useAuthStore((state) => state.user);
   const isAdmin = true; // Временно для тестирования
   
@@ -798,11 +800,11 @@ const handleRateAct = async () => {
               <div style={{ display: 'flex', gap: '5px' }}>
                 {time[0] != '0' ? (
                   <>
-                    <h3>Duration:</h3>
+                    <h3>{t('duration')}:</h3>
                     <p style={{ color: '#c0c0c0' }}>{time}</p>
                   </>
                 ) : (
-                  <h3>Live</h3>
+                  <h3>{t('live')}</h3>
                 )}
               </div>
               <div className={styles.savebutton} style={{ marginTop: '0px' }}>
@@ -813,14 +815,14 @@ const handleRateAct = async () => {
                     disabled={startingAct}
                     style={startingAct ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
                   >
-                    {startingAct ? 'Starting...' : 'Start Act'}
+                    {startingAct ? t('starting') : t('startAct')}
                   </button>
                 ) : canWatchAct ? (
                   <button
                     className={styles.active}
                     onClick={handleWatchAct}
                   >
-                    Watch Act
+                    {t('watchAct')}
                   </button>
                 ) : (
                   <button
@@ -832,14 +834,14 @@ const handleRateAct = async () => {
                     {isUpcoming && actStartsIn
                       ? `Starts in ${actStartsIn}`
                       : isLive === 'PLANNED'
-                        ? 'Scheduled'
+                        ? t('scheduled')
                         : isLive === 'OFFLINE'
                           ? !hasActStarted
-                            ? 'Not Started'
+                            ? t('notStarted')
                             : recordingStatus === 'processing'
-                            ? 'Processing...'
-                            : 'Ended'
-                          : 'Watch'}
+                            ? t('processing')
+                            : t('ended')
+                          : t('watch')}
                   </button>
                 )}
               </div>

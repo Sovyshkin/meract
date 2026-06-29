@@ -16,8 +16,10 @@ import { useFilterStore } from "../../shared/stores/actsFilters.js";
 import api from "../../shared/api/api.js";
 import { useNotificationStore } from "../../shared/stores/notificationStore.js";
 import { useAuthStore } from "../../shared/stores/authStore.js";
+import { useT } from "../../shared/hooks/useT.js";
 
 export default function ActsPage() {
+  const t = useT();
   const [acts, setActs] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
@@ -87,8 +89,8 @@ export default function ActsPage() {
 
   // Slider options: backend ranges + explicit "All" as the rightmost selectable option
   const sliderOptions = useMemo(
-    () => [...locationRanges, { id: 'all', label: 'All' }],
-    [locationRanges],
+    () => [...locationRanges, { id: 'all', label: t('all') }],
+    [locationRanges, t],
   );
   const allOptionIndex = sliderOptions.length - 1;
   const sliderValue = selectedRangeIdx < 0 ? allOptionIndex : selectedRangeIdx;
@@ -138,24 +140,31 @@ export default function ActsPage() {
   }, [visibleActs, selectedStatus, minRating, maxRating]);
 
   const groupedCategories = useMemo(() => {
+    const sortNewestFirst = (list) =>
+      [...list].sort((a, b) => (b.id ?? 0) - (a.id ?? 0));
+
     const categorizedGroups = categories
       .map((category) => ({
         ...category,
-        acts: filteredByStatusActs.filter((act) => Number(act.categoryId) === Number(category.id)),
+        acts: sortNewestFirst(
+          filteredByStatusActs.filter((act) => Number(act.categoryId) === Number(category.id)),
+        ),
       }))
       .filter((group) => group.acts.length > 0);
 
-    const uncategorizedActs = filteredByStatusActs.filter((act) => act.categoryId == null);
+    const uncategorizedActs = sortNewestFirst(
+      filteredByStatusActs.filter((act) => act.categoryId == null),
+    );
     if (uncategorizedActs.length > 0) {
       categorizedGroups.push({
         id: 'uncategorized',
-        name: 'Uncategorized',
+        name: t('uncategorized'),
         acts: uncategorizedActs,
       });
     }
 
     return categorizedGroups;
-  }, [categories, filteredByStatusActs]);
+  }, [categories, filteredByStatusActs, t]);
 
   return (
     <div className={styles.container}>
@@ -165,7 +174,7 @@ export default function ActsPage() {
         <div className="header">
           <div className={styles.header_cont}>
             <img src={menu} alt="menu" onClick={() => setIsOpen(!isOpen)} style={{cursor: 'pointer'}} />
-            <div className="name"><h1>ACT Hub</h1></div>
+            <div className="name"><h1>{t('actHub')}</h1></div>
             <div
               style={{ position: 'relative', cursor: 'pointer' }}
               onClick={() => navigate('/notifications')}
@@ -200,7 +209,7 @@ export default function ActsPage() {
               <img src={search} alt="search" className={styles.searchIcon} />
               <input 
                 type="text" 
-                placeholder="Search" 
+                placeholder={t('search')} 
                 className={styles.input} 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -213,16 +222,16 @@ export default function ActsPage() {
         {/* Слайдер локаций по диапазонам из бэка */}
         <div className={styles.locationSliderSection}>
           <div className={styles.sliderHeader}>
-            <h1 className={styles.sliderTitle}>Location:</h1>
+            <h1 className={styles.sliderTitle}>{t('location')}:</h1>
             <p className={styles.currentLocation}>
-              {activeRange ? activeRange.label : 'All'}
+              {activeRange ? activeRange.label : t('all')}
             </p>
           </div>
 
           {rangesLoading ? (
-            <p style={{ color: '#888', fontSize: '13px' }}>Loading ranges…</p>
+            <p style={{ color: '#888', fontSize: '13px' }}>{t('loadingRanges')}</p>
           ) : locationRanges.length === 0 ? (
-            <p style={{ color: '#888', fontSize: '13px' }}>No ranges configured</p>
+            <p style={{ color: '#888', fontSize: '13px' }}>{t('noRangesConfigured')}</p>
           ) : (
             <>
               <div className={styles.customRangeWrapper}>
@@ -292,7 +301,7 @@ export default function ActsPage() {
           {groupedCategories.length === 0 && !loading && (
             <div className="name" style={{ display: 'contents' }}>
               <h1 style={{ textAlign: 'center', marginTop: '20px', opacity: 0.5 }}>
-                {searchTerm ? "No results found" : "No acts yet"}
+                {searchTerm ? t('noResults') : t('noActs')}
               </h1>
             </div>
           )}

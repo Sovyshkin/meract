@@ -10,16 +10,16 @@ import menu from '../../images/menu.png';
 import notification from '../../images/notification.png';
 import filter from '../../images/setting.png';
 import search from '../../images/search.png';
-import thumb from '../../images/thumb.png';
-
 import { profileApi } from "../../shared/api/profile.js";
 import { actApi } from "../../shared/api/act.js";
 import { geoApi } from "../../shared/api/geo.js";
 import { useAuthStore } from "../../shared/stores/authStore.js";
 import { haversineKm, getActTaskCoords } from "../../shared/utils/geo.js";
+import { useT } from "../../shared/hooks/useT.js";
 
 export default function MyActsPage() {
   const navigate = useNavigate();
+  const t = useT();
   const { clearAll } = useSequelStore();
   const userLocation = useAuthStore((s) => s.location);
 
@@ -67,8 +67,8 @@ export default function MyActsPage() {
   }, []);
 
   const sliderOptions = useMemo(
-    () => [...locationRanges, { id: 'all', label: 'All' }],
-    [locationRanges],
+    () => [...locationRanges, { id: 'all', label: t('all') }],
+    [locationRanges, t],
   );
   const allOptionIndex = sliderOptions.length - 1;
   const sliderValue = selectedRangeIdx < 0 ? allOptionIndex : selectedRangeIdx;
@@ -99,10 +99,11 @@ export default function MyActsPage() {
     }
 
     if (!activeRange || !userLocation?.latitude || !userLocation?.longitude) {
-      return list;
+      return [...list].sort((a, b) => (b.id ?? 0) - (a.id ?? 0));
     }
 
-    return list.filter((act) => {
+    return list
+      .filter((act) => {
       const coords = getActTaskCoords(act);
       if (!coords) return true;
       const distanceKm = haversineKm(
@@ -112,7 +113,8 @@ export default function MyActsPage() {
         coords.lng,
       );
       return distanceKm >= activeRange.minKm && distanceKm <= activeRange.maxKm;
-    });
+    })
+      .sort((a, b) => (b.id ?? 0) - (a.id ?? 0));
   }, [searchTerm, acts, activeRange, userLocation]);
 
   return (
@@ -123,7 +125,7 @@ export default function MyActsPage() {
         <div className="header">
           <div className={styles.header_cont}>
             <img src={menu} alt="menu" onClick={() => setIsOpen(!isOpen)} style={{ cursor: 'pointer' }} />
-            <div className="name"><h1>My Acts</h1></div>
+            <div className="name"><h1>{t('myActs')}</h1></div>
             <img src={notification} alt="notification" onClick={() => navigate('/notifications')} style={{ cursor: 'pointer' }} />
           </div>
 
@@ -132,7 +134,7 @@ export default function MyActsPage() {
               <img src={search} alt="search" className={styles.searchIcon} />
               <input
                 type="text"
-                placeholder="Search..."
+                placeholder={t('search')}
                 className={styles.input}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -150,16 +152,16 @@ export default function MyActsPage() {
 
         <div className={styles.locationSliderSection}>
           <div className={styles.sliderHeader}>
-            <h1 className={styles.sliderTitle}>Location:</h1>
+            <h1 className={styles.sliderTitle}>{t('location')}:</h1>
             <p className={styles.currentLocation}>
-              {activeRange ? activeRange.label : 'All'}
+              {activeRange ? activeRange.label : t('all')}
             </p>
           </div>
 
           {rangesLoading ? (
-            <p style={{ color: '#888', fontSize: '13px' }}>Loading ranges…</p>
+            <p style={{ color: '#888', fontSize: '13px' }}>{t('loadingRanges')}</p>
           ) : locationRanges.length === 0 ? (
-            <p style={{ color: '#888', fontSize: '13px' }}>No ranges configured</p>
+            <p style={{ color: '#888', fontSize: '13px' }}>{t('noRangesConfigured')}</p>
           ) : (
             <>
               <div className={styles.customRangeWrapper}>
@@ -172,16 +174,6 @@ export default function MyActsPage() {
                       : `${(sliderValue / (sliderOptions.length - 1)) * 100}%`,
                   }}
                 />
-                <div
-                  className={styles.thumbcont}
-                  style={{
-                    left: sliderOptions.length <= 1
-                      ? '0%'
-                      : `${(sliderValue / (sliderOptions.length - 1)) * 100}%`,
-                  }}
-                >
-                  <img src={thumb} alt="" className={styles.rangeThumb} />
-                </div>
                 <input
                   type="range"
                   min="0"
@@ -220,14 +212,14 @@ export default function MyActsPage() {
         <div className={styles.contentWrapper}>
           <div className={styles.streamsList}>
             {loading ? (
-              <p style={{ color: 'white', textAlign: 'center' }}>Loading...</p>
+              <p style={{ color: 'white', textAlign: 'center' }}>{t('loading')}</p>
             ) : filteredActs.length > 0 ? (
               filteredActs.map((act) => (
                 <ActCard key={act.id} act={act} titleact={true} />
               ))
             ) : (
               <p style={{ color: 'rgba(255,255,255,0.5)', textAlign: 'center', marginTop: '20px' }}>
-                {searchTerm || activeRange ? "No results found" : "You have no acts yet"}
+                {searchTerm || activeRange ? t('noResults') : t('noActs')}
               </p>
             )}
           </div>

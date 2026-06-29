@@ -7,6 +7,7 @@ import close from '../../images/Close.png';
 import { profileApi } from '../../shared/api/profile';
 import { useAuthStore } from '../../shared/stores/authStore';
 import { getDisplayName } from '../../shared/utils/displayName';
+import { getLanguageLabel } from '../../shared/constants/languages';
 import AvatarCropModal from '../../shared/ui/AvatarCropModal/AvatarCropModal';
 
 const PersonalData = () => {
@@ -365,7 +366,7 @@ const handleSave = async () => {
                     <div className={styles.card}>
                         <div className={styles.cardInfo}>
                             <p className={styles.userName}>
-                                Language: {lang && lang.length > 0 ? lang.join(', ') : 'Not selected'}
+                                Language: {lang && lang.length > 0 ? lang.map(getLanguageLabel).join(', ') : 'Not selected'}
                             </p>
 
                         </div>

@@ -4,41 +4,42 @@ import back from '../../images/arrow-left.png';
 import styles from "./SettingsPage.module.css";
 import selectedIcon from '../../images/yes.png';
 import { profileApi } from '../../shared/api/profile';
+import { useI18nStore } from '../../shared/stores/i18nStore';
+import { useT } from '../../shared/hooks/useT';
+import { LANGUAGES, normalizeLanguage } from '../../shared/constants/languages';
 
 const LanguageSelection = () => {
     const navigate = useNavigate();
+    const t = useT();
+    const setLocaleFromLanguageName = useI18nStore((s) => s.setLocaleFromLanguageName);
 
-    const [languages, setLanguages] = useState([]);
     const [selectedLanguage, setSelectedLanguage] = useState('');
 
-      useEffect(() => {
-    const fetchData = async () => {
-        try {
-            const allLangsRes = await profileApi.getLangs();
-            setLanguages(allLangsRes.languages || []);
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const selectedRes = await profileApi.getSelectedlang();
 
-            const selectedRes = await profileApi.getSelectedlang();
-
-            if (selectedRes?.languages && selectedRes.languages.length > 0) {
-                setSelectedLanguage(selectedRes.languages[0]);
+                if (selectedRes?.languages && selectedRes.languages.length > 0) {
+                    setSelectedLanguage(normalizeLanguage(selectedRes.languages[0]));
+                }
+            } catch (error) {
+                console.error("error", error);
             }
-        } catch (error) {
-            console.error("error", error);
-        }
-    };
+        };
 
-    fetchData();
-}, []);
-
+        fetchData();
+    }, []);
 
     const savelang = async () => {
         if (!selectedLanguage) {
-            alert("Please select a language");
+            alert(t('selectLanguage'));
             return;
         }
 
         try {
             await profileApi.updateLang([selectedLanguage]);
+            setLocaleFromLanguageName(selectedLanguage);
             navigate('/settings/profile');
         } catch (error) {
             console.error("Ошибка при сохранении:", error);
@@ -49,33 +50,33 @@ const LanguageSelection = () => {
         <div className={styles.container}>
             <div className={styles.header}>
                 <div className={styles.header_cont}>
-                    <img 
-                        src={back} 
-                        alt="back" 
-                        onClick={savelang} 
+                    <img
+                        src={back}
+                        alt="back"
+                        onClick={savelang}
                         className={styles.backBtn}
                     />
                     <div className="name">
-                        <h1>Language</h1>
+                        <h1>{t('language')}</h1>
                     </div>
                     <div></div>
                 </div>
             </div>
 
             <div className={styles.cardwrapmain}>
-                {languages.map((item, index) => (
+                {LANGUAGES.map((item) => (
                     <div
-                        key={index}
+                        key={item.value}
                         className={styles.cardcont}
-                        onClick={() => setSelectedLanguage(item)}
+                        onClick={() => setSelectedLanguage(item.value)}
                     >
                         <div className={styles.card}>
                             <div className={styles.cardInfo}>
-                                <p className={styles.userName}>{item}</p>
+                                <p className={styles.userName}>{item.label}</p>
                             </div>
 
                             <div className={styles.selectionArea}>
-                                {selectedLanguage === item && (
+                                {selectedLanguage === item.value && (
                                     <img src={selectedIcon} alt="selected" className={styles.selectedIcon} />
                                 )}
                             </div>
@@ -83,7 +84,7 @@ const LanguageSelection = () => {
                     </div>
                 ))}
             </div>
-        </div>  
+        </div>
     );
 };
 
