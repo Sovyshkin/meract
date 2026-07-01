@@ -9,8 +9,10 @@ import { profileApi } from '../../shared/api/profile';
 import { chatApi } from '../../shared/api/chat';
 import { useEffect, useState } from 'react';
 import { achievementApi } from '../../shared/api/achievementApi';
+import { useT } from '../../shared/hooks/useT';
 
 const CompanionProfile = () => {
+    const t = useT();
     const navigate = useNavigate();
     const { id, userId } = useParams();
     const [userData, setUser] = useState(null);
@@ -113,11 +115,11 @@ const CompanionProfile = () => {
             <div className={styles.parent}>
                 <div className={styles.profile}>
                     <img src={userData.avatarUrl || logo} alt="avatar" className={styles.logo} />
-                    <p className={styles.title} style={{fontWeight:'600',fontSize:'16px', margin:'0px',}}>{userData.fullName || 'No name'}</p>
+                    <p className={styles.title} style={{fontWeight:'600',fontSize:'16px', margin:'0px',}}>{userData.fullName || t('companionNoName')}</p>
                     {isOnline ? (
                         <p className={styles.subtitle}>Online</p>
                     ) : userData.onlineStatus ? (
-                        <p className={styles.subtitle}>Last online {userData.onlineStatus} ago</p>
+                        <p className={styles.subtitle}>{t('companionLastOnline')} {userData.onlineStatus} ago</p>
                     ) : (
                         <p className={styles.subtitle}>Offline</p> 
                     )}
@@ -181,19 +183,19 @@ const CompanionProfile = () => {
                             {userData.timeZone ? (
                                 <p className={styles.subtitle} style={{ color: 'white' }}>{userData.timeZone}</p>
                             ) : (
-                                <p className={styles.subtitle} style={{ color: 'white' }}>Not specified</p>
+                                <p className={styles.subtitle} style={{ color: 'white' }}>{t('companionNotSpecified')}</p>
                             )}
                         </div>
                     </div>
                     
                     <div className={`${styles.card} ${styles.fullWidthCard}`}>
                         <div className={styles.cardInfo}>
-                            <p className={styles.subtitle}>Languages</p>
+                            <p className={styles.subtitle}>{t('companionLanguages')}</p>
                             <div className={styles.languageBox}>
                                 <p className={styles.userName}>
                                     {userData.communicationLanguages?.length > 0 
                                         ? userData.communicationLanguages.join(', ') 
-                                        : 'No languages'}
+                                        : t('companionNoLanguages')}
                                 </p>
                             </div>
                         </div>
@@ -204,8 +206,8 @@ const CompanionProfile = () => {
                 
                 <div>
                     <div className={styles.btncont}>
-                        <button className={styles.active} onClick={sendMessage}>Write</button>
-                        <button onClick={sendEcho}>Send Echo</button>
+                        <button className={styles.active} onClick={sendMessage}>{t('companionWrite')}</button>
+                        <button onClick={sendEcho}>{t('companionSendEcho')}</button>
                     </div>
                 </div>
                 
@@ -257,7 +259,7 @@ const CompanionProfile = () => {
                             ))}
                         </div>
                     ) : (
-                        <h3 className={styles.noResults}>No images found</h3>
+                        <h3 className={styles.noResults}>{t('companionNoImages')}</h3>
                     )}
                 </div>
             )}
@@ -286,7 +288,7 @@ const CompanionProfile = () => {
                             ))}
                         </div>
                     ) : (
-                        <h3 className={styles.noResults}>No videos found</h3>
+                        <h3 className={styles.noResults}>{t('companionNoVideos')}</h3>
                     )}
                 </div>
             )}
@@ -296,7 +298,7 @@ const CompanionProfile = () => {
                 <div className={styles.act}>
                     {acts.length > 0 ? (
                         <>
-                            <p className={styles.title}>Participated in the acts</p>
+                            <p className={styles.title}>{t('companionParticipatedActs')}</p>
                             {acts.map((act, index) => (
                                 <ActCard key={act.id || index} act={act} titleact={false} />
                             ))}

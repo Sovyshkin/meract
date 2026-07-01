@@ -10,8 +10,10 @@ import { supportApi } from "../../shared/api/support";
 import { useAuthStore } from "../../shared/stores/authStore";
 import { toast } from "react-toastify";
 import EmojiPicker from "emoji-picker-react";
+import { useT } from "../../shared/hooks/useT";
 
 export default function SupportPage() {
+  const t = useT();
   const navigate = useNavigate();
   const { user } = useAuthStore();
 
@@ -235,7 +237,7 @@ export default function SupportPage() {
             <button className={styles.backBtn} onClick={() => navigate('/chats')}>
               <img src={backImg} alt="back" />
             </button>
-            <h1 className={styles.title}>Support</h1>
+            <h1 className={styles.title}>{t('supportTitle')}</h1>
             <div style={{ width: 50 }} />
           </div>
         </header>
@@ -255,7 +257,7 @@ export default function SupportPage() {
             <img src={backImg} alt="back" />
           </button>
           <h1 className={styles.title}>
-            {selectedTicket ? (selectedTicket.title || selectedTicket.subject) : 'Support'}
+            {selectedTicket ? (selectedTicket.title || selectedTicket.subject) : t('supportTitle')}
           </h1>
           {!selectedTicket && (
             <button className={styles.newBtn} onClick={() => setShowModal(true)}>
@@ -269,16 +271,16 @@ export default function SupportPage() {
       {showModal && (
         <div className={styles.modal} onClick={() => setShowModal(false)}>
           <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <h3>Create Ticket</h3>
+            <h3>{t('supportCreateTicket')}</h3>
             <input
               type="text"
-              placeholder="Subject"
+              placeholder={t('supportSubject')}
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               className={styles.modalInput}
             />
             <textarea
-              placeholder="Describe your issue in detail..."
+              placeholder={t('supportDescribeIssue')}
               value={body}
               onChange={(e) => setBody(e.target.value)}
               className={styles.modalTextarea}
@@ -292,7 +294,7 @@ export default function SupportPage() {
                 onClick={handleCreateTicket}
                 disabled={creating}
               >
-                {creating ? "Creating..." : "Create Ticket"}
+                {creating ? "Creating..." : t('supportCreateTicket')}
               </button>
             </div>
           </div>
@@ -305,7 +307,7 @@ export default function SupportPage() {
             {tickets.length === 0 ? (
               <div className={styles.empty}>
                 <div className={styles.emptyIcon}>🎫</div>
-                <p className={styles.emptyText}>No tickets yet</p>
+                <p className={styles.emptyText}>{t('supportNoTickets')}</p>
                 <p className={styles.emptySubtext}>Create a new ticket to get help</p>
               </div>
             ) : (
@@ -342,7 +344,7 @@ export default function SupportPage() {
               ) : messages.length === 0 ? (
                 <div className={styles.empty}>
                   <div className={styles.emptyIcon}>💬</div>
-                  <p className={styles.emptyText}>No messages yet</p>
+                  <p className={styles.emptyText}>{t('supportNoMessages')}</p>
                   <p className={styles.emptySubtext}>Start the conversation</p>
                 </div>
               ) : (

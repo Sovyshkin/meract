@@ -8,8 +8,11 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { profileApi } from '../../shared/api/profile';
 import { useEffect } from 'react';
 import { payApi } from '../../shared/api/pay';
+import { useT } from '../../shared/hooks/useT';
+
 const PayTransferDetail = () => {
     const navigate = useNavigate();
+    const t = useT();
     const { id } = useParams();
     
     // Состояние для суммы (только целые числа)
@@ -62,25 +65,25 @@ const PayTransferDetail = () => {
                     onClick={() => navigate('/wallet/transfer')} 
                     style={{ cursor: 'pointer' }} 
                 />
-                <div className="name"><h1>Transfer Echo</h1></div>
+                <div className="name"><h1>{t('walletTransferEcho')}</h1></div>
                 <div style={{ width: '24px' }}></div> 
             </div>
 
             {/* Recipient Card */}
             <div className={styles.cardcont}>
-                <h3 style={{ color: '#fff', marginBottom: '10px' }}>Recipient</h3>
+                <h3 style={{ color: '#fff', marginBottom: '10px' }}>{t('walletRecipient')}</h3>
                 <div className={styles.card}>
                     <div className={styles.rankBadge}>
-                        <img src={card.avatarUrl || userimg} alt="no avatar" className={styles.rankImg} style={{color:'white',fontSize:'small',}}/>
+                        <img src={card.avatarUrl || userimg} alt={t('noAvatar')} className={styles.rankImg} style={{color:'white',fontSize:'small',}}/>
                     </div>
 
                     <div className={styles.cardInfo}>
-                        <p className={styles.userName}>{card.fullName || 'no name'}</p>
+                        <p className={styles.userName}>{card.fullName || t('companionNoName')}</p>
                         <div>
                             {card.onlineStatus === 'ONLINE' ? (
-                                <p style={{ color: '#00F300', fontSize: '14px' }}>{card.onlineStatus}</p>
+                                <p style={{ color: '#00F300', fontSize: '14px' }}>{t('online')}</p>
                             ) : (
-                                <p style={{ color: 'rgb(164, 164, 164)', fontSize: '14px' }}>offline</p>
+                                <p style={{ color: 'rgb(164, 164, 164)', fontSize: '14px' }}>{t('offline')}</p>
                             )}
                         </div>
                     </div>
@@ -89,7 +92,7 @@ const PayTransferDetail = () => {
 
             {/* Amount Input Section */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '20px' }}>
-                <h3 style={{ color: '#fff' }}>Amount</h3>
+                <h3 style={{ color: '#fff' }}>{t('walletAmount')}</h3>
                 <div className={styles.nav}>
                     <div className={styles.searchWrapper}>
                         <input 

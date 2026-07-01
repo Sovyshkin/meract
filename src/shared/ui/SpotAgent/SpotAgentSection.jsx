@@ -2,11 +2,13 @@ import React, { useEffect } from "react";
 
 import { useSpotAgent } from "../../hooks/useSpotAgent";
 import { useAuthStore } from "../../stores/authStore";
+import { useT } from "../../hooks/useT";
 import SpotAgentAssigned from "./SpotAgentAssigned";
 import SpotAgentCandidates from "./SpotAgentCandidates";
 import styles from "./SpotAgentSection.module.css";
 
 export default function SpotAgentSection({ act }) {
+  const t = useT();
   const { user } = useAuthStore();
   const {
     candidates,
@@ -84,7 +86,7 @@ export default function SpotAgentSection({ act }) {
 
       {spotAgentCount === 0 ? (
         <div className={styles.noAgents}>
-          <p>This act does not require Spot Agents</p>
+          <p>{t('spotAgentNotRequired')}</p>
         </div>
       ) : (
         <>

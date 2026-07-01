@@ -7,6 +7,7 @@ import trash from '../../images/trash.png';
 import styles from './Notifications.module.css';
 import { noticeApi } from '../../shared/api/notifications';
 import { useNotificationStore } from '../../shared/stores/notificationStore';
+import { useT } from '../../shared/hooks/useT';
 
 const NotificationCard = ({ card, isExpanded, onToggle, onDelete, onRead, canSwipe, onAccept, onReject }) => {
   const [isOverflowing, setIsOverflowing] = useState(false);
@@ -121,6 +122,7 @@ const NotificationCard = ({ card, isExpanded, onToggle, onDelete, onRead, canSwi
 };
 
 const Notifications = () => {
+  const t = useT();
   const navigate = useNavigate();
   const [expandedCards, setExpandedCards] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -139,7 +141,7 @@ const Notifications = () => {
     const date = new Date(dateStr);
     const now = new Date();
     const diff = now - date;
-    if (diff < 60_000) return 'just now';
+    if (diff < 60_000) return t('notificationsJustNow');
     if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
     if (diff < 86_400_000) {
       return date.toLocaleTimeString('en-US', {
@@ -224,14 +226,14 @@ const Notifications = () => {
         <div className={styles.header_cont}>
           <img src={back} alt="back" onClick={() => window.history.back()} style={{ cursor: 'pointer' }} />
           <div className={styles.name}>
-            <h1>Notifications</h1>
+            <h1>{t('notificationsTitle')}</h1>
           </div>
           {unreadCount > 0 ? (
             <span
               onClick={handleMarkAllRead}
               style={{ fontSize: '11px', color: '#009DFF', cursor: 'pointer', whiteSpace: 'nowrap' }}
             >
-              Mark all as read
+              {t('notificationsMarkAllRead')}
             </span>
           ) : (
             <div style={{ width: '24px' }}></div>
@@ -259,7 +261,7 @@ const Notifications = () => {
                 {currentData.map((n) => {
                   const card = {
                     id: n.id,
-                    user: n.title || 'Notification',
+                    user: n.title || t('notificationsDefault'),
                     desc: n.body || '',
                     time: formatTime(n.createdAt),
                     avatar: n.imageUrl || null,
@@ -289,7 +291,7 @@ const Notifications = () => {
                 animate={{ opacity: 1 }}
                 style={{ display: 'flex', height: '200px', alignItems: 'center', justifyContent: 'center', color: 'whitesmoke' }}
               >
-                <p>No notifications</p>
+                <p>{t('notificationsEmpty')}</p>
               </motion.div>
             )}
           </AnimatePresence>

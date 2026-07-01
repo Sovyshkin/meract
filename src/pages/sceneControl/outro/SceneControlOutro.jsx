@@ -7,8 +7,10 @@ import { useSequelStore } from "../../../shared/stores/sequelStore";
 import styles from "../SceneControl.module.css";
 import { useOutros } from "./hooks/useOutros";
 import { useUploadOutro } from "./hooks/useUploadOutro";
+import { useT } from "../../../shared/hooks/useT";
 
 export default function SceneControlOutro() {
+  const t = useT();
   const [heroMethod, setHeroMethod] = useState("Outro");
   const { selectedOutro: outroFromStore, setSelectedOutro: setOutroInStore } =
     useSequelStore();
@@ -77,11 +79,11 @@ export default function SceneControlOutro() {
           <div className={styles.name}>
             <img
               src="/icons/back_arrowV2.svg"
-              alt="back_arrow"
+              alt={t('back')}
               style={{ cursor: "pointer" }}
               onClick={handleGoBack}
             />
-            <h1>Scene Control</h1>
+            <h1>{t('sceneControl')}</h1>
           </div>
         </div>
         <div className="stripe2"></div>
@@ -126,7 +128,7 @@ export default function SceneControlOutro() {
               onClick={() => navigate("/scene-control-intro")}
             >
               <img src="/icons/intro.svg" alt="voting" />
-              Intro
+              {t('sceneIntro')}
             </button>
             <button
               type="button"
@@ -151,7 +153,7 @@ export default function SceneControlOutro() {
               onClick={() => navigate("/scene-control-music")}
             >
               <img src="/icons/music.svg" alt="voting" />
-              Music
+              {t('sceneMusic')}
             </button>
             <button
               type="button"
@@ -163,15 +165,15 @@ export default function SceneControlOutro() {
               onClick={() => setHeroMethod("Outro")}
             >
               <img src="/icons/outro.svg" alt="voting" />
-              Outro
+              {t('sceneOutro')}
             </button>
           </div>
 
           <div className={styles.wrapper}>
             <div className={styles.wrapper_header}>
-              <p>Outro</p>
+              <p>{t('sceneOutro')}</p>
               <button onClick={handleUploadClick} disabled={uploading}>
-                {uploading ? "Загрузка..." : "Upload"}
+                {uploading ? t('loading') : 'Upload'}
               </button>
               <input
                 type="file"
@@ -218,7 +220,7 @@ export default function SceneControlOutro() {
                     width: "100%",
                   }}
                 >
-                  Loading outros...
+                  {t('loading')}
                 </div>
               )}
 

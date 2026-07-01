@@ -131,12 +131,15 @@ const TeamDetail = () => {
         heroVotingStartTime,
         heroVotingStartDate,
         heroVotingHours,
+        heroVotingMinutes,
         navigatorVotingStartTime,
         navigatorVotingStartDate,
         navigatorVotingHours,
+        navigatorVotingMinutes,
         agentVotingStartTime,
         agentVotingStartDate,
         agentVotingHours,
+        agentVotingMinutes,
         setTeamName,
         setHeroMethod,
         setNavigatorMethod,
@@ -144,12 +147,15 @@ const TeamDetail = () => {
         setHeroVotingTime,
         setHeroVotingDate,
         setHeroVotingHours,
+        setHeroVotingMinutes,
         setNavigatorVotingTime,
         setNavigatorVotingDate,
         setNavigatorVotingHours,
+        setNavigatorVotingMinutes,
         setAgentVotingTime,
         setAgentVotingDate,
         setAgentVotingHours,
+        setAgentVotingMinutes,
         addHero,
         addNavigator,
         addAgent,
@@ -478,11 +484,22 @@ const TeamDetail = () => {
                                     type="number" 
                                     className={styles.hoursInput} 
                                     value={heroVotingHours}
-                                    onChange={(e) => setHeroVotingHours(parseInt(e.target.value) || 1)}
-                                    min="1" 
+                                    onChange={(e) => setHeroVotingHours(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                                    min="0" 
                                     max="168"
                                 />
                                 <span className={styles.inputSuffix}>hours</span>
+                            </div>
+                            <div className={styles.inputWrapper}>
+                                <input 
+                                    type="number" 
+                                    className={styles.hoursInput} 
+                                    value={heroVotingMinutes}
+                                    onChange={(e) => setHeroVotingMinutes(Math.min(59, Math.max(0, parseInt(e.target.value, 10) || 0)))}
+                                    min="0" 
+                                    max="59"
+                                />
+                                <span className={styles.inputSuffix}>min</span>
                             </div>
                         </div>
                     </div>
@@ -599,11 +616,22 @@ const TeamDetail = () => {
                                         type="number" 
                                         className={styles.hoursInput} 
                                         value={navigatorVotingHours}
-                                        onChange={(e) => setNavigatorVotingHours(parseInt(e.target.value) || 1)}
-                                        min="1" 
+                                        onChange={(e) => setNavigatorVotingHours(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                                        min="0" 
                                         max="168"
                                     />
                                     <span className={styles.inputSuffix}>hours</span>
+                                </div>
+                                <div className={styles.inputWrapper}>
+                                    <input 
+                                        type="number" 
+                                        className={styles.hoursInput} 
+                                        value={navigatorVotingMinutes}
+                                        onChange={(e) => setNavigatorVotingMinutes(Math.min(59, Math.max(0, parseInt(e.target.value, 10) || 0)))}
+                                        min="0" 
+                                        max="59"
+                                    />
+                                    <span className={styles.inputSuffix}>min</span>
                                 </div>
                             </div>
                         </div>
@@ -721,11 +749,22 @@ const TeamDetail = () => {
                                         type="number" 
                                         className={styles.hoursInput} 
                                         value={agentVotingHours}
-                                        onChange={(e) => setAgentVotingHours(parseInt(e.target.value) || 1)}
-                                        min="1" 
+                                        onChange={(e) => setAgentVotingHours(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                                        min="0" 
                                         max="168"
                                     />
                                     <span className={styles.inputSuffix}>hours</span>
+                                </div>
+                                <div className={styles.inputWrapper}>
+                                    <input 
+                                        type="number" 
+                                        className={styles.hoursInput} 
+                                        value={agentVotingMinutes}
+                                        onChange={(e) => setAgentVotingMinutes(Math.min(59, Math.max(0, parseInt(e.target.value, 10) || 0)))}
+                                        min="0" 
+                                        max="59"
+                                    />
+                                    <span className={styles.inputSuffix}>min</span>
                                 </div>
                             </div>
                         </div>

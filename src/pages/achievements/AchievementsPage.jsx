@@ -3,8 +3,10 @@ import { useEffect, useState } from "react";
 import { useAchievements } from "../../shared/hooks/useAchievements";
 import { useAuthStore } from "../../shared/stores/authStore";
 import styles from "./AchievementsPage.module.css";
+import { useT } from "../../shared/hooks/useT";
 
 export default function AchievementsPage() {
+  const t = useT();
   const { user } = useAuthStore();
   const {
     achievements,
@@ -40,7 +42,7 @@ export default function AchievementsPage() {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h1 className={styles.title}>🏆 Достижения</h1>
+        <h1 className={styles.title}>🏆 {t('achievementsTitle')}</h1>
         <div className={styles.stats}>
           <span>
             Получено: {userAchievements.length} / {achievements.length}
@@ -53,25 +55,25 @@ export default function AchievementsPage() {
           className={`${styles.tab} ${selectedTab === "all" ? styles.active : ""}`}
           onClick={() => setSelectedTab("all")}
         >
-          Все достижения ({achievements.length})
+          {t('achievementsAll')} ({achievements.length})
         </button>
         <button
           className={`${styles.tab} ${selectedTab === "my" ? styles.active : ""}`}
           onClick={() => setSelectedTab("my")}
         >
-          Мои достижения ({userAchievements.length})
+          {t('achievementsMine')} ({userAchievements.length})
         </button>
       </div>
 
       {isLoading ? (
-        <div className={styles.loading}>Загрузка достижений...</div>
+        <div className={styles.loading}>{t('achievementsLoading')}</div>
       ) : (
         <div className={styles.achievementGrid}>
           {displayedAchievements.length === 0 ? (
             <div className={styles.empty}>
               {selectedTab === "all"
-                ? "Нет доступных достижений"
-                : "У вас пока нет достижений"}
+                ? t('achievementsNoAvailable')
+                : t('achievementsNoMine')}
             </div>
           ) : (
             displayedAchievements.map((achievement) => {

@@ -33,6 +33,7 @@ import geo from '../../../images/geo.png';
 import { chatApi } from "../../../shared/api/chat";
 import { pollApi } from "../../../shared/api/pollApi";
 import { getDisplayName } from "../../../shared/utils/displayName";
+import { useT } from "../../../shared/hooks/useT";
 
 import streaminfo from '../../../images/streaminfo.png';
 import video_slash from '../../../images/video-slash.png';
@@ -102,6 +103,7 @@ const parseJWT = (token) => {
 
 const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const navigate = useNavigate();
+  const t = useT();
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState(null);
   const [remoteUsers, setRemoteUsers] = useState([]);
@@ -2658,13 +2660,13 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
             
             {isConnected && !isSelectedStreamer && remoteUsers.length === 0 && (
               <div className={styles.waitingOverlay}>
-                <p>Waiting for streamer...</p>
+                <p>{t('streamWaitingStreamer')}</p>
               </div>
             )}
 
             {!isSelectedStreamer && isSelectedHeroEnded && (
               <div className={styles.waitingOverlay}>
-                <p>Stream ended</p>
+                <p>{t('streamEnded')}</p>
               </div>
             )}
             
@@ -2689,11 +2691,11 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                       <button
                         onClick={() => setActiveChat('general')}
                         className={`${styles.chatTabBtn} ${activeChat === 'general' ? styles.chatTabBtnActive : ''}`}
-                      >General chat</button>
+                      >{t('streamGeneralChat')}</button>
                       <button
                         onClick={() => setActiveChat('team')}
                         className={`${styles.chatTabBtn} ${activeChat === 'team' ? styles.chatTabBtnActive : ''}`}
-                      >Player chat</button>
+                      >{t('streamPlayerChat')}</button>
                     </div>
                   )}
 
@@ -2727,7 +2729,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                         )}
                         {pinnedMessages.length > 0 && (
                           <div className={styles.pinnedMessagesHeader}>
-                            <div className={styles.pinnedLabel}>Pinned</div>
+                            <div className={styles.pinnedLabel}>{t('streamPinned')}</div>
                             {pinnedMessages.map((m) => (
                               <div key={`pin-${m.id}`} className={styles.pinnedMsg}>
                                 <div className={styles.pinnedMsgContent}>
@@ -2956,7 +2958,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
           {showHeroPicker && shouldShowHeroSwitchIcon && (
             <div className={styles.heroPickerOverlay} onClick={() => setShowHeroPicker(false)}>
               <div className={styles.heroPickerModal} onClick={(e) => e.stopPropagation()}>
-                <div className={styles.heroPickerTitle}>Choose Hero Stream</div>
+                <div className={styles.heroPickerTitle}>{t('streamChooseHero')}</div>
                 <div className={styles.heroPickerList}>
                   {mergedHeroStreamers.length === 0 && (
                     <div className={styles.heroPickerEmpty}>
@@ -3066,7 +3068,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
               {!isSelectedStreamer && !streamerPosition && (
                 <div className={styles.locateMeButton}>
-                  Waiting for streamer location
+                  {t('streamWaitingLocation')}
                 </div>
               )}
 
@@ -3230,7 +3232,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                 {loadingTasks ? (
                   <div className={styles.loadingTasks}>Loading tasks...</div>
                 ) : tasks.length === 0 ? (
-                  <div className={styles.noTasks}>No tasks available</div>
+                  <div className={styles.noTasks}>{t('streamNoTasks')}</div>
                 ) : (
                   <div className={styles.cardcont} style={{marginTop:'100px'}}>
                     {tasks.map((task) => {
@@ -3296,7 +3298,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
             <div className={styles.modalOverlay}>
               <div className={styles.recordingPlayer}>
                 <div className={styles.recordingPlayerHeader}>
-                  <h3>Recording Playback</h3>
+                  <h3>{t('streamRecordingPlayback')}</h3>
                   <button 
                     onClick={() => setShowRecordingPlayer(false)} 
                     className={styles.closePlayerButton}
@@ -3319,7 +3321,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
             <div className={styles.modalOverlay}>
               <div className={styles.recordingPlayer}>
                 <div className={styles.recordingPlayerHeader}>
-                  <h3>Rate this Act</h3>
+                  <h3>{t('streamRateAct')}</h3>
                   <button 
                     onClick={() => setShowRatingModal(false)}
                     className={styles.closePlayerButton}
@@ -3398,7 +3400,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
           {showAddTaskModal && (
             <div className={`${styles.modalOverlay} ${styles.modalOverlayTop}`} onClick={() => setShowAddTaskModal(false)}>
               <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
-                <h3 style={{ color: 'white', marginBottom: '16px' }}>Add New Task</h3>
+                <h3 style={{ color: 'white', marginBottom: '16px' }}>{t('streamAddTask')}</h3>
                 <p style={{ color: '#BFBFBF', marginBottom: '6px', fontSize: '13px' }}>Description *</p>
                 <input
                   type="text"
@@ -3442,7 +3444,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                     📍 {newTaskLat.toFixed(6)}, {newTaskLng.toFixed(6)}
                   </p>
                 ) : (
-                  <p style={{ color: '#666', fontSize: '12px', marginBottom: '10px' }}>No location selected</p>
+                  <p style={{ color: '#666', fontSize: '12px', marginBottom: '10px' }}>{t('streamNoLocation')}</p>
                 )}
                 <div
                   role="button"
@@ -3489,7 +3491,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                       background: 'transparent', color: '#fff',
                       border: '1px solid #555', borderRadius: '8px', cursor: 'pointer',
                     }}
-                  >Cancel</button>
+                  >{t('cancel')}</button>
                   <button
                     onClick={() => {
                       const teamId = actualStreamData?.teams?.[0]?.id;
@@ -3512,7 +3514,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                       flex: 1, padding: '11px',
                       background: '#FF3B57', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer',
                     }}
-                  >Add Task</button>
+                  >{t('streamAddTaskBtn')}</button>
                 </div>
               </div>
             </div>
@@ -3522,7 +3524,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
           {showProposeTaskModal && (
             <div className={`${styles.modalOverlay} ${styles.modalOverlayTop}`} onClick={() => setShowProposeTaskModal(false)}>
               <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
-                <h3 style={{ color: 'white', marginBottom: '16px' }}>Propose Task for Voting</h3>
+                <h3 style={{ color: 'white', marginBottom: '16px' }}>{t('streamProposeTask')}</h3>
                 <p style={{ color: '#BFBFBF', fontSize: '13px', marginBottom: '12px' }}>
                   The task will be sent to chat as a pinned message and put to a vote.
                 </p>
@@ -3569,7 +3571,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                     📍 {newTaskLat.toFixed(6)}, {newTaskLng.toFixed(6)}
                   </p>
                 ) : (
-                  <p style={{ color: '#666', fontSize: '12px', marginBottom: '10px' }}>No location selected</p>
+                  <p style={{ color: '#666', fontSize: '12px', marginBottom: '10px' }}>{t('streamNoLocation')}</p>
                 )}
                 <div
                   role="button"
@@ -3616,7 +3618,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                       background: 'transparent', color: '#fff',
                       border: '1px solid #555', borderRadius: '8px', cursor: 'pointer',
                     }}
-                  >Cancel</button>
+                  >{t('cancel')}</button>
                   <button
                     onClick={() => {
                       if (newTaskDescription.trim()) {
@@ -3639,7 +3641,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                       flex: 1, padding: '11px',
                       background: '#FF3B57', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer',
                     }}
-                  >Propose</button>
+                  >{t('streamPropose')}</button>
                 </div>
               </div>
             </div>
@@ -3655,7 +3657,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                 >
                   <img src={back} alt="Close" />
                 </button>
-                <h2 className={styles.fullscreenChatTitle}>Chat</h2>
+                <h2 className={styles.fullscreenChatTitle}>{t('chatTitle')}</h2>
               </div>
 
               {hasTeamChatAccess && teamChatId && (
@@ -3664,13 +3666,13 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                     onClick={() => setActiveChat('general')}
                     className={`${styles.fullscreenChatTab} ${activeChat === 'general' ? styles.fullscreenChatTabActive : ''}`}
                   >
-                    General chat
+                    {t('streamGeneralChat')}
                   </button>
                   <button
                     onClick={() => setActiveChat('team')}
                     className={`${styles.fullscreenChatTab} ${activeChat === 'team' ? styles.fullscreenChatTabActive : ''}`}
                   >
-                    Player chat
+                    {t('streamPlayerChat')}
                   </button>
                 </div>
               )}
@@ -3704,7 +3706,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                   )}
                   {pinnedMessages.length > 0 && (
                     <div className={styles.fullscreenPinnedSection}>
-                      <div className={styles.fullscreenPinnedTitle}>Pinned Messages</div>
+                      <div className={styles.fullscreenPinnedTitle}>{t('streamPinnedMessages')}</div>
                       {pinnedMessages.map((m) => (
                         <div key={`fs-pin-${m.id}`} className={styles.fullscreenPinnedMsg}>
                           <div className={styles.fullscreenPinnedContent}>
@@ -3882,8 +3884,8 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
             <h2 style={{color:'white', textAlign:'center', position:'relative', zIndex:'9999',}}>
               {
                 actualStreamData?.liveIn ? 
-                  `Stream starts in ${actualStreamData.liveIn}` : 
-                   "Stream will start soon"
+                  `${t('startsIn')} ${actualStreamData.liveIn}` : 
+                   t('streamStartSoon')
               }
             </h2>
           </div>

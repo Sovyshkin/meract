@@ -20,8 +20,10 @@ import points from '../../images/points.png';
 import { actApi } from "../../shared/api/act";
 import { chatApi } from "../../shared/api/chat";
 import { profileApi } from "../../shared/api/profile";
+import { useT } from "../../shared/hooks/useT";
 
 export default function CreateAct() {
+  const t = useT();
   const navigate = useNavigate();
   const location = useLocation();
   const photoInputRef = useRef(null);
@@ -444,24 +446,24 @@ export default function CreateAct() {
         <div className={styles.backButton} onClick={() => window.history.back()}>
           <img src={arrowLeft} alt="Back" className={styles.backIcon} />
         </div>
-        <h1>New act</h1>
+        <h1>{t('createActNew')}</h1>
         <div></div>
       </div>
 
       {/* Basic Information */}
       <div className={styles.paragraph}>
-        <h3 className={styles.elsetitle}>Basic information</h3>
+        <h3 className={styles.elsetitle}>{t('createActBasicInfo')}</h3>
         <input 
           type="text" 
           className={styles.inputField} 
-          placeholder="Name" 
+          placeholder={t('createActName')} 
           value={name} 
           onChange={(e) => setName(e.target.value)}
           disabled={isSubmitting}
         />
         <textarea 
           className={styles.textareaField} 
-          placeholder="Description" 
+          placeholder={t('createActDescription')} 
           value={description} 
           onChange={(e) => setDescription(e.target.value)}
           disabled={isSubmitting}
@@ -470,7 +472,7 @@ export default function CreateAct() {
       </div>
 
       {/* Photo Upload */}
-      <h4 className={styles.elsetitle}>Act Galery</h4>
+      <h4 className={styles.elsetitle}>{t('createActGallery')}</h4>
       {photoPreview ? (
         <div className={styles.paragraph}>
           <div className={styles.guildImgContainer}>
@@ -492,7 +494,7 @@ export default function CreateAct() {
             style={{ maxHeight: '70px', cursor: 'pointer' }}
           >
             <div className={styles.emptyPlaceholder} style={{display:'flex', gap:'4px'}}>
-              <p>Click to upload photo</p>
+              <p>{t('createActUploadPhoto')}</p>
               <img src={add} alt="Add icon" />
             </div>
           </div>
@@ -508,7 +510,7 @@ export default function CreateAct() {
 
       {/* Teams */}
       <div>
-        <h4 className={styles.elsetitle}>Teams</h4>
+        <h4 className={styles.elsetitle}>{t('createActTeams')}</h4>
         <p style={{color:'rgb(192, 192, 192)'}}>
           Create team and add users
         </p>
@@ -577,7 +579,7 @@ export default function CreateAct() {
             >
               <div className={styles.emptyPlaceholder}>
                 <img src={team} alt="Add icon" />
-                <p>Add new team</p>
+                <p>{t('createActAddTeam')}</p>
               </div>
             </div>
           </div>
@@ -586,7 +588,7 @@ export default function CreateAct() {
 
       {/* Tags */}
       <div className={styles.paragraph}>
-        <h4 className={styles.elsetitle}>Tags</h4>
+        <h4 className={styles.elsetitle}>{t('createActTags')}</h4>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
           {tags.map((tag, i) => (
             <div key={i} style={{ background: '#252525', padding: '4px 10px', borderRadius: '8px', display: 'flex', gap: '6px', alignItems: 'center' }}>
@@ -599,7 +601,7 @@ export default function CreateAct() {
           <input
             type="text"
             className={styles.inputField}
-            placeholder="Add tag and press Enter"
+            placeholder={t('createActTagsPlaceholder')}
             value={tagInput}
             onChange={e => setTagInput(e.target.value)}
             onKeyDown={e => {
@@ -690,10 +692,10 @@ export default function CreateAct() {
                           } catch { toast.error('Failed to rename season'); }
                         }}
                         style={{ background: '#009DFF', borderRadius: '8px', padding: '6px 12px', color: 'white', cursor: 'pointer', fontSize: '13px', fontWeight: 600, fontFamily: 'Oxanium, sans-serif', flexShrink: 0, width: 'fit-content' }}
-                      >Save</div>
+                      >{t('save')}</div>
                       <div role="button" tabIndex={0} onClick={() => setEditingChapterId(null)}
                         style={{ background: 'rgba(255,255,255,0.08)', borderRadius: '8px', padding: '6px 12px', color: '#888', cursor: 'pointer', fontSize: '13px', fontFamily: 'Oxanium, sans-serif', flexShrink: 0, width: 'fit-content' }}
-                      >Cancel</div>
+                      >{t('cancel')}</div>
                     </div>
                   ) : deletingChapterId === ch.id ? (
                     <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -715,7 +717,7 @@ export default function CreateAct() {
                         >Delete</div>
                         <div role="button" tabIndex={0} onClick={() => setDeletingChapterId(null)}
                           style={{ background: 'rgba(255,255,255,0.08)', borderRadius: '8px', padding: '8px 16px', color: '#888', cursor: 'pointer', fontSize: '13px', fontFamily: 'Oxanium, sans-serif', width: 'fit-content' }}
-                        >Cancel</div>
+                        >{t('cancel')}</div>
                       </div>
                     </div>
                   ) : (
@@ -918,7 +920,7 @@ export default function CreateAct() {
                 }}
               >
                 <div>
-                  <div style={{ color: 'white', fontSize: '14px', fontWeight: 600, fontFamily: 'Oxanium, sans-serif', marginBottom: '2px' }}>Go live immediately</div>
+                  <div style={{ color: 'white', fontSize: '14px', fontWeight: 600, fontFamily: 'Oxanium, sans-serif', marginBottom: '2px' }}>{t('createActGoLiveNow')}</div>
                   <div style={{ color: '#555', fontSize: '12px' }}>The navigator starts it — it goes live right away</div>
                 </div>
                 <div style={{
@@ -945,7 +947,7 @@ export default function CreateAct() {
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', cursor: 'pointer', gap: '10px' }}
                 >
                   <div>
-                    <div style={{ color: 'white', fontSize: '14px', fontWeight: 600, fontFamily: 'Oxanium, sans-serif', marginBottom: '2px' }}>Schedule for later</div>
+                    <div style={{ color: 'white', fontSize: '14px', fontWeight: 600, fontFamily: 'Oxanium, sans-serif', marginBottom: '2px' }}>{t('createActScheduleLater')}</div>
                     <div style={{ color: '#555', fontSize: '12px' }}>Shown as "Planned" until the date arrives</div>
                   </div>
                   <div style={{
@@ -988,7 +990,7 @@ export default function CreateAct() {
             onClick={handleCreateAct}
             disabled={isSubmitting}
           >
-            {isSubmitting ? 'Creating...' : 'Create Act'}
+            {isSubmitting ? t('createActCreating') : t('createActSubmit')}
           </button>
         </div> 
       </div>
@@ -1074,7 +1076,7 @@ export default function CreateAct() {
                 borderRadius: '12px', padding: '12px', color: '#888', fontSize: '14px', cursor: 'pointer',
               }}
             >
-              Cancel
+              {t('cancel')}
             </button>
           </div>
         </div>

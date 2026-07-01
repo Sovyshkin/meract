@@ -6,6 +6,7 @@ import { actApi } from "../../../shared/api/act";
 import { buildPreviewUrl } from "../../../shared/utils/previewUrl";
 import { useEffect, useState } from "react";
 import { getDisplayName } from "../../../shared/utils/displayName";
+import { useT } from "../../../shared/hooks/useT";
 
 const reverseLocationCache = new Map();
 
@@ -45,6 +46,7 @@ async function reverseGeocodeTask(lat, lng) {
 
 export default function ActCard({ act, titleact }) {
   const navigate = useNavigate();
+  const t = useT();
   const id = act.publicId || act.id;
 const [isLive, setIsLive] = useState(null);
 const [title, setTitle] = useState('');
@@ -253,22 +255,22 @@ useEffect(() => {
   };
 
   const heroText = roleSummary.hero || (heroMethod === 'VOTING'
-    ? 'Voting'
+    ? t('voting')
     : heroMethod === 'BIDDING'
-      ? 'Bidding'
+      ? t('bidding')
       : heroes);
 
   const navigatorText = roleSummary.navigator || (navigatorMethod === 'VOTING'
-    ? 'Voting'
+    ? t('voting')
     : navigatorMethod === 'BIDDING'
-      ? 'Bidding'
+      ? t('bidding')
       : navigator);
 
   if (act.isMock) {
     return (
       <div className={styles.parent}>
         { titleact === true && (
-        <p className={styles.subtitle}>Popular</p>
+        <p className={styles.subtitle}>{t('popular')}</p>
         )}
         <div className={styles.actCard} onClick={handleCardClick} style={cardStyle}>
           <div className={styles.infoblock}>
@@ -278,12 +280,12 @@ useEffect(() => {
                   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org">
                     <circle cx="10" cy="10" r="5" fill="white" />
                   </svg>
-                  <p className={styles.live}>Live</p>
+                  <p className={styles.live}>{t('live')}</p>
                 </div>
               )}
               {isLive !== 'ONLINE' && countdownText && (
                 <div className={styles.online}>
-                  <p className={styles.live}>Starts in {countdownText}</p>
+                  <p className={styles.live}>{t('startsIn')} {countdownText}</p>
                 </div>
               )}
               <div style={{display:'flex',gap:'5px', alignItems:'baseline'}}>
@@ -307,7 +309,7 @@ useEffect(() => {
                     {distance != null ? (
                       <p className={styles.desc} style={{ color:'#c0c0c0'}}>{Number(distance).toFixed(1)}km away</p>
                     ) : (
-                      <p className={styles.desc} style={{ color:'#c0c0c0'}}>no distance</p>
+                      <p className={styles.desc} style={{ color:'#c0c0c0'}}>{t('noDistance')}</p>
                     )}
                   </div>
                 </div>
@@ -359,12 +361,12 @@ useEffect(() => {
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org">
                 <circle cx="10" cy="10" r="5" fill="white" />
               </svg>
-              <p className={styles.live}>Live</p>
+              <p className={styles.live}>{t('live')}</p>
             </div>
           )}
           {isLive !== 'ONLINE' && countdownText && (
             <div className={styles.online}>
-              <p className={styles.live}>Starts in {countdownText}</p>
+              <p className={styles.live}>{t('startsIn')} {countdownText}</p>
             </div>
           )}
           <div style={{display:'flex',gap:'5px', alignItems:'baseline'}}>
@@ -388,7 +390,7 @@ useEffect(() => {
                 {distance != null ? (
                   <p className={styles.desc} style={{ color:'#c0c0c0'}}>{Number(distance).toFixed(1)}km away</p>
                 ) : (
-                  <p className={styles.desc} style={{ color:'#c0c0c0'}}>no distance</p>
+                  <p className={styles.desc} style={{ color:'#c0c0c0'}}>{t('noDistance')}</p>
                 )}
               </div>
             </div>

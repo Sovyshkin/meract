@@ -21,8 +21,10 @@ import gallery from '../../images/gallery.png';
 import { chatApi } from '../../shared/api/chat';
 import { useAuthStore } from '../../shared/stores/authStore';
 import { getDisplayName } from '../../shared/utils/displayName';
+import { useT } from '../../shared/hooks/useT';
 
 const ChatSingle = () => {
+  const t = useT();
   const navigate = useNavigate();
   const { id, userId } = useParams();
   const currentUser = useAuthStore((state) => state.user);
@@ -521,7 +523,7 @@ const formatLastSeen = (statusString) => {
 
           <input
             type="text"
-            placeholder="Message..."
+            placeholder={t('chatMessagePlaceholder')}
             className={styles.input}
             value={text}
             onChange={(e) => {

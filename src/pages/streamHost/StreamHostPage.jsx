@@ -4,8 +4,10 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import StreamHost from "../createAct/components/StreamHost";
 import styles from "./StreamHostPage.module.css";
+import { useT } from "../../shared/hooks/useT";
 
 export default function StreamHostPage() {
+  const t = useT();
   const { id } = useParams(); 
   const navigate = useNavigate();
 
@@ -20,9 +22,9 @@ export default function StreamHostPage() {
             className={styles.backButton}
             onClick={() => navigate("/acts")}
           >
-            ← Back to Acts
+            {t('streamBackToActs')}
           </button>
-          <h1 className={styles.title}>Live Streaming</h1>
+          <h1 className={styles.title}>{t('streamLiveStreaming')}</h1>
         </div>
         <div className={styles.streamContent}>
           <div
@@ -47,7 +49,7 @@ export default function StreamHostPage() {
                 cursor: "pointer",
               }}
             >
-              Go to Acts
+              {t('streamBackToActs')}
             </button>
           </div>
         </div>
@@ -63,9 +65,9 @@ export default function StreamHostPage() {
     <div className={styles.container}>
       <div className={styles.header}>
         <button className={styles.backButton} onClick={() => window.history.back()}>
-          ← Back
+          {t('back')}
         </button>
-        <h1 className={styles.title}>Live Streaming</h1>
+        <h1 className={styles.title}>{t('streamLiveStreaming')}</h1>
       </div>
 
       <div className={styles.streamContent}>

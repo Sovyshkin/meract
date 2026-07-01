@@ -5,8 +5,10 @@ import styles from "./SettingsPage.module.css";
 import selected from '../../images/yes.png';
 import filter from '../../images/add.png';
 import search from '../../images/search.png';
+import { useT } from '../../shared/hooks/useT';
 
 const LocationDetailPage = () => {
+    const t = useT();
     const navigate = useNavigate();
     const { name } = useParams(); 
 
@@ -32,14 +34,14 @@ const LocationDetailPage = () => {
                 <div className={styles.header_cont}>
                     <img 
                         src={back} 
-                        alt="back" 
+                        alt={t('back')}
                         /* Исправлено: возврат на предыдущую страницу профиля */
-                        onClick={() => navigate('/settings/profile')} 
-                        style={{ cursor: 'pointer' }} 
+                        onClick={() => navigate('/settings/profile')}
+                        style={{ cursor: 'pointer' }}
                         className={styles.backBtn}
                     />
                     <div className={styles.name}>
-                        <h1>Location: {name}</h1>
+                        <h1>{t('location')}: {name}</h1>
                     </div>
                     <div></div>
                 </div>
@@ -47,7 +49,7 @@ const LocationDetailPage = () => {
                 <div className={styles.nav}>
                     <div className={styles.searchWrapper}>
                         <img src={search} alt="search" className={styles.searchIcon} />
-                        <input type="text" placeholder="Search" className={styles.input} />
+                        <input type="text" placeholder={t('search')} className={styles.input} />
                         <img 
                             src={filter} 
                             alt="add" 
@@ -79,7 +81,7 @@ const LocationDetailPage = () => {
                 ))}
             </div>
              <div className={styles.savebutton}>
-                <button className={styles.active} onClick={Save}>Save</button>
+                <button className={styles.active} onClick={Save}>{t('save')}</button>
             </div>
         </div>  
     );

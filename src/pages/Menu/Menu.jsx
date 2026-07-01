@@ -14,8 +14,10 @@ import { useAuth } from '../../features/Auth/Login/hooks/useAuth';
 import { profileApi } from '../../shared/api/profile';
 import { useAuthStore } from '../../shared/stores/authStore';
 import { getDisplayName } from '../../shared/utils/displayName';
+import { useT } from '../../shared/hooks/useT';
 
 const Menu = ({ onClose }) => {
+    const t = useT();
     const cachedUser = useAuthStore((s) => s.user);
     const [username, setName] = useState(getDisplayName(cachedUser, ''));
     const [fullname, setFullName] = useState(cachedUser?.fullName || '');
@@ -83,35 +85,35 @@ const Menu = ({ onClose }) => {
                             navigate('/settings');
                         }
                         }
-                        ><img src={settings} /> Settings</div>
+                        ><img src={settings} /> {t('menuSettings')}</div>
                         <div className={styles.item}
                          onClick={() => {
                             onClose();
                             navigate('/rank');
                         }
                         }
-                        ><img src={rank} /> Leaders</div>
+                        ><img src={rank} /> {t('menuLeaders')}</div>
                         <div className={styles.item}
                         onClick={() => {
                             onClose();
                             navigate('/wallet');
                         }
                         }
-                        ><img src={wallet} /> Wallet</div>
+                        ><img src={wallet} /> {t('menuWallet')}</div>
                         <div className={styles.item}
                         onClick={() => {
                             onClose();
                             navigate('/my-achievements');
                         }
                         }
-                        ><img src={medal} /> Achievements</div>
+                        ><img src={medal} /> {t('menuAchievements')}</div>
                         <div className={styles.item}
                          onClick={() => {
                             onClose();
                             navigate('/support');
                         }
                         }
-                        ><img src={documentimg}/> Technical support</div>
+                        ><img src={documentimg}/> {t('menuSupport')}</div>
                         <div className={styles.item}
                          onClick={() => {
                             onClose();
@@ -120,10 +122,10 @@ const Menu = ({ onClose }) => {
                         }
                         ><img src={message} 
                          
-                        /> Privacy Policy</div>
+                        /> {t('menuPrivacy')}</div>
                     </div>
                     <div className={styles.menuItems} style={{marginTop:'15px',}}>
-                        <p>Actions</p>
+                        <p>{t('menuActions')}</p>
                         {/* <div className={styles.item}><img src={message} /> Create Guild</div> */}
                         <div className={styles.item}
                          onClick={() => {
@@ -131,7 +133,7 @@ const Menu = ({ onClose }) => {
                             navigate('/my-acts');
                         }
                         }
-                        ><img src={documentimg} />My acts</div>
+                        ><img src={documentimg} /> {t('menuMyActs')}</div>
 
                     </div>
                     <div className={styles.logout} style={{ marginTop: 'auto' }}>
@@ -139,7 +141,7 @@ const Menu = ({ onClose }) => {
                           onClick={() => {
                             Dologout();
                         }}
-                        ><img src={logout} />Logout</div>
+                        ><img src={logout} /> {t('menuLogout')}</div>
 
                         
                     </div>

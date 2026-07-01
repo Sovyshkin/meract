@@ -7,8 +7,10 @@ import newpoint from '../../images/newpoint.png';
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { payApi } from '../../shared/api/pay';
+import { useT } from '../../shared/hooks/useT';
 
 const PayPage = () => {
+    const t = useT();
     const navigate = useNavigate();
     const [balance, setBalance] = useState(0);
     
@@ -53,7 +55,7 @@ const PayPage = () => {
                         style={{ cursor: 'pointer' }} 
                     />
                     <div className={styles.name}>
-                        <div className="name"><h1>Wallet</h1></div>
+                        <div className="name"><h1>{t('walletTitle')}</h1></div>
                     </div>
                     <img src={notification} alt="notifications" onClick={() => navigate('/notifications')}/>
                 </div>
@@ -61,7 +63,7 @@ const PayPage = () => {
 
             <div className={styles.card} style={{flexDirection:'column', gap:'20px', alignItems:"flex-start",}}>
                 <div style={{display: 'flex', flexDirection:'column', gap:'5px',}}>
-                    <p style={{color:'#FFFFFF66',}}>Balance</p>
+                    <p style={{color:'#FFFFFF66',}}>{t('walletBalance')}</p>
                     <div style={{display:'flex', gap:'5px',}}>
                         <img src={newpoint} alt="" style={{maxHeight:'40px',}}/>
                         <h1 style={{color:'white',}}>{balance}</h1>
@@ -73,7 +75,7 @@ const PayPage = () => {
                         <img src={newpoint} alt="" style={{maxHeight:'40px',}}/>
 
                     </button>
-                    <button onClick={() => navigate('/wallet/transfer')}>Transfer</button>
+                    <button onClick={() => navigate('/wallet/transfer')}>{t('walletTransfer')}</button>
                 </div>
             </div>
 
@@ -123,7 +125,7 @@ const PayPage = () => {
                     </div>
                 ))}
                 </>
-                : <p style={{color:'white', margin:'auto', textAlign:'center',}}>No transactions</p>  
+                : <p style={{color:'white', margin:'auto', textAlign:'center',}}>{t('walletNoTransactions')}</p>  
                 }
 
             </div>

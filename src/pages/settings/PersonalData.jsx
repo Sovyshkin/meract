@@ -9,8 +9,10 @@ import { useAuthStore } from '../../shared/stores/authStore';
 import { getDisplayName } from '../../shared/utils/displayName';
 import { getLanguageLabel } from '../../shared/constants/languages';
 import AvatarCropModal from '../../shared/ui/AvatarCropModal/AvatarCropModal';
+import { useT } from '../../shared/hooks/useT';
 
 const PersonalData = () => {
+    const t = useT();
     const navigate = useNavigate();
     const fileInputRef = useRef(null);
     
@@ -289,8 +291,8 @@ const handleSave = async () => {
                 placeholder={`Enter new ${modalType}`}
             />
             <div className={styles.modalButtons}>
-                <button className={styles.cancelBtn} onClick={closeModal}>Cancel</button>
-                <button className={styles.active} onClick={handleSave}>Save</button>
+                <button className={styles.cancelBtn} onClick={closeModal}>{t('cancel')}</button>
+                <button className={styles.active} onClick={handleSave}>{t('save')}</button>
             </div>
         </div>
     </div>
@@ -306,7 +308,7 @@ const handleSave = async () => {
                         className={styles.backBtn}
                     />
                     <div className="name">
-                        <h1>Profile</h1>
+                        <h1>{t('profile')}</h1>
                     </div>
                     {/* <img src={changeIcon} alt="notifications" onClick={() => navigate('/notifications')} className={styles.pointer}/> */}
                     <div></div>
@@ -314,12 +316,12 @@ const handleSave = async () => {
             </div>
 
             <div className={styles.sectionMargin}>
-                <p className={styles.title} style={{fontSize:'18px',}}>Profile photo</p>
+                <p className={styles.title} style={{fontSize:'18px',}}>{t('profilePhoto')}</p>
                 <div className={styles.parent}>
                     <div className={styles.profile}>
                         {avatar 
                         ?   <img src={avatar} className={styles.logo} />
-                        :   <p style={{color:'white',}}>no avatar</p>
+                        :   <p style={{color:'white',}}>{t('noAvatar')}</p>
                         }
                         <div className={styles.btncont}>
                             <button className={styles.active} onClick={triggerChange}>Change</button>
@@ -333,7 +335,7 @@ const handleSave = async () => {
                 <div className={styles.cardcont} onClick={() => openModal('Name')}>
                     <div className={styles.card}>
                         <div className={styles.cardInfo}>
-                            <p className={styles.subtitle}>First and last name</p>
+                            <p className={styles.subtitle}>{t('firstAndLastName')}</p>
                             <p className={styles.userName}>{fullname}</p>
                         </div>
                         <p className={styles.changeLink}>Change</p>
@@ -343,7 +345,7 @@ const handleSave = async () => {
                 <div className={styles.cardcont} onClick={() => openModal('Username')}>
                     <div className={styles.card}>
                         <div className={styles.cardInfo}>
-                            <p className={styles.subtitle}>Username</p>
+                            <p className={styles.subtitle}>{t('username')}</p>
                             <p className={styles.userName}>{username}</p>
                         </div>
                         <p className={styles.changeLink}>Change</p>
@@ -353,7 +355,7 @@ const handleSave = async () => {
                 <div className={styles.cardcont}>
                     <div className={styles.card}>
                         <div className={styles.cardInfo}>
-                            <p className={styles.subtitle}>Registration date:</p>
+                            <p className={styles.subtitle}>{t('registrationDate')}:</p>
                             <p className={styles.userName}>{date}</p>
                         </div>
                     </div>

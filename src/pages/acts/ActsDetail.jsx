@@ -43,6 +43,12 @@ import { toast } from "react-toastify";
 import { useT } from "../../shared/hooks/useT";
 import { getDisplayName } from "../../shared/utils/displayName";
 
+function votingDurationMs(hours, minutes) {
+  const h = Number(hours) || 0;
+  const m = Number(minutes) || 0;
+  return (h * 3600 + m * 60) * 1000;
+}
+
 function buildRoleInfo(roleType, team, apiData, fallbackImg, currentUserId) {
   let method = null;
   const presetList = [];
@@ -54,8 +60,9 @@ function buildRoleInfo(roleType, team, apiData, fallbackImg, currentUserId) {
     // Дедлайн из roleConfig (есть в ответе getActById)
     if (rc.votingStartAt && !votingStartAt) {
       votingStartAt = new Date(rc.votingStartAt);
-      if (rc.votingDurationHours) {
-        votingDeadline = new Date(votingStartAt.getTime() + rc.votingDurationHours * 3600 * 1000);
+      const durationMs = votingDurationMs(rc.votingDurationHours, rc.votingDurationMinutes);
+      if (durationMs > 0) {
+        votingDeadline = new Date(votingStartAt.getTime() + durationMs);
       }
     }
     if (rc.openVoting) {
@@ -105,9 +112,12 @@ function buildRoleInfo(roleType, team, apiData, fallbackImg, currentUserId) {
     // Дедлайн также доступен через config первого teamCandidate
     if (!votingDeadline && teamCandidatesApi[0]?.config?.votingStartAt) {
       const tStart = new Date(teamCandidatesApi[0].config.votingStartAt);
-      const tHours = teamCandidatesApi[0].config.votingDurationHours;
+      const durationMs = votingDurationMs(
+        teamCandidatesApi[0].config.votingDurationHours,
+        teamCandidatesApi[0].config.votingDurationMinutes,
+      );
       if (!votingStartAt) votingStartAt = tStart;
-      if (tHours) votingDeadline = new Date(tStart.getTime() + tHours * 3600 * 1000);
+      if (durationMs > 0) votingDeadline = new Date(tStart.getTime() + durationMs);
     }
   }
 
@@ -690,10 +700,10 @@ const handleRateAct = async () => {
         <div className={styles.contentWrapper}>
           <div className={styles.header}>
             <div className={styles.backButton} onClick={goToActsList}>
-              <img src={arrowLeft} alt="Back" className={styles.backIcon} />
+              <img src={arrowLeft} alt={t('back')} className={styles.backIcon} />
             </div>
           </div>
-          <div className={styles.loading}>loading...</div>
+          <div className={styles.loading}>{t('loading')}</div>
         </div>
       </div>
     );
@@ -706,7 +716,7 @@ const handleRateAct = async () => {
       <div className={styles.contentWrapper}>
         <div className={styles.header}>
           <div className={styles.backButton} onClick={goToActsList}>
-            <img src={arrowLeft} alt="Back" className={styles.backIcon} />
+            <img src={arrowLeft} alt={t('back')} className={styles.backIcon} />
           </div>
 
           <div className={styles.menuContainer}>
@@ -728,7 +738,7 @@ const handleRateAct = async () => {
                   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org">
                     <circle cx="10" cy="10" r="5" fill="white" />
                   </svg>
-                  <p className={styles.live}>Live</p>
+                  <p className={styles.live}>{t('live')}</p>
                 </div>
               )}
               <div style={{ display: 'flex', gap: '5px', alignItems: 'baseline' }}>
@@ -794,7 +804,7 @@ const handleRateAct = async () => {
             <div className={styles.savecard}>
               {isLive === 'PLANNED' && scheduledAt && (
                 <p style={{ color: '#FFA500', fontSize: '13px', margin: '0 0 6px 0' }}>
-                  Scheduled: {new Date(scheduledAt).toLocaleString()}
+                  {t('scheduled')}: {new Date(scheduledAt).toLocaleString()}
                 </p>
               )}
               <div style={{ display: 'flex', gap: '5px' }}>
@@ -832,7 +842,7 @@ const handleRateAct = async () => {
                     style={isLive !== 'ONLINE' ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
                   >
                     {isUpcoming && actStartsIn
-                      ? `Starts in ${actStartsIn}`
+                      ? `${t('startsIn')} ${actStartsIn}`
                       : isLive === 'PLANNED'
                         ? t('scheduled')
                         : isLive === 'OFFLINE'
@@ -879,7 +889,7 @@ const handleRateAct = async () => {
               return eps.map((ep, epIdx) => {
                 const isCurrent = ep.id === Number(id);
                 const statusColor = ep.status === 'ONLINE' ? '#00F300' : ep.status === 'PLANNED' ? '#FFA500' : '#555';
-                const statusLabel = ep.status === 'ONLINE' ? 'Live' : ep.status === 'PLANNED' ? 'Scheduled' : 'Ended';
+                const statusLabel = ep.status === 'ONLINE' ? t('live') : ep.status === 'PLANNED' ? t('scheduled') : t('ended');
                 const thumb = buildPreviewUrl(ep.previewFileName);
                 return (
                   <div key={ep.id}
@@ -1316,7 +1326,7 @@ const handleRateAct = async () => {
                         </span>
                         {poll.endsAt && (
                           <span style={{ color: '#888', fontSize: '12px' }}>
-                            {isPollClosed ? 'Ended' : `Ends in ${formatCountdown(pollEndsTs) || new Date(poll.endsAt).toLocaleTimeString()}`}
+                            {isPollClosed ? t('ended') : `Ends in ${formatCountdown(pollEndsTs) || new Date(poll.endsAt).toLocaleTimeString()}`}
                           </span>
                         )}
                       </div>
@@ -1393,7 +1403,7 @@ const handleRateAct = async () => {
                     cursor: 'pointer',
                   }}
                 >
-                  Cancel
+                  {t('cancel')}
                 </button>
                 <button
                   onClick={handleRateAct}

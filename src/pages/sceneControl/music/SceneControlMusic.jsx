@@ -7,6 +7,7 @@ import { useSequelStore } from "../../../shared/stores/sequelStore";
 import styles from "../SceneControl.module.css";
 import { useMusic } from "./hooks/useMusic";
 import { extractMusicTitle } from "./utils/musicUtils";
+import { useT } from "../../../shared/hooks/useT";
 
 const RefreshIcon = () => {
   return (
@@ -74,6 +75,7 @@ const Menu = () => {
 };
 
 export default function SceneControlMusic() {
+  const t = useT();
   const [heroMethod, setHeroMethod] = useState("Music");
   const [currentlyPlaying, setCurrentlyPlaying] = useState(null);
   const [audioElements, setAudioElements] = useState({});
@@ -152,11 +154,11 @@ export default function SceneControlMusic() {
           <div className={styles.name}>
             <img
               src="/icons/back_arrowV2.svg"
-              alt="back_arrow"
+              alt={t('back')}
               style={{ cursor: "pointer" }}
               onClick={handleGoBack}
             />
-            <h1>Scene Control</h1>
+            <h1>{t('sceneControl')}</h1>
           </div>
         </div>
         <div className="stripe2"></div>
@@ -177,7 +179,7 @@ export default function SceneControlMusic() {
               onClick={() => navigate("/scene-control-intro")}
             >
               <img src="/icons/intro.svg" alt="voting" />
-              Intro
+              {t('sceneIntro')}
             </button>
             <button
               type="button"
@@ -202,7 +204,7 @@ export default function SceneControlMusic() {
               onClick={() => setHeroMethod("Music")}
             >
               <img src="/icons/music.svg" alt="voting" />
-              Music
+              {t('sceneMusic')}
             </button>
             <button
               type="button"
@@ -214,11 +216,11 @@ export default function SceneControlMusic() {
               onClick={() => navigate("/scene-control-outro")}
             >
               <img src="/icons/outro.svg" alt="voting" />
-              Outro
+              {t('sceneOutro')}
             </button>
           </div>
           <div className={styles.wrapper_header}>
-            <p>Music Playlist</p>
+            <p>{t('sceneMusic')}</p>
             <button>
               <>
                 <RefreshIcon />
@@ -232,7 +234,7 @@ export default function SceneControlMusic() {
               onClick={() => navigate("/scene-control-music-select")}
             >
               <img src="/icons/plus.svg" alt="plus" />
-              Select Playlist Music
+              {t('sceneSelectMusic')}
             </button>
 
             {loading && (
@@ -243,7 +245,7 @@ export default function SceneControlMusic() {
                   padding: "20px",
                 }}
               >
-                Loading music...
+                {t('loading')}
               </div>
             )}
 
@@ -310,7 +312,7 @@ export default function SceneControlMusic() {
 
                   <p>{track.length}</p>
                   <Menu />
-                  <p className={styles.intro}>Intro</p>
+                  <p className={styles.intro}>{t('sceneIntro')}</p>
                   <div className={styles.back_arrow}>
                     <img src="/icons/backArrow3.svg" alt="back arrow" />
                   </div>

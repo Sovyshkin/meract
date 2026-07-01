@@ -5,8 +5,10 @@ import { useLocation, useParams } from "react-router-dom";
 import api from "../../shared/api/api";
 import StreamViewer from "../acts/components/StreamViewer";
 import styles from "./StreamPage.module.css";
+import { useT } from "../../shared/hooks/useT";
 
 export default function StreamPage() {
+  const t = useT();
   const { id } = useParams();
   const location = useLocation();
   const [act, setAct] = useState(location.state?.act || null);
@@ -40,7 +42,7 @@ export default function StreamPage() {
   if (!act && loading) {
     return (
       <div className={styles.streamPage}>
-        <div className={styles.loading}>Loading...</div>
+        <div className={styles.loading}>{t('loading')}</div>
       </div>
     );
   }
@@ -49,8 +51,8 @@ export default function StreamPage() {
     return (
       <div className={styles.streamPage}>
         <div className={styles.error}>
-          <h2>Stream not found</h2>
-          <p>Failed to load stream information</p>
+          <h2>{t('streamNotFound')}</h2>
+          <p>{t('streamLoading')}</p>
         </div>
       </div>
     );

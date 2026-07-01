@@ -13,26 +13,28 @@ import { chatApi } from "../../shared/api/chat.js";
 import api from "../../shared/api/api.js";
 import { useNotificationStore } from "../../shared/stores/notificationStore.js";
 import { noticeApi } from "../../shared/api/notifications.js";
+import { useT } from '../../shared/hooks/useT';
 
-const getPreviewText = (msg) => {
-  if (!msg) return 'No messages';
+const getPreviewText = (msg, t) => {
+  if (!msg) return t('chatNoMessages');
   if (msg.fileType) {
     switch (msg.fileType) {
-      case 'image': return '🖼 Photo';
-      case 'video': return '📹 Video';
+      case 'image': return `🖼 ${t('chatPhoto')}`;
+      case 'video': return `📹 ${t('chatVideo')}`;
       case 'audio':
-      case 'voice': return '🎤 Voice message';
-      default: return '📎 File';
+      case 'voice': return `🎤 ${t('chatVoice')}`;
+      default: return `📎 ${t('chatFile')}`;
     }
   }
   if (msg.text) {
     const text = msg.text;
     return text.length > 35 ? text.substring(0, 35) + '...' : text;
   }
-  return 'No messages';
+  return t('chatNoMessages');
 };
 
 export default function ChatPage() {
+  const t = useT();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [cards, setCards] = useState([]);
@@ -120,7 +122,7 @@ export default function ChatPage() {
             style={{ cursor: 'pointer' }} 
           />
           <div className={styles.name}>
-            <h1>Chat</h1>
+            <h1>{t('chatTitle')}</h1>
           </div>
           <img src={notification} alt="notifications" onClick={() => navigate('/notifications')} style={{ cursor: 'pointer' }} />        </div>
 
@@ -129,7 +131,7 @@ export default function ChatPage() {
             <img src={search} alt="search" className={styles.searchIcon} />
             <input 
               type="text" 
-              placeholder="Search" 
+              placeholder={t('search')} 
               className={styles.input} 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -148,15 +150,15 @@ export default function ChatPage() {
           <button
             className={activeFilter === 'all' ? styles.active : ''}
             onClick={() => setActiveFilter('all')}
-          >All</button>
+          >{t('chatAll')}</button>
           <button
             className={activeFilter === 'acts' ? styles.active : ''}
             onClick={() => setActiveFilter('acts')}
-          >Acts</button>
+          >{t('chatActs')}</button>
           <button
             className={activeFilter === 'contacts' ? styles.active : ''}
             onClick={() => setActiveFilter('contacts')}
-          >Contacts</button>
+          >{t('chatContacts')}</button>
         </div>
       </div>
 
@@ -171,7 +173,7 @@ export default function ChatPage() {
           </div>
           <div className={styles.cardInfo}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <p className={styles.userName}>Support</p>
+              <p className={styles.userName}>{t('chatSupport')}</p>
             </div>
             <p style={{ 
               color: '#bbb', 
@@ -181,7 +183,7 @@ export default function ChatPage() {
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap'
             }}>
-              Get help with your issues
+              {t('chatSupportSubtitle')}
             </p>
           </div>
         </div>
@@ -219,7 +221,7 @@ export default function ChatPage() {
                     textOverflow: 'ellipsis',
                     maxWidth: '80%'
                   }}>
-                    {getPreviewText(card.lastMessage)}
+                    {getPreviewText(card.lastMessage, t)}
                   </p>
                   {card.unreadCount > 0 && (
                     <span className={styles.unreadBadge}>{card.unreadCount}</span>
@@ -230,7 +232,7 @@ export default function ChatPage() {
           ))
         ) : (
           <h3 style={{ color: 'white', margin: 'auto' }}>
-            {searchTerm ? "No chats found" : "Nothing found"}
+            {searchTerm ? t('chatNoChats') : t('chatNothingFound')}
           </h3>
         )}
 
@@ -238,7 +240,7 @@ export default function ChatPage() {
         {searchTerm.trim().length >= 2 && (
           <div style={{ width: '100%', marginTop: '16px' }}>
             <p style={{ color: '#888', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px', padding: '0 4px' }}>
-              People
+              {t('chatPeople')}
             </p>
             {userSearchLoading ? (
               <p style={{ color: '#666', fontSize: '13px', padding: '0 4px' }}>Searching...</p>
@@ -263,11 +265,11 @@ export default function ChatPage() {
                       {u.email && <p style={{ color: '#888', fontSize: '12px', margin: 0 }}>{u.email}</p>}
                     </div>
                   </div>
-                  <span style={{ color: '#FF3B57', fontSize: '13px', fontWeight: 500 }}>Message</span>
+                  <span style={{ color: '#FF3B57', fontSize: '13px', fontWeight: 500 }}>{t('chatMessage')}</span>
                 </div>
               ))
             ) : (
-              <p style={{ color: '#666', fontSize: '13px', padding: '0 4px' }}>No users found</p>
+              <p style={{ color: '#666', fontSize: '13px', padding: '0 4px' }}>{t('chatNoUsers')}</p>
             )}
           </div>
         )}

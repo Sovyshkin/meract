@@ -3,8 +3,10 @@ import styles from './StreamSetup.module.css';
 import cameraIcon from '../../../images/points.png';
 import microphoneIcon from '../../../images/microphone.png';
 import closeIcon from '../../../images/Close.png';
+import { useT } from '../../../shared/hooks/useT';
 
 const StreamSetup = ({ onStartStream, onClose }) => {
+  const t = useT();
   const [isCameraEnabled, setIsCameraEnabled] = useState(false);
   const [isMicEnabled, setIsMicEnabled] = useState(false);
   const [videoStream, setVideoStream] = useState(null);
@@ -152,7 +154,7 @@ const StreamSetup = ({ onStartStream, onClose }) => {
             onClick={handleStartStream}
             disabled={isLoading || (!isCameraEnabled && !isMicEnabled)}
           >
-            {isLoading ? 'Starting...' : 'Start Stream'}
+            {isLoading ? t('starting') : 'Start Stream'}
           </button>
         </div>
       </div>

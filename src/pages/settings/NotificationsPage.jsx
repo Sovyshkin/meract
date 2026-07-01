@@ -4,7 +4,10 @@ import back from '../../images/arrow-left.png';
 import styles from "./SettingsPage.module.css";
 import { useEffect } from 'react';
 import { profileApi } from '../../shared/api/profile';
+import { useT } from '../../shared/hooks/useT';
+
 const NotificationsPage = () => {
+    const t = useT();
     const navigate = useNavigate();
 
     const [notifs, setNotifs] = useState({
@@ -54,11 +57,11 @@ useEffect(() => {
 
 
     const notificationList = [
-        { id: 'all', label: 'All notifications' },
-        { id: 'progress', label: 'ACT Progress' },
-        { id: 'guild', label: 'Guild invitations and approval' },
-        { id: 'mentions', label: 'Mentions in chats' },
-        { id: 'updates', label: 'Real-time ACT status updates' }
+        { id: 'all', label: t('allNotifications') },
+        { id: 'progress', label: t('actProgress') },
+        { id: 'guild', label: t('guildInvites') },
+        { id: 'mentions', label: t('chatMentions') },
+        { id: 'updates', label: t('realtimeActUpdates') }
     ];
 
     return (
@@ -72,7 +75,7 @@ useEffect(() => {
                         className={styles.backBtn}
                     />
                     <div className="name">
-                        <h1>Notifications</h1>
+                        <h1>{t('notifications')}</h1>
                     </div>
                     <div></div>
                 </div>

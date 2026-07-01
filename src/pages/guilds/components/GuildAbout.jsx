@@ -5,13 +5,15 @@ import { useParams } from 'react-router-dom';
 import iconguild from '../../../images/iconguild.png'; 
 import { guildApi } from '../../../shared/api/guild';
 import { useEffect, useState } from 'react';
+import { useT } from '../../../shared/hooks/useT';
 
  const GuildAbout = () => {
+    const t = useT();
     const { id } = useParams();
 // ... внутри компонента
-const [title, setTitle] = useState('Loading...');
-const [date, setDate] = useState('Loading...'); 
-const [guildDescription, setGuildDescription] = useState('Loading...');
+const [title, setTitle] = useState('');
+const [date, setDate] = useState('');
+const [guildDescription, setGuildDescription] = useState('');
 const [usersCount, setUsersCount] = useState(0);
 const [guildImg, setGuildImg] = useState(null);
 const [loading, setLoading] = useState(true);
@@ -48,16 +50,16 @@ useEffect(() => {
    return (
      <div className={styles.container}>
        <div className={styles.backButton} onClick={() => navigate(`/guilds/${id}`)}>
-         <img src={arrowLeft} alt="Back" className={styles.backIcon} />
+         <img src={arrowLeft} alt={t('back')} className={styles.backIcon} />
          <p className={styles.backText}>
-           Back
+           {t('back')}
          </p>
        </div>
        <div className={styles.paragraph}>
-         <h3 className={styles.elsetitle}>Guild</h3>
+         <h3 className={styles.elsetitle}>{t('guildAbout')}</h3>
          <div style={{display:'flex', gap:'10px', alignItems:'center',}}>
             <img src={guildImg || iconguild} alt=''className={styles.iconguild}/>
-            <p className={styles.elsetitle}>{title}</p>
+            <p className={styles.elsetitle}>{loading ? t('loading') : title}</p>
          </div>
        </div>
        <div className={styles.paragraph}>

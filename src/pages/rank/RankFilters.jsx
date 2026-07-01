@@ -3,10 +3,12 @@ import { useLocation, useNavigate } from "react-router-dom";
 import styles from "./RankPage.module.css";
 import back from '../../images/arrow-left.png';
 import notification from '../../images/notification.png';
+import { useT } from '../../shared/hooks/useT';
 
 const RANK_FILTERS_KEY = "rankFilters";
 
 export default function RankFilters() {
+  const t = useT();
   const navigate = useNavigate();
   const locationState = useLocation();
 
@@ -22,16 +24,16 @@ export default function RankFilters() {
   const [isScopeOpen, setIsScopeOpen] = useState(false);
 
   const sortOptions = [
-    { value: "points_desc", label: "Points: high to low" },
-    { value: "points_asc", label: "Points: low to high" },
+    { value: "points_desc", label: t('rankPointsHighLow') },
+    { value: "points_asc", label: t('rankPointsLowHigh') },
     { value: "acts_desc", label: "Acts count: high to low" },
     { value: "name_asc", label: "Name: A to Z" },
   ];
 
   const scopeOptions = [
-    { value: "all", label: "All leaders" },
-    { value: "top10", label: "Top 10 only" },
-    { value: "top50", label: "Top 50 only" },
+    { value: "all", label: t('rankAllLeaders') },
+    { value: "top10", label: t('rankTop10') },
+    { value: "top50", label: t('rankTop50') },
   ];
 
   const selectedSortLabel =
@@ -51,14 +53,14 @@ export default function RankFilters() {
         <div className="header">
           <div className={styles.header_cont}>
             <img src={back} alt="back" onClick={() => window.history.back()} style={{ cursor: 'pointer' }} />
-            <div className="name"><h1>Sorting the leaders</h1></div>
+            <div className="name"><h1>{t('rankSortTitle')}</h1></div>
             <img src={notification} alt="notification" onClick={() => navigate('/notifications')} style={{ cursor: 'pointer' }} />
           </div>
         </div>
 
         <div className={styles.dropparent}>
           <div className={styles.dropdownContainer}>
-            <p className={styles.title}>Sort by</p>
+            <p className={styles.title}>{t('rankSortBy')}</p>
             <div className={styles.dropdownHeader} onClick={() => setIsSortOpen(!isSortOpen)}>
               <span>{selectedSortLabel}</span>
               <svg className={`${styles.arrowIcon} ${isSortOpen ? styles.rotate : ""}`} width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -77,7 +79,7 @@ export default function RankFilters() {
           </div>
 
           <div className={styles.dropdownContainer}>
-            <p className={styles.title}>Scope</p>
+            <p className={styles.title}>{t('rankScope')}</p>
             <div className={styles.dropdownHeader} onClick={() => setIsScopeOpen(!isScopeOpen)}>
               <span>{selectedScopeLabel}</span>
               <svg className={`${styles.arrowIcon} ${isScopeOpen ? styles.rotate : ""}`} width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -104,7 +106,7 @@ export default function RankFilters() {
             style={{ width: '100%', justifyContent: 'center', display: 'flex', marginTop: '20px' }}
             onClick={save}
           >
-            Save
+            {t('save')}
           </button>
         </div>
       </div>

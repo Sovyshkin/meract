@@ -8,8 +8,10 @@ import userimg from '../../images/user.png'; // Добавьте этот имп
 
 import { useRef } from "react";
 import { chatApi } from "../../shared/api/chat";
+import { useT } from '../../shared/hooks/useT';
 
 export default function ChatCreate() {
+  const t = useT();
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [avatar, setAvatar] = useState(null);
@@ -74,7 +76,7 @@ export default function ChatCreate() {
         <div className="header">
           <div className={styles.header_cont}>
             <img src={back} alt="back" onClick={() => window.history.back()} style={{cursor: 'pointer'}}/>
-            <div className="name"><h1>New chat</h1></div>
+            <div className="name"><h1>{t('chatNewChat')}</h1></div>
             <div></div>
           </div>
         </div>
@@ -159,7 +161,7 @@ export default function ChatCreate() {
                   );
                 })}
               </>
-              : <p style={{color:'white', margin:'auto', textAlign:'center'}}>No contacts</p> 
+              : <p style={{color:'white', margin:'auto', textAlign:'center'}}>{t('chatNoContacts')}</p> 
             }
           </div>
         }
@@ -173,7 +175,7 @@ export default function ChatCreate() {
             onClick={Save}
             disabled={selectedMembers.length === 0 || !name || !avatar} 
           >
-            Create a chat 
+            {t('chatCreateChat')}
           </button>
         </div>
       </div>

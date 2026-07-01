@@ -12,10 +12,12 @@ import rang4 from '../../images/rang4.png';
 import points from '../../images/points.png';
 import back from '../../images/arrow-left.png';
 import { rankApi } from "../../shared/api/rank";
+import { useT } from '../../shared/hooks/useT';
 
 const RANK_FILTERS_KEY = "rankFilters";
 
 export default function RankPage() {
+  const t = useT();
   const navigate = useNavigate();
   const location = useLocation();
   const [loading, setLoading] = useState(false);
@@ -123,14 +125,14 @@ export default function RankPage() {
         <div className={styles.header_cont}>
           <img src={back} alt="back" onClick={() => window.history.back()} style={{ cursor: 'pointer' }} />
           <div className={styles.name}>
-            <h1>Leaders</h1>
+            <h1>{t('rankLeaders')}</h1>
           </div>
           <img src={notification} alt="notifications" onClick={() => navigate('/notifications')}/>
         </div>
         <div className={styles.btncont}>
-          <button className={nav === 0 ? styles.active : ""} onClick={() => handleNavChange(0)}>Initiator</button>
-          <button className={nav === 1 ? styles.active : ""} onClick={() => handleNavChange(1)}>Navigator</button>
-          <button className={nav === 2 ? styles.active : ""} onClick={() => handleNavChange(2)}>Hero</button>
+          <button className={nav === 0 ? styles.active : ""} onClick={() => handleNavChange(0)}>{t('rankInitiator')}</button>
+          <button className={nav === 1 ? styles.active : ""} onClick={() => handleNavChange(1)}>{t('rankNavigator')}</button>
+          <button className={nav === 2 ? styles.active : ""} onClick={() => handleNavChange(2)}>{t('rankHero')}</button>
         </div>
         <div className={styles.nav}>
           <div className={styles.searchWrapper}>

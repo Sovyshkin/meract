@@ -44,12 +44,15 @@ const useTeamStore = create(
       heroVotingStartTime: _defaultHeroDt.time,
       heroVotingStartDate: _defaultHeroDt.date,
       heroVotingHours: 24,
+      heroVotingMinutes: 0,
       navigatorVotingStartTime: _defaultNavDt.time,
       navigatorVotingStartDate: _defaultNavDt.date,
       navigatorVotingHours: 24,
+      navigatorVotingMinutes: 0,
       agentVotingStartTime: _defaultAgentDt.time,
       agentVotingStartDate: _defaultAgentDt.date,
       agentVotingHours: 24,
+      agentVotingMinutes: 0,
 
       // Получить все команды
       getTeams: () => get().teams,
@@ -87,12 +90,15 @@ const useTeamStore = create(
           heroVotingStartTime: nowDatetime.time,
           heroVotingStartDate: nowDatetime.date,
           heroVotingHours: 24,
+          heroVotingMinutes: 0,
           navigatorVotingStartTime: nowDatetime.time,
           navigatorVotingStartDate: nowDatetime.date,
           navigatorVotingHours: 24,
+          navigatorVotingMinutes: 0,
           agentVotingStartTime: nowDatetime.time,
           agentVotingStartDate: nowDatetime.date,
           agentVotingHours: 24,
+          agentVotingMinutes: 0,
         });
         return newTeamId;
       },
@@ -116,13 +122,16 @@ const useTeamStore = create(
             agentMethod: team.agentMethod || 'disabled',
             heroVotingStartTime: team.heroVotingStartTime || defaultDt.time,
             heroVotingStartDate: team.heroVotingStartDate || defaultDt.date,
-            heroVotingHours: team.heroVotingHours || 24,
+            heroVotingHours: team.heroVotingHours ?? 24,
+            heroVotingMinutes: team.heroVotingMinutes ?? 0,
             navigatorVotingStartTime: team.navigatorVotingStartTime || defaultDt.time,
             navigatorVotingStartDate: team.navigatorVotingStartDate || defaultDt.date,
-            navigatorVotingHours: team.navigatorVotingHours || 24,
+            navigatorVotingHours: team.navigatorVotingHours ?? 24,
+            navigatorVotingMinutes: team.navigatorVotingMinutes ?? 0,
             agentVotingStartTime: team.agentVotingStartTime || defaultDt.time,
             agentVotingStartDate: team.agentVotingStartDate || defaultDt.date,
-            agentVotingHours: team.agentVotingHours || 24,
+            agentVotingHours: team.agentVotingHours ?? 24,
+            agentVotingMinutes: team.agentVotingMinutes ?? 0,
           });
         }
       },
@@ -158,12 +167,15 @@ const useTeamStore = create(
           heroVotingStartTime: state.heroVotingStartTime,
           heroVotingStartDate: state.heroVotingStartDate,
           heroVotingHours: state.heroVotingHours,
+          heroVotingMinutes: state.heroVotingMinutes,
           navigatorVotingStartTime: state.navigatorVotingStartTime,
           navigatorVotingStartDate: state.navigatorVotingStartDate,
           navigatorVotingHours: state.navigatorVotingHours,
+          navigatorVotingMinutes: state.navigatorVotingMinutes,
           agentVotingStartTime: state.agentVotingStartTime,
           agentVotingStartDate: state.agentVotingStartDate,
           agentVotingHours: state.agentVotingHours,
+          agentVotingMinutes: state.agentVotingMinutes,
           createdAt: new Date().toISOString(),
         };
 
@@ -217,13 +229,16 @@ const useTeamStore = create(
           agentMethod: data.agentMethod || 'disabled',
           heroVotingStartTime: data.heroVotingStartTime || defDt.time,
           heroVotingStartDate: data.heroVotingStartDate || defDt.date,
-          heroVotingHours: data.heroVotingHours || 24,
+          heroVotingHours: data.heroVotingHours ?? 24,
+          heroVotingMinutes: data.heroVotingMinutes ?? 0,
           navigatorVotingStartTime: data.navigatorVotingStartTime || defDt.time,
           navigatorVotingStartDate: data.navigatorVotingStartDate || defDt.date,
-          navigatorVotingHours: data.navigatorVotingHours || 24,
+          navigatorVotingHours: data.navigatorVotingHours ?? 24,
+          navigatorVotingMinutes: data.navigatorVotingMinutes ?? 0,
           agentVotingStartTime: data.agentVotingStartTime || defDt.time,
           agentVotingStartDate: data.agentVotingStartDate || defDt.date,
-          agentVotingHours: data.agentVotingHours || 24,
+          agentVotingHours: data.agentVotingHours ?? 24,
+          agentVotingMinutes: data.agentVotingMinutes ?? 0,
         });
       },
 
@@ -276,16 +291,19 @@ const useTeamStore = create(
       setHeroVotingTime: (time) => set({ heroVotingStartTime: time }),
       setHeroVotingDate: (date) => set({ heroVotingStartDate: date }),
       setHeroVotingHours: (hours) => set({ heroVotingHours: hours }),
+      setHeroVotingMinutes: (minutes) => set({ heroVotingMinutes: minutes }),
       
       // Actions для полей ввода navigator
       setNavigatorVotingTime: (time) => set({ navigatorVotingStartTime: time }),
       setNavigatorVotingDate: (date) => set({ navigatorVotingStartDate: date }),
       setNavigatorVotingHours: (hours) => set({ navigatorVotingHours: hours }),
+      setNavigatorVotingMinutes: (minutes) => set({ navigatorVotingMinutes: minutes }),
 
       // Actions для полей ввода agent
       setAgentVotingTime: (time) => set({ agentVotingStartTime: time }),
       setAgentVotingDate: (date) => set({ agentVotingStartDate: date }),
       setAgentVotingHours: (hours) => set({ agentVotingHours: hours }),
+      setAgentVotingMinutes: (minutes) => set({ agentVotingMinutes: minutes }),
       
       // Очистка текущей команды и установка текущего времени
       resetCurrentTeam: () => {
@@ -305,12 +323,15 @@ const useTeamStore = create(
           heroVotingStartTime: nowDt.time,
           heroVotingStartDate: nowDt.date,
           heroVotingHours: 24,
+          heroVotingMinutes: 0,
           navigatorVotingStartTime: nowDt.time,
           navigatorVotingStartDate: nowDt.date,
           navigatorVotingHours: 24,
+          navigatorVotingMinutes: 0,
           agentVotingStartTime: nowDt.time,
           agentVotingStartDate: nowDt.date,
           agentVotingHours: 24,
+          agentVotingMinutes: 0,
         });
       },
 

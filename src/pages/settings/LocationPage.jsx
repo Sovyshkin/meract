@@ -6,8 +6,10 @@ import filter from '../../images/add.png'
 import search from '../../images/search.png'
 import { profileApi } from '../../shared/api/profile';
 import { useAuthStore } from '../../shared/stores/authStore';
+import { useT } from '../../shared/hooks/useT';
 
 const LocationPage = () => {
+    const t = useT();
     const navigate = useNavigate();
     const setAuthLocation = useAuthStore((state) => state.setLocation);
 
@@ -216,7 +218,7 @@ const LocationPage = () => {
                         style={{ cursor: 'pointer' }}
                       />
                       <div className={styles.name}>
-                        <div className="name"><h1>Location</h1></div>
+                        <div className="name"><h1>{t('location')}</h1></div>
                       </div>
                       <div></div>
                     </div>
@@ -226,7 +228,7 @@ const LocationPage = () => {
                     <div className={styles.nav}>
                       <div className={styles.searchWrapper}>
                         <img src={search} alt="search" className={styles.searchIcon} />
-                        <input type="text" placeholder="Search" className={styles.input} />
+                        <input type="text" placeholder={t('search')} className={styles.input} />
                         <img
                           src={filter}
                           alt="filter"
@@ -239,7 +241,7 @@ const LocationPage = () => {
 
             <div className={styles.cardwrapmain}>
                 <div className={styles.card} style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
-                    <p className={styles.subtitle}>Browser permission status:</p>
+                    <p className={styles.subtitle}>{t('locationAccess')}:</p>
                     <p className={styles.userName} style={{ color: status.color }}>{status.text}</p>
                     {currentLocation && (
                         <p style={{ fontSize: '12px', color: '#888', margin: '4px 0 0 0' }}>
@@ -272,7 +274,7 @@ const LocationPage = () => {
                     onClick={Save}
                     disabled={isLoading || locationPermission === 'denied' || locationPermission === 'unsupported'}
                 >
-                    {isLoading ? 'Getting location...' : 'Allow access to geodata'}
+                    {isLoading ? t('detecting') : t('allow')}
                 </button>
             </div>
         </div>

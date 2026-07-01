@@ -24,6 +24,7 @@ import icon17 from '../../../images/icon17.png';
 import icon18 from '../../../images/icon18.png';
 import icon19 from '../../../images/icon19.png';
 import icon20 from '../../../images/icon20.png';
+import { useT } from '../../../shared/hooks/useT';
 
 const avatars = [icon1, icon2, icon3, icon4, icon5, icon6, icon7, icon8, icon9, icon10, icon11, icon12, icon13, icon14, icon15, icon16, icon17, icon18, icon19, icon20];
 
@@ -44,6 +45,7 @@ const ModalLayout = ({ title, children, onClose, onSave, saveText = 'Save' }) =>
 );
 
 export default function SignUp() {
+  const t = useT();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [login, setLogin] = useState("");
@@ -185,12 +187,12 @@ export default function SignUp() {
 
         <div className={styles.card}>
           <div className={styles.header}>
-            <h1 className={styles.title}>We are glad to see you</h1>
-            <p className={styles.subtitle}>To continue, register</p>
+            <h1 className={styles.title}>{t('signupTitle')}</h1>
+            <p className={styles.subtitle}>{t('signupSubtitle')}</p>
           </div>
 
           <div className={styles.avatarSection}>
-            <p className={styles.title} style={{fontSize:'16px'}}>Choose your avatar</p>
+            <p className={styles.title} style={{fontSize:'16px'}}>{t('signupChooseAvatar')}</p>
             <div className={styles.avatarList}>
 
               <input
@@ -228,7 +230,7 @@ export default function SignUp() {
             <div className={styles.inputGroup}>
               <input
                 type="text"
-                placeholder="Login *"
+                placeholder={`${t('signupLogin')} *`}
                 className={styles.input}
                 value={login}
                 onChange={(e) => setLogin(e.target.value)}
@@ -239,7 +241,7 @@ export default function SignUp() {
             <div className={styles.inputGroup}>
               <input
                 type="text"
-                placeholder="Full name"
+                placeholder={t('signupFullName')}
                 className={styles.input}
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
@@ -250,7 +252,7 @@ export default function SignUp() {
             <div className={styles.inputGroup}>
               <input
                 type="email"
-                placeholder="Email *"
+                placeholder={`${t('authEmail')} *`}
                 className={styles.input}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -261,7 +263,7 @@ export default function SignUp() {
             <div className={styles.inputGroup}>
               <input
                 type="password"
-                placeholder="Password * (5-20 characters)"
+                placeholder={`${t('authPassword')} * (5-20 characters)`}
                 className={styles.input}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -272,7 +274,7 @@ export default function SignUp() {
             <div className={styles.inputGroup}>
               <input
                 type="password"
-                placeholder="Repeat password *"
+                placeholder={`${t('signupRepeatPassword')} *`}
                 className={styles.input}
                 value={repassword}
                 onChange={(e) => setRepassword(e.target.value)}
@@ -288,9 +290,9 @@ export default function SignUp() {
                 onChange={(e) => setAgred(e.target.checked)}
               />
               <label htmlFor="check">
-                I agree to the{" "}
+                {t('signupAgreeTerms')}{" "}
                 <span onClick={() => navigate("/termofuse")} className={styles.signupLink}>
-                  terms of use
+                  {t('signupTermsLink')}
                 </span>
               </label>
             </div>
@@ -300,7 +302,7 @@ export default function SignUp() {
               className={styles.button}
               disabled={loading || !login || !email || !password || !repassword || success || !agred}
             >
-              {loading ? "Registering..." : "Sign Up"}
+              {loading ? t('signupRegistering') : t('signupSubmit')}
             </button>
 
             {error && <p className={styles.error}>{error}</p>}
@@ -318,10 +320,10 @@ export default function SignUp() {
           <p className={styles.backText}>Back</p>
         </div>
         <ModalLayout
-          title="Enter the code"
+          title={t('signupEnterCode')}
           onClose={handleCloseModal}
           onSave={verifyCode}
-          saveText="Confirm"
+          saveText={t('signupConfirm')}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
             <p style={{ color: '#FFFFFFB2' }}>

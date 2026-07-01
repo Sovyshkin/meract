@@ -5,7 +5,10 @@ import notification from '../../images/notification.png'
 import back from '../../images/arrow-left.png';
 import { profileApi } from '../../shared/api/profile';
 import { getLanguageLabel } from '../../shared/constants/languages';
+import { useT } from '../../shared/hooks/useT';
+
 const SettingsPage = () => {
+    const t = useT();
     const navigate = useNavigate();
     const [lang, setLang] = useState('English');
 
@@ -33,7 +36,7 @@ const SettingsPage = () => {
                     style={{ cursor: 'pointer' }}
                   />
                   <div className={styles.name}>
-                    <div className="name"><h1>Leaders</h1></div>
+                    <div className="name"><h1>{t('settings')}</h1></div>
                   </div>
                   <img src={notification} alt="notifications" onClick={() => navigate('/notifications')}/>
                 </div>
@@ -51,7 +54,7 @@ const SettingsPage = () => {
 
         >       
                     <div className={styles.cardInfo}>
-                      <p className={styles.userName}>Personal information</p>
+                      <p className={styles.userName}>{t('personalInfo')}</p>
                     </div>
         
                     <svg 
@@ -70,7 +73,7 @@ const SettingsPage = () => {
                     style={{padding:'20px',}}
         >   
                     <div className={styles.cardInfo}>
-                      <p className={styles.userName}>Notifications</p>
+                      <p className={styles.userName}>{t('notifications')}</p>
                     </div>
         
                     <svg 
@@ -89,7 +92,7 @@ const SettingsPage = () => {
                     style={{padding:'20px',}}
         >   
                     <div className={styles.cardInfo}>
-                      <p className={styles.userName}>Security</p>
+                      <p className={styles.userName}>{t('security')}</p>
                     </div>
         
                     <svg 
@@ -108,7 +111,7 @@ const SettingsPage = () => {
                     style={{padding:'20px',}}
         >   
                     <div className={styles.cardInfo}>
-                      <p className={styles.userName}>Language: {lang}</p>
+                      <p className={styles.userName}>{t('languageLabel')}: {lang}</p>
                     </div>
         
                     <svg 

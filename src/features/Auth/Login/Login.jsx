@@ -5,7 +5,10 @@ import { useAuth } from "./hooks/useAuth";
 import google from '../../../images/google.png'
 import discord from '../../../images/discord.png'
 import twitch from '../../../images/twitch.png'
+import { useT } from '../../../shared/hooks/useT';
+
 export default function Login() {
+  const t = useT();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const { signIn, loading, error, isAuthenticated } = useAuth();
@@ -47,19 +50,19 @@ export default function Login() {
       <div className = {styles.parent}>
       <div className={styles.card}>
         <div className={styles.header}>
-          <h1 className={styles.title}>Welcome to Meract</h1>
-          <p className={styles.subtitle}>Log in to continue</p>
+          <h1 className={styles.title}>{t('authWelcome')}</h1>
+          <p className={styles.subtitle}>{t('authLoginSubtitle')}</p>
         </div>
         
         <form onSubmit={handleSubmit} className={styles.form}>
-          {error && <div className={styles.error}>{error}</div>}
+          {error && <div className={styles.error}>{error === "Incorrect email or password" ? t('authIncorrectCredentials') : error}</div>}
 
           <div className={styles.inputGroup}>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="Email Address"
+              placeholder={t('authEmail')}
               className={styles.input}
               autoFocus
               disabled={loading}
@@ -71,7 +74,7 @@ export default function Login() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Password"
+              placeholder={t('authPassword')}
               className={styles.input}
               disabled={loading}
             />
@@ -84,7 +87,7 @@ export default function Login() {
           </div> */}
           <div style={{width:'100%', display:'flex', justifyContent:'end',}}>
             <a href="#" onClick={handleForgotPassword} className={styles.forgotLink}>
-              Forget Password?
+              {t('authForgotPassword')}
             </a>
           </div>
 
@@ -93,17 +96,17 @@ export default function Login() {
             className={styles.button}
             disabled={loading}
           >
-            {loading ? "Loading..." : "Login"}
+            {loading ? t('loading') : t('authLogin')}
           </button>
         </form>
 
         <div className={styles.footer}>
-          <p>Don't have an account yet? 
+          <p>{t('authNoAccount')}{' '}
             <span
               onClick={handleRegister}
               className={styles.signupLink}
             >
-              Sign up
+              {t('authSignUp')}
             </span>
           </p>
         </div>
@@ -112,7 +115,7 @@ export default function Login() {
       </div>
       <div className={styles.ordiv}>
          <hr />     
-        <p className={styles.orText}>or</p>
+        <p className={styles.orText}>{t('authOr')}</p>
          <hr />     
       </div>
         <div className={styles.imgcont}>

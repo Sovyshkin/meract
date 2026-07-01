@@ -7,7 +7,10 @@ import notification from '../../images/notification.png';
 import back from '../../images/arrow-left.png';
 import { achievementApi } from "../../shared/api/achievementApi";
 import { profileApi } from "../../shared/api/profile";
+import { useT } from "../../shared/hooks/useT";
+
 const MyAchieve = () =>{
+    const t = useT();
     const navigate = useNavigate();
 
     const isAdmin = true;
@@ -68,16 +71,18 @@ const formatDate = (dateString) => {
                 <div className="header">
                   <div className={styles.header_cont}>
                     <img src={back} alt="back" onClick={() => window.history.back()} style={{cursor: 'pointer'}}/>
-                    <div className="name"><h1>My achievements</h1></div>
+                    <div className="name"><h1>{t('achievementsMy')}</h1></div>
                     <img src={notification} alt="notification" onClick={() => navigate('/notifications')} style={{cursor: 'pointer'}}/>
                   </div>
                 </div>
-                {achivemenets.length > 0 ?
+                {loading ?
+                  <p style={{color:'white', margin:'auto', textAlign:'center',}}>{t('achievementsLoading')}</p>
+                : achivemenets.length > 0 ?
                  <div className={styles.achivemenets}>
                             <div className={styles.cardcontfirst}>
                                 <div style={{display:'flex',flexDirection:'column',gap:'5px',}}>
 
-                              <p className={styles.title} style={{ fontSize: '18px', margin: '0px' }}>Best achievements</p>
+                              <p className={styles.title} style={{ fontSize: '18px', margin: '0px' }}>{t('achievementsBest')}</p>
                              {isAdmin && <p className={styles.subtitle} style={{ fontSize: '14px', margin: '0px' }}>Indicate achievements that you are especially proud of</p>}
                                 </div>
                               
@@ -122,7 +127,7 @@ const formatDate = (dateString) => {
                               ))}
                             </div>
                  </div>
-                  : <p style={{color:'white', margin:'auto', textAlign:'center',}}>No achievements</p> 
+                  : <p style={{color:'white', margin:'auto', textAlign:'center',}}>{t('achievementsNone')}</p> 
                 }
 
             </div>

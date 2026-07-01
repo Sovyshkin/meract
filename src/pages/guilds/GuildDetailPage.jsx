@@ -19,8 +19,10 @@ import { guildApi } from "../../shared/api/guild";
 import { profileApi } from "../../shared/api/profile";
 import { toast } from "react-toastify";
 import { getDisplayName } from "../../shared/utils/displayName";
+import { useT } from '../../shared/hooks/useT';
 
 export default function GuildDetailPage() {
+  const t = useT();
   const { id } = useParams();
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
@@ -293,7 +295,7 @@ useEffect(() => {
             {(isMember || isAdmin) && (
             <div className={styles.dpopitem}>
               <img src={notification} alt="" />
-              <div className={styles.menuItem}>Turn off notifications</div>
+              <div className={styles.menuItem}>{t('guildTurnOffNotifications')}</div>
             </div>
             )
 
@@ -301,18 +303,18 @@ useEffect(() => {
             {isAdmin && (
             <div className={styles.dpopitem}>
               <img src={adduser} alt="" />
-              <div className={styles.menuItem} onClick={() => navigate(`/guild-settings/${id}`)}>Invite member</div>
+              <div className={styles.menuItem} onClick={() => navigate(`/guild-settings/${id}`)}>{t('guildInviteMember')}</div>
             </div>
             )}
            
             <div className={styles.dpopitem} >
               <img src={about} alt="" />
-              <div className={styles.menuItem} onClick={() => navigate(`/guild-about/${id}`)}>About guild</div>
+              <div className={styles.menuItem} onClick={() => navigate(`/guild-about/${id}`)}>{t('guildAbout')}</div>
             </div>
             {isAdmin &&
              <div className={styles.dpopitem}>
               <img src={guildsetting} alt="" />
-              <div className={styles.menuItem} onClick={() => navigate(`/guild-settings/${id}`)}>Guild settings</div>
+              <div className={styles.menuItem} onClick={() => navigate(`/guild-settings/${id}`)}>{t('guildSettings')}</div>
             </div>
             }
             {isMember &&
@@ -321,7 +323,7 @@ useEffect(() => {
               <img src={exit} alt="" />
               <div className={styles.menuItem}
               onClick={() => kickuser()}
-              >Leave guild</div>
+              >{t('guildLeave')}</div>
             </div>
             }
           </div>
@@ -357,9 +359,9 @@ useEffect(() => {
           {!isMember && !isAdmin &&
             <div className={styles.savebutton}>
               {hasPendingRequest ? (
-                <button disabled style={{ opacity: 0.5, cursor: 'default' }}>Request sent</button>
+                <button disabled style={{ opacity: 0.5, cursor: 'default' }}>{t('guildRequestSent')}</button>
               ) : (
-                <button className={styles.active} onClick={requestGuild}>Submit a request</button>
+                <button className={styles.active} onClick={requestGuild}>{t('guildSubmitRequest')}</button>
               )}
             </div>
           }
@@ -367,7 +369,7 @@ useEffect(() => {
 
         <div className={styles.item} style={{position:'relative',}}>
           <div className={styles.btncont}>
-            <button className={navMethod === 0 ? styles.active : ""} onClick={() => setNavMethod(0)}>Guild Acts</button>
+            <button className={navMethod === 0 ? styles.active : ""} onClick={() => setNavMethod(0)}>{t('guildActs')}</button>
             <button className={navMethod === 1 ? styles.active : ""} onClick={() => setNavMethod(1)}>
               Members
               {isAdmin && joinusers.length > 0 &&
@@ -381,7 +383,7 @@ useEffect(() => {
                 </div>
               }
             </button>
-            <button className={navMethod === 2 ? styles.active : ""} onClick={() => setNavMethod(2)}>Achievements</button>
+            <button className={navMethod === 2 ? styles.active : ""} onClick={() => setNavMethod(2)}>{t('guildAchievements')}</button>
           </div>
         </div>
         <div className={styles.parentnav}>
@@ -519,7 +521,7 @@ useEffect(() => {
             { achivemenets.length != 0 ?
             <>
             <div className={styles.cardcontfirst}>
-              <p className={styles.title} style={{ fontSize: '18px', margin: '0px' }}>Best achievements</p>
+              <p className={styles.title} style={{ fontSize: '18px', margin: '0px' }}>{t('guildBestAchievements')}</p>
               {achivemenets.filter(a => a.featured).map((achive) => (
                 <div 
                   key={achive.id} 
@@ -568,7 +570,7 @@ useEffect(() => {
             </>
            : <div className={styles.cardcontfirst}>
            
-                 <p className={styles.title} style={{ fontSize: '18px', margin: 'auto' }}>No achievements</p>
+                 <p className={styles.title} style={{ fontSize: '18px', margin: 'auto' }}>{t('guildNoAchievements')}</p>
             </div>
             }
 

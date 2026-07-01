@@ -1,19 +1,49 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Hls from "hls.js";
 import { actApi } from "../../shared/api/act";
-import styles from "./ActsDetail.module.css";
+import styles from "./ActWatch.module.css";
 import arrowLeft from "../../images/arrow-left.png";
+import { useT } from "../../shared/hooks/useT";
+
+function formatStreamOffset(seconds) {
+  const sec = Math.max(0, Math.floor(seconds || 0));
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
 
 export default function ActWatch() {
+  const t = useT();
   const { id } = useParams();
   const navigate = useNavigate();
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
+  const chatEndRef = useRef(null);
 
-  const [title, setTitle] = useState("Act recording");
+  const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [playbackTime, setPlaybackTime] = useState(0);
+
+  const visibleMessages = useMemo(
+    () =>
+      chatMessages.filter(
+        (msg) => (msg.streamOffsetSec ?? 0) <= playbackTime + 0.25,
+      ),
+    [chatMessages, playbackTime],
+  );
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [visibleMessages.length]);
+
+  const handleTimeUpdate = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    setPlaybackTime(video.currentTime);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -25,7 +55,11 @@ export default function ActWatch() {
         const playback = await actApi.getRecordingPlayback(id);
         if (cancelled) return;
 
-        setTitle(playback.title || "Act recording");
+        setTitle(playback.title || t("watchAct"));
+        setChatMessages(
+          Array.isArray(playback.chatMessages) ? playback.chatMessages : [],
+        );
+
         const video = videoRef.current;
         if (!video) return;
 
@@ -80,41 +114,68 @@ export default function ActWatch() {
         hlsRef.current = null;
       }
     };
-  }, [id]);
+  }, [id, t]);
 
   return (
-    <div className={styles.container} style={{ minHeight: "100vh", background: "#0a0a0a" }}>
-      <div style={{ padding: "16px", display: "flex", alignItems: "center", gap: "12px" }}>
+    <div className={styles.page}>
+      <div className={styles.header}>
         <img
           src={arrowLeft}
-          alt="back"
+          alt={t("streamBackToActs")}
           onClick={() => navigate(`/acts/${id}`)}
-          style={{ cursor: "pointer", width: 24, height: 24 }}
+          className={styles.backBtn}
         />
-        <h1 style={{ color: "#fff", fontSize: 18, margin: 0, fontFamily: "Oxanium, sans-serif" }}>
-          {title}
-        </h1>
+        <h1 className={styles.title}>{title || t("watchAct")}</h1>
       </div>
 
-      <div style={{ padding: "0 16px 24px" }}>
+      <div className={styles.content}>
         {loading && (
-          <p style={{ color: "#888", textAlign: "center" }}>Loading recording...</p>
+          <p className={styles.statusText}>{t("actWatchLoading")}</p>
         )}
-        {error && (
-          <p style={{ color: "#ff6b6b", textAlign: "center" }}>{error}</p>
-        )}
+        {error && <p className={styles.errorText}>{error}</p>}
+
         <video
           ref={videoRef}
           controls
           playsInline
-          style={{
-            width: "100%",
-            maxHeight: "70vh",
-            background: "#000",
-            borderRadius: 8,
-            display: loading || error ? "none" : "block",
-          }}
+          onTimeUpdate={handleTimeUpdate}
+          onSeeked={handleTimeUpdate}
+          className={styles.video}
+          style={{ display: loading || error ? "none" : "block" }}
         />
+
+        {!loading && !error && (
+          <div className={styles.chatPanel}>
+            <div className={styles.chatHeader}>
+              <span>{t("chatTitle")}</span>
+              <span className={styles.chatTime}>
+                {formatStreamOffset(playbackTime)}
+              </span>
+            </div>
+            <div className={styles.chatMessages}>
+              {visibleMessages.length === 0 ? (
+                <p className={styles.chatEmpty}>{t("chatNoMessages")}</p>
+              ) : (
+                visibleMessages.map((msg) => (
+                  <div key={msg.id} className={styles.chatMessage}>
+                    <div className={styles.chatMessageMeta}>
+                      <span className={styles.chatAuthor}>
+                        {msg.user?.username || "—"}
+                      </span>
+                      <span className={styles.chatOffset}>
+                        {formatStreamOffset(msg.streamOffsetSec)}
+                      </span>
+                    </div>
+                    <p className={styles.chatText}>
+                      {msg.text || msg.message}
+                    </p>
+                  </div>
+                ))
+              )}
+              <div ref={chatEndRef} />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

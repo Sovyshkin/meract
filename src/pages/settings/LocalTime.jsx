@@ -5,7 +5,10 @@ import back from '../../images/arrow-left.png';
 import styles from "./SettingsPage.module.css";
 import selected from '../../images/yes.png';
 import { profileApi } from '../../shared/api/profile';
+import { useT } from '../../shared/hooks/useT';
+
 const LocalTime = () => {
+    const t = useT();
     const navigate = useNavigate();
     const {name} = useParams();
 
@@ -53,15 +56,15 @@ const LocalTime = () => {
                 <div className={styles.header_cont}>
                     <img 
                         src={back} 
-                        alt="back" 
-                        onClick={() => navigate('/settings/profile')} 
+                        alt={t('back')}
+                        onClick={() => navigate('/settings/profile')}
                         className={styles.backBtn}
                     />
                     <div className="name">
-                        <h1>Local time</h1>
+                        <h1>{t('localTime')}</h1>
                         {isAutoDetected && (
                             <p style={{ fontSize: '11px', color: '#00F300', margin: '2px 0 0 0' }}>
-                                Auto-detected from browser
+                                {t('yourTimezone')}
                             </p>
                         )}
                     </div>

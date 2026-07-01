@@ -5,7 +5,10 @@ import userimg from '../../images/user.png'
 import { useEffect, useState } from "react";
 import { useNavigate } from 'react-router-dom';
 import { chatApi } from "../../shared/api/chat";
+import { useT } from "../../shared/hooks/useT";
+
 const PayTransfer = () => {
+    const t = useT();
     const navigate = useNavigate();
      const [cards, setCard] = useState([]);
 
@@ -26,7 +29,7 @@ const PayTransfer = () => {
     <div className={styles.container}>
         <div className={styles.header_cont}>
                             <img src={back} alt="back" onClick={() => navigate(-1)} style={{ cursor: 'pointer' }} />
-                            <div className="name"><h1>Transfer Echo</h1></div>
+                            <div className="name"><h1>{t('walletTransferEcho')}</h1></div>
                             <div></div>
         </div>
         <div className={styles.nav}>
@@ -36,7 +39,7 @@ const PayTransfer = () => {
                   </div>
         </div>
         <div className={styles.cardcont}>
-            <p style={{color:'rgb(173, 173, 173)',}}>Your contacts</p>
+            <p style={{color:'rgb(173, 173, 173)',}}>{t('walletYourContacts')}</p>
 {cards.length > 0 ?
             <>
                 {cards.map((card, index) => (

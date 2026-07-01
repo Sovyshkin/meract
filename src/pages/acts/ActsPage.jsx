@@ -12,11 +12,13 @@ import Menu from '../Menu/Menu.jsx';
 
 import { actApi } from "../../shared/api/act.js";
 import { geoApi } from "../../shared/api/geo.js";
+import { profileApi } from "../../shared/api/profile.js";
 import { useFilterStore } from "../../shared/stores/actsFilters.js";
 import api from "../../shared/api/api.js";
 import { useNotificationStore } from "../../shared/stores/notificationStore.js";
 import { useAuthStore } from "../../shared/stores/authStore.js";
 import { useT } from "../../shared/hooks/useT.js";
+import { getCategoryTranslationKey } from "../../shared/i18n/categoryKeys.js";
 
 export default function ActsPage() {
   const t = useT();
@@ -26,6 +28,7 @@ export default function ActsPage() {
   const [isOpen, setIsOpen] = useState(false);
 
   const [categories, setCategories] = useState([]);
+  const [myActIds, setMyActIds] = useState(new Set());
 
   // Диапазоны расстояний из бэка
   const [locationRanges, setLocationRanges] = useState([]); // [{ id, label, minKm, maxKm, order }]
@@ -57,6 +60,16 @@ export default function ActsPage() {
     };
     fetchData();
   }, [userLocation]);
+
+  useEffect(() => {
+    profileApi.getProfile()
+      .then((profile) => profileApi.getUserById(profile.id))
+      .then((data) => {
+        const ids = Array.isArray(data?.actIds) ? data.actIds : [];
+        setMyActIds(new Set(ids.map((id) => Number(id))));
+      })
+      .catch(() => setMyActIds(new Set()));
+  }, []);
 
   // Load active categories for tabs
   useEffect(() => {
@@ -144,12 +157,23 @@ export default function ActsPage() {
       [...list].sort((a, b) => (b.id ?? 0) - (a.id ?? 0));
 
     const categorizedGroups = categories
-      .map((category) => ({
-        ...category,
-        acts: sortNewestFirst(
-          filteredByStatusActs.filter((act) => Number(act.categoryId) === Number(category.id)),
-        ),
-      }))
+      .map((category) => {
+        if (category.key === 'my_acts') {
+          return {
+            ...category,
+            acts: sortNewestFirst(
+              filteredByStatusActs.filter((act) => myActIds.has(Number(act.id))),
+            ),
+          };
+        }
+
+        return {
+          ...category,
+          acts: sortNewestFirst(
+            filteredByStatusActs.filter((act) => Number(act.categoryId) === Number(category.id)),
+          ),
+        };
+      })
       .filter((group) => group.acts.length > 0);
 
     const uncategorizedActs = sortNewestFirst(
@@ -164,7 +188,7 @@ export default function ActsPage() {
     }
 
     return categorizedGroups;
-  }, [categories, filteredByStatusActs, t]);
+  }, [categories, filteredByStatusActs, myActIds, t]);
 
   return (
     <div className={styles.container}>
@@ -287,7 +311,12 @@ export default function ActsPage() {
         <div className={styles.contentWrapper}>
           {groupedCategories.map((group) => (
             <div key={group.id} className={styles.categorySection}>
-              <h2 className={styles.categoryTitle}>{group.name}</h2>
+              <h2 className={styles.categoryTitle}>
+                {(() => {
+                  const catKey = getCategoryTranslationKey(group);
+                  return catKey ? t(catKey) : group.name;
+                })()}
+              </h2>
               <div className={styles.horizontalScroll}>
                 {group.acts.map((act, index) => (
                   <div key={act.id || index} className={styles.horizontalCard}>

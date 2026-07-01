@@ -30,7 +30,8 @@ const transformTeamsForApi = (teams) => {
         role: 'hero',
         openVoting: true,
         votingStartAt: toIsoWithLocalOffset(team.heroVotingStartDate, team.heroVotingStartTime),
-        votingDurationHours: Number(team.heroVotingHours) || 24,
+        votingDurationHours: Number(team.heroVotingHours) || 0,
+        votingDurationMinutes: Number(team.heroVotingMinutes) || 0,
       });
     } else if (heroMethod === 'fixed' && team.heroes?.length > 0) {
       roles.push({
@@ -44,7 +45,8 @@ const transformTeamsForApi = (teams) => {
         openVoting: false,
         candidateUserIds: team.heroes.map(h => h.id),
         votingStartAt: toIsoWithLocalOffset(team.heroVotingStartDate, team.heroVotingStartTime),
-        votingDurationHours: Number(team.heroVotingHours) || 24,
+        votingDurationHours: Number(team.heroVotingHours) || 0,
+        votingDurationMinutes: Number(team.heroVotingMinutes) || 0,
       });
     }
 
@@ -54,7 +56,8 @@ const transformTeamsForApi = (teams) => {
         role: 'navigator',
         openVoting: true,
         votingStartAt: toIsoWithLocalOffset(team.navigatorVotingStartDate, team.navigatorVotingStartTime),
-        votingDurationHours: Number(team.navigatorVotingHours) || 24,
+        votingDurationHours: Number(team.navigatorVotingHours) || 0,
+        votingDurationMinutes: Number(team.navigatorVotingMinutes) || 0,
       });
     } else if (navigatorMethod === 'fixed' && team.navigators?.length > 0) {
       roles.push({
@@ -68,7 +71,8 @@ const transformTeamsForApi = (teams) => {
         openVoting: false,
         candidateUserIds: team.navigators.map(n => n.id),
         votingStartAt: toIsoWithLocalOffset(team.navigatorVotingStartDate, team.navigatorVotingStartTime),
-        votingDurationHours: Number(team.navigatorVotingHours) || 24,
+        votingDurationHours: Number(team.navigatorVotingHours) || 0,
+        votingDurationMinutes: Number(team.navigatorVotingMinutes) || 0,
       });
     }
 
@@ -80,7 +84,8 @@ const transformTeamsForApi = (teams) => {
         role: 'spot_agent',
         openVoting: true,
         votingStartAt: toIsoWithLocalOffset(team.agentVotingStartDate, team.agentVotingStartTime),
-        votingDurationHours: Number(team.agentVotingHours) || 24,
+        votingDurationHours: Number(team.agentVotingHours) || 0,
+        votingDurationMinutes: Number(team.agentVotingMinutes) || 0,
       });
     } else if (agentMethod === 'fixed' && team.agents?.length > 0) {
       roles.push({
@@ -94,7 +99,8 @@ const transformTeamsForApi = (teams) => {
         openVoting: false,
         candidateUserIds: team.agents.map(a => a.id),
         votingStartAt: toIsoWithLocalOffset(team.agentVotingStartDate, team.agentVotingStartTime),
-        votingDurationHours: Number(team.agentVotingHours) || 24,
+        votingDurationHours: Number(team.agentVotingHours) || 0,
+        votingDurationMinutes: Number(team.agentVotingMinutes) || 0,
       });
     }
 

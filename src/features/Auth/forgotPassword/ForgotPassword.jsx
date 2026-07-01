@@ -5,8 +5,10 @@ import { useChangePassword } from "./hooks/useChangePassword";
 import { useForgotPassword } from "./hooks/useForgotPassword";
 import { useVerifyCode } from "./hooks/useVerifyCode";
 import arrowLeft from '../../../images/arrow-left.png';
+import { useT } from '../../../shared/hooks/useT';
 
 export default function ForgotPassword() {
+  const t = useT();
   const [step, setStep] = useState(1);
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -68,8 +70,8 @@ export default function ForgotPassword() {
      
      <div className={styles.card}> 
       <div className={styles.header}>
-      <h1 className={styles.title}>Password Recovery</h1> 
-      <p className={styles.subtitle}>We will send you a code to restore access.</p>
+      <h1 className={styles.title}>{t('forgotTitle')}</h1> 
+      <p className={styles.subtitle}>{t('forgotSubtitle')}</p>
       </div>
       {/* <form className={styles.login_form} autoComplete="off"> */}
         {step === 1 && (
@@ -77,7 +79,7 @@ export default function ForgotPassword() {
             <div className={styles.inputGroup}>
               <input
                 type="email"
-                placeholder="Email Address"
+                placeholder={t('authEmail')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={loadingEmail}
@@ -107,7 +109,7 @@ export default function ForgotPassword() {
             <div className={styles.input_wrapper}>
               <input
                 type="text"
-                placeholder="Enter code from email"
+                placeholder={t('forgotCode')}
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 disabled={loadingCode}
@@ -120,7 +122,7 @@ export default function ForgotPassword() {
               disabled={loadingCode || !code}
               onClick={handleCodeSubmit}
             >
-              {loadingCode ? "Verifying..." : "Verify Code"}
+              {loadingCode ? t('loading') : t('forgotVerifyCode')}
             </button>
             {errorCode && (
               <p
@@ -137,7 +139,7 @@ export default function ForgotPassword() {
             <div className={styles.input_wrapper}>
               <input
                 type="password"
-                placeholder="Enter new password"
+                placeholder={t('forgotNewPassword')}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={loadingPassword}
@@ -150,7 +152,7 @@ export default function ForgotPassword() {
               disabled={loadingPassword || !password}
               onClick={handlePasswordSubmit}
             >
-              {loadingPassword ? "Changing..." : "Change Password"}
+              {loadingPassword ? t('loading') : t('forgotChangePassword')}
             </button>
             {errorPassword && (
               <p
@@ -174,7 +176,7 @@ export default function ForgotPassword() {
               disabled={loadingEmail || !email}
               onClick={handleEmailSubmit}
             >
-              {"Send The Code"}
+              {t('forgotSendCode')}
             </button>
      </div>
      <></>

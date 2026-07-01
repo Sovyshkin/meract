@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 
 import styles from "./SpotAgentCandidates.module.css";
+import { useT } from "../../hooks/useT";
 
 export default function SpotAgentCandidates({
   candidates,
@@ -14,6 +15,7 @@ export default function SpotAgentCandidates({
   onApply,
   loading,
 }) {
+  const t = useT();
   const [taskInput, setTaskInput] = useState({});
   const [showTaskInput, setShowTaskInput] = useState({});
 
@@ -51,7 +53,7 @@ export default function SpotAgentCandidates({
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h3>Spot Agents Candidates</h3>
+        <h3>{t('spotAgentCandidates')}</h3>
         <span className={styles.progress}>
           {assignedCount}/{spotAgentCount} assigned
         </span>
@@ -120,7 +122,7 @@ export default function SpotAgentCandidates({
                     </button>
                   )}
                 {hasVoted(candidate) && (
-                  <span className={styles.votedBadge}>Voted</span>
+                  <span className={styles.votedBadge}>{t('spotAgentVoted')}</span>
                 )}
               </div>
             )}
@@ -130,7 +132,7 @@ export default function SpotAgentCandidates({
                 {showTaskInput[candidate.id] && (
                   <input
                     type="text"
-                    placeholder="Task description (optional)"
+                    placeholder={`${t('spotAgentTask')} description (optional)`}
                     value={taskInput[candidate.id] || ""}
                     onChange={(e) =>
                       setTaskInput({
@@ -154,7 +156,7 @@ export default function SpotAgentCandidates({
         ))}
 
         {candidates.length === 0 && (
-          <div className={styles.empty}>No candidates yet</div>
+          <div className={styles.empty}>{t('spotAgentNoCandidates')}</div>
         )}
       </div>
     </div>

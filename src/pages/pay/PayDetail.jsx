@@ -6,8 +6,10 @@ import copyIcon from '../../images/copy.png';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { payApi } from '../../shared/api/pay';
+import { useT } from '../../shared/hooks/useT';
 
 const PayDetail = () => {
+    const t = useT();
     const navigate = useNavigate();
     const { id } = useParams();
     const [item, setItem] = useState(null);
@@ -53,7 +55,7 @@ const PayDetail = () => {
             <div className={styles.header}>
                 <div className={styles.header_cont}>
                     <img src={back} alt="back" onClick={() => window.history.back()} style={{ cursor: 'pointer' }} />
-                    <div className={styles.name}><h1>Transaction</h1></div>
+                    <div className={styles.name}><h1>{t('walletTransaction')}</h1></div>
                     <img src={notification} alt="notifications" onClick={() => navigate('/notifications')} />
                 </div>
             </div>

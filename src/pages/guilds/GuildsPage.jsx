@@ -9,8 +9,10 @@ import notification from '../../images/notification.png';
 import filter from '../../images/setting.png';
 import search from '../../images/search.png';
 import { guildApi } from "../../shared/api/guild.js";
+import { useT } from '../../shared/hooks/useT';
 
 export default function GuildsPage() {
+  const t = useT();
   const navigate = useNavigate();  
   const [isOpen, setIsOpen] = useState(false);
   const [guilds, setGuilds] = useState([]);
@@ -48,7 +50,7 @@ export default function GuildsPage() {
         <div className="header">
           <div className={styles.header_cont}>
             <img src={menu} alt="menu" onClick={() => setIsOpen(!isOpen)} style={{ cursor: 'pointer' }} />
-            <div className="name"><h1>Guild</h1></div>
+            <div className="name"><h1>{t('guildTitle')}</h1></div>
             <img src={notification} alt="notifications" onClick={() => navigate('/notifications')} style={{ cursor: 'pointer' }} />
           </div>
           <div className="nav">
@@ -56,7 +58,7 @@ export default function GuildsPage() {
               <img src={search} alt="search" className={styles.searchIcon} />
               <input 
                 type="text" 
-                placeholder="Search" 
+                placeholder={t('search')} 
                 className={styles.input} 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -76,7 +78,7 @@ export default function GuildsPage() {
               ))
             ) : (
               <h3 style={{ color: 'white', textAlign: 'center', opacity: 0.5 }}>
-                {searchTerm ? "No guilds found" : "Nothing found"}
+                {t('guildNoGuilds')}
               </h3>
             )}
           </div>

@@ -7,8 +7,10 @@ import { useSequelStore } from "../../../shared/stores/sequelStore";
 import styles from "../SceneControl.module.css";
 import { useIntros } from "./hooks/useIntros";
 import { useUploadIntro } from "./hooks/useUploadIntro";
+import { useT } from "../../../shared/hooks/useT";
 
 export default function SceneControlMusic() {
+  const t = useT();
   const [heroMethod, setHeroMethod] = useState("Intro");
   const { selectedIntro: introFromStore, setSelectedIntro: setIntroInStore } =
     useSequelStore();
@@ -79,11 +81,11 @@ export default function SceneControlMusic() {
           <div className={styles.name}>
             <img
               src="/icons/back_arrowV2.svg"
-              alt="back_arrow"
+              alt={t('back')}
               style={{ cursor: "pointer" }}
               onClick={handleGoBack}
             />
-            <h1>Scene Control</h1>
+            <h1>{t('sceneControl')}</h1>
           </div>
         </div>
         <div className="stripe2"></div>
@@ -129,7 +131,7 @@ export default function SceneControlMusic() {
               onClick={() => setHeroMethod("Intro")}
             >
               <img src="/icons/intro.svg" alt="voting" />
-              Intro
+              {t('sceneIntro')}
             </button>
             <button
               type="button"
@@ -154,7 +156,7 @@ export default function SceneControlMusic() {
               onClick={() => navigate("/scene-control-music")}
             >
               <img src="/icons/music.svg" alt="voting" />
-              Music
+              {t('sceneMusic')}
             </button>
             <button
               type="button"
@@ -166,15 +168,15 @@ export default function SceneControlMusic() {
               onClick={() => navigate("/scene-control-outro")}
             >
               <img src="/icons/outro.svg" alt="voting" />
-              Outro
+              {t('sceneOutro')}
             </button>
           </div>
 
           <div className={styles.wrapper}>
             <div className={styles.wrapper_header}>
-              <p>Intro</p>
+              <p>{t('sceneIntro')}</p>
               <button onClick={handleUploadClick} disabled={uploading}>
-                {uploading ? "Загрузка..." : "Upload"}
+                {uploading ? t('loading') : 'Upload'}
               </button>
               <input
                 type="file"
@@ -221,7 +223,7 @@ export default function SceneControlMusic() {
                     width: "100%",
                   }}
                 >
-                  Loading intros...
+                  {t('loading')}
                 </div>
               )}
 

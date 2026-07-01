@@ -9,8 +9,10 @@ import {
   createEffectPreview,
 } from "../../../shared/utils/videoEffects";
 import styles from "../SceneControl.module.css";
+import { useT } from "../../../shared/hooks/useT";
 
 export default function SceneControlTransition() {
+  const t = useT();
   const {
     selectedEffect: effectFromStore,
     setSelectedEffect: setEffectInStore,
@@ -58,11 +60,11 @@ export default function SceneControlTransition() {
           <div className={styles.name}>
             <img
               src="/icons/back_arrowV2.svg"
-              alt="back_arrow"
+              alt={t('back')}
               style={{ cursor: "pointer" }}
               onClick={handleGoBack}
             />
-            <h1>Scene Control</h1>
+            <h1>{t('sceneControl')}</h1>
           </div>
         </div>
         <div className="stripe2"></div>
@@ -100,7 +102,7 @@ export default function SceneControlTransition() {
               onClick={() => navigate("/scene-control-intro")}
             >
               <img src="/icons/intro.svg" alt="intro" />
-              Intro
+              {t('sceneIntro')}
             </button>
             <button
               type="button"
@@ -117,7 +119,7 @@ export default function SceneControlTransition() {
               onClick={() => navigate("/scene-control-music")}
             >
               <img src="/icons/music.svg" alt="music" />
-              Music
+              {t('sceneMusic')}
             </button>
             <button
               type="button"
@@ -125,13 +127,13 @@ export default function SceneControlTransition() {
               onClick={() => navigate("/scene-control-outro")}
             >
               <img src="/icons/outro.svg" alt="outro" />
-              Outro
+              {t('sceneOutro')}
             </button>
           </div>
 
           <div className={styles.wrapper}>
             <div className={styles.wrapper_header}>
-              <p>Video Effects</p>
+              <p>{t('sceneVideoEffects')}</p>
             </div>
 
             <div className={styles.wrapper_content}>

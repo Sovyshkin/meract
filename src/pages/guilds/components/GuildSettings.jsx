@@ -9,8 +9,10 @@ import iconguild from '../../../images/iconguild.png';
 import notification from '../../../images/notification.png';
 import { profileApi } from "../../../shared/api/profile";
 import { getDisplayName } from "../../../shared/utils/displayName";
+import { useT } from "../../../shared/hooks/useT";
 
 const GuildSettings = () => {
+    const t = useT();
     const navigate = useNavigate();
     const { id } = useParams();
     const location = useLocation(); 
@@ -137,7 +139,7 @@ const [settingAdmin, setSettingAdmin] = useState(null);
     }
   };
 
-  if (loading) return <div className={styles.loader}>Loading...</div>;
+  if (loading) return <div className={styles.loader}>{t('loading')}</div>;
     
    const inviteUser = async () => {
     if (!username) {
@@ -162,10 +164,10 @@ const [settingAdmin, setSettingAdmin] = useState(null);
         <div className={styles.container}>
             <div className={styles.header}>
                 <div className={styles.backButton} onClick={() => navigate(`/guilds/${id}`)}>
-                    <img src={arrowLeft} alt="Back" className={styles.backIcon} />
-                    <p className={styles.backText}>Back</p>
+                    <img src={arrowLeft} alt={t('back')} className={styles.backIcon} />
+                    <p className={styles.backText}>{t('back')}</p>
                 </div>
-                <h1>Setting Guild</h1>
+                <h1>{t('guildSettings')}</h1>
                 <img src={notification} alt="Notification" />
             </div>
 
@@ -282,7 +284,7 @@ const [settingAdmin, setSettingAdmin] = useState(null);
             {/* БЛОК ИНВАЙТОВ — только для владельца гильдии */}
             {isAdmin && (
             <div className={styles.paragraph} ref={inviteSectionRef}>
-                <h4 className={styles.elsetitle}>Invite users</h4>
+                <h4 className={styles.elsetitle}>{t('guildInviteMember')}</h4>
                 <p className={styles.subtitle}>Enter email or username</p>
                 <input 
     type="text" 
@@ -307,7 +309,7 @@ const [settingAdmin, setSettingAdmin] = useState(null);
             <div className={styles.paragraph}>
                 <div className={styles.active}>
                     <button className={styles.savebutton} onClick={handleSave} disabled={isSaving}>
-                        {isSaving ? 'Saving...' : 'Save Changes'}
+                        {isSaving ? t('loading') : t('save')}
                     </button>
                 </div> 
             </div>          

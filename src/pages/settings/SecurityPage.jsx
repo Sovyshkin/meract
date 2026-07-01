@@ -5,28 +5,29 @@ import close from '../../images/Close.png';
 import styles from "./SettingsPage.module.css";
 import copy from '../../images/copy.png';
 import { profileApi } from '../../shared/api/profile';
-
-// ЕДИНСТВЕННЫЙ ModalLayout для всех модалок
-const ModalLayout = ({ title, children, onClose, onSave, saveText = 'Save' }) => (
-    <div className={styles.modalOverlay} onClick={onClose}>
-        <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h2 className={styles.modalTitle}>{title}</h2>
-                <img src={close} alt="close" onClick={onClose} style={{ cursor: 'pointer', width: '20px' }} />
-            </div>
-            {children}
-            <div className={styles.modalButtons}>
-                <button className={styles.cancelBtn} onClick={onClose}>Cancel</button>
-                <button className={styles.active} onClick={onSave}>
-                    {saveText}
-                </button>
-            </div>
-        </div>
-    </div>
-);
+import { useT } from '../../shared/hooks/useT';
 
 const SecurityPage = () => {
+    const t = useT();
     const navigate = useNavigate();
+
+    const ModalLayout = ({ title, children, onClose, onSave, saveText = t('save') }) => (
+        <div className={styles.modalOverlay} onClick={onClose}>
+            <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <h2 className={styles.modalTitle}>{title}</h2>
+                    <img src={close} alt="close" onClick={onClose} style={{ cursor: 'pointer', width: '20px' }} />
+                </div>
+                {children}
+                <div className={styles.modalButtons}>
+                    <button className={styles.cancelBtn} onClick={onClose}>{t('cancel')}</button>
+                    <button className={styles.active} onClick={onSave}>
+                        {saveText}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
     
     // Основные данные
     const [email, setEmail] = useState('no email');
@@ -847,7 +848,7 @@ const SecurityPage = () => {
             <div className={styles.header}>
                 <div className={styles.header_cont}>
                     <img src={back} alt="back" onClick={() => window.history.back()} className={styles.backBtn} />
-                    <div className="name"><h1>Security</h1></div>
+                    <div className="name"><h1>{t('security')}</h1></div>
                     <div></div>
                 </div>
             </div>
@@ -860,7 +861,7 @@ const SecurityPage = () => {
                             <p className={styles.subtitle}>email</p>
                             <p className={styles.userName}>{email}</p>
                         </div>
-                        <p className={styles.changeLink}>Change</p>
+                        <p className={styles.changeLink}>{t('change')}</p>
                     </div>
                 </div>
 
@@ -870,7 +871,7 @@ const SecurityPage = () => {
                             <p className={styles.subtitle}>password</p>
                             <p className={styles.userName}>{password}</p>
                         </div>
-                        <p className={styles.changeLink}>Change</p>
+                        <p className={styles.changeLink}>{t('change')}</p>
                     </div>
                 </div>
 
@@ -880,7 +881,7 @@ const SecurityPage = () => {
                             <p className={styles.subtitle}>phone number</p>
                             <p className={styles.userName}>{phone}</p>
                         </div>
-                        <p className={styles.changeLink}>Change</p>
+                        <p className={styles.changeLink}>{t('change')}</p>
                     </div>
                 </div>
 

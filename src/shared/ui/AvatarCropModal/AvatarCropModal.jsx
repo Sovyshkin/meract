@@ -2,8 +2,10 @@ import { useCallback, useState } from 'react';
 import Cropper from 'react-easy-crop';
 import { getCroppedImage } from '../../utils/cropImage';
 import styles from './AvatarCropModal.module.css';
+import { useT } from '../../hooks/useT';
 
 export default function AvatarCropModal({ imageSrc, onCancel, onSave }) {
+  const t = useT();
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
@@ -28,7 +30,7 @@ export default function AvatarCropModal({ imageSrc, onCancel, onSave }) {
   return (
     <div className={styles.overlay} onClick={onCancel}>
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-        <h3 className={styles.title}>Edit profile photo</h3>
+        <h3 className={styles.title}>{t('avatarCropTitle')}</h3>
 
         <div className={styles.cropArea}>
           <Cropper
@@ -45,7 +47,7 @@ export default function AvatarCropModal({ imageSrc, onCancel, onSave }) {
         </div>
 
         <label className={styles.zoomLabel}>
-          Zoom
+          {t('avatarCropZoom')}
           <input
             type="range"
             min={1}
@@ -59,7 +61,7 @@ export default function AvatarCropModal({ imageSrc, onCancel, onSave }) {
 
         <div className={styles.actions}>
           <button type="button" className={styles.cancelBtn} onClick={onCancel}>
-            Cancel
+            {t('cancel')}
           </button>
           <button
             type="button"
@@ -67,7 +69,7 @@ export default function AvatarCropModal({ imageSrc, onCancel, onSave }) {
             onClick={handleSave}
             disabled={saving}
           >
-            {saving ? 'Saving...' : 'Save'}
+            {saving ? t('avatarCropSaving') : t('save')}
           </button>
         </div>
       </div>

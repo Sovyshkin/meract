@@ -13,6 +13,7 @@ import candy4 from '../../images/candy4.png';
 
 import { payApi } from '../../shared/api/pay';
 import { profileApi } from '../../shared/api/profile';
+import { useT } from '../../shared/hooks/useT';
 
 const CARD_STYLE = {
   style: {
@@ -106,6 +107,7 @@ function CheckoutForm({ amount, currency, echoAmount, onSuccess, onCancel }) {
 // ─── Основной компонент ───────────────────────────────────────────────────────
 
 const PayStore = () => {
+  const t = useT();
   const navigate = useNavigate();
 
   const [products,     setProducts]     = useState([]);
@@ -195,7 +197,7 @@ const PayStore = () => {
       <div className={styles.header}>
         <div className={styles.header_cont}>
           <img src={back} alt="back" onClick={() => window.history.back()} style={{ cursor: 'pointer' }} />
-          <div className="name"><h1>Meract shop</h1></div>
+          <div className="name"><h1>{t('walletShop')}</h1></div>
           <img src={notification} alt="notifications" onClick={() => navigate('/notifications')} />
         </div>
       </div>
