@@ -32,7 +32,7 @@ const PLACEHOLDER_IMGS = [candy1, candy2, candy3, candy4];
 
 // ─── Форма оплаты (внутри Elements) ──────────────────────────────────────────
 
-function CheckoutForm({ amount, currency, echoAmount, onSuccess, onCancel }) {
+function CheckoutForm({ clientSecret, amount, currency, echoAmount, onSuccess, onCancel }) {
   const stripe   = useStripe();
   const elements = useElements();
   const [processing, setProcessing] = useState(false);
@@ -40,12 +40,17 @@ function CheckoutForm({ amount, currency, echoAmount, onSuccess, onCancel }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!stripe || !elements) return;
+    if (!stripe || !elements || !clientSecret) return;
     setProcessing(true);
     setErrorMsg('');
     try {
-      const result = await stripe.confirmCardPayment(undefined, {
-        payment_method: { card: elements.getElement(CardElement) },
+      const card = elements.getElement(CardElement);
+      if (!card) {
+        setErrorMsg('Card form is not ready');
+        return;
+      }
+      const result = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: { card },
       });
       if (result.error) {
         setErrorMsg(result.error.message);
@@ -136,11 +141,15 @@ const PayStore = () => {
     setBuying(product.id);
     try {
       const data = await payApi.shopBuy(product.id);
+      if (!data?.clientSecret || !data?.publishableKey) {
+        throw new Error('Payment could not be initialized');
+      }
       // data = { clientSecret, publishableKey, amount, currency, echoAmount }
       setStripePromise(loadStripe(data.publishableKey));
       setModal({ product, ...data });
     } catch (err) {
-      console.error('Ошибка создания PaymentIntent:', err);
+      const apiMsg = err?.response?.data?.message;
+      alert(Array.isArray(apiMsg) ? apiMsg.join(', ') : (apiMsg || 'Failed to start payment'));
     } finally {
       setBuying(null);
     }
@@ -298,6 +307,7 @@ const PayStore = () => {
             </div>
             <Elements stripe={stripePromise} options={{ clientSecret: modal.clientSecret }}>
               <CheckoutForm
+                clientSecret={modal.clientSecret}
                 amount={modal.amount}
                 currency={modal.currency}
                 echoAmount={modal.echoAmount}
