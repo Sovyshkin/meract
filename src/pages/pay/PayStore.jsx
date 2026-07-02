@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
@@ -12,7 +12,6 @@ import candy3 from '../../images/candy3.png';
 import candy4 from '../../images/candy4.png';
 
 import { payApi } from '../../shared/api/pay';
-import { profileApi } from '../../shared/api/profile';
 import { useT } from '../../shared/hooks/useT';
 
 const CARD_STYLE = {
@@ -124,9 +123,9 @@ const PayStore = () => {
   const [buying,       setBuying]       = useState(null);   // productId — кнопка в состоянии загрузки
 
   // Статус после оплаты
-  const [payStatus,    setPayStatus]    = useState(null);   // 'polling' | 'done' | 'error'
+  const [payStatus,    setPayStatus]    = useState(null);   // 'confirming' | 'done' | 'error'
   const [echoAdded,    setEchoAdded]    = useState(0);
-  const pollingRef = useRef(null);
+  const [payError,     setPayError]     = useState('');
 
   // ── Загрузка товаров ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -155,42 +154,24 @@ const PayStore = () => {
     }
   };
 
-  // ── Успешная оплата: статус + polling баланса ─────────────────────────────
-  const handlePaymentSuccess = (intent) => {
-    const echoAmount = modal?.echoAmount || 0;
+  // ── Успешная оплата: подтверждение на сервере и зачисление ECHO ───────────
+  const handlePaymentSuccess = async (intent) => {
     setModal(null);
-    setPayStatus('polling');
-    setEchoAdded(echoAmount);
-
-    let attempts = 0;
-    const maxAttempts = 10; // до 20 сек
-    const prevBalance = { current: null };
-
-    const poll = async () => {
-      try {
-        const me = await profileApi.getProfile();
-        const balance = me.balance ?? me.echo ?? 0;
-        if (prevBalance.current === null) {
-          prevBalance.current = balance;
-        } else if (balance > prevBalance.current) {
-          clearInterval(pollingRef.current);
-          setPayStatus('done');
-          return;
-        }
-      } catch {}
-      attempts++;
-      if (attempts >= maxAttempts) {
-        clearInterval(pollingRef.current);
-        setPayStatus('done');
-      }
-    };
-
-    pollingRef.current = setInterval(poll, 2000);
-    poll();
+    setPayStatus('confirming');
+    setPayError('');
+    try {
+      const result = await payApi.shopConfirm(intent.id);
+      setEchoAdded(result.echoAwarded ?? modal?.echoAmount ?? 0);
+      setPayStatus('done');
+    } catch (err) {
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Payment succeeded but ECHO was not credited. Contact support.';
+      setPayError(Array.isArray(msg) ? msg.join(', ') : String(msg));
+      setPayStatus('error');
+    }
   };
-
-  // Чистим интервал при анмаунте
-  useEffect(() => () => clearInterval(pollingRef.current), []);
 
   // ── Карточки товаров ──────────────────────────────────────────────────────
   const cards = products.map((p, idx) => ({
@@ -217,22 +198,46 @@ const PayStore = () => {
           margin: '0 0 16px',
           padding: '14px 18px',
           borderRadius: '12px',
-          background: payStatus === 'done' ? 'rgba(0,243,0,0.08)' : 'rgba(0,157,255,0.08)',
-          border: `1px solid ${payStatus === 'done' ? '#00F30044' : '#009DFF44'}`,
-          color: payStatus === 'done' ? '#00F300' : '#009DFF',
+          background:
+            payStatus === 'done'
+              ? 'rgba(0,243,0,0.08)'
+              : payStatus === 'error'
+                ? 'rgba(255,77,77,0.08)'
+                : 'rgba(0,157,255,0.08)',
+          border: `1px solid ${
+            payStatus === 'done'
+              ? '#00F30044'
+              : payStatus === 'error'
+                ? '#ff4d4d44'
+                : '#009DFF44'
+          }`,
+          color:
+            payStatus === 'done'
+              ? '#00F300'
+              : payStatus === 'error'
+                ? '#ff4d4d'
+                : '#009DFF',
           fontFamily: 'Oxanium, sans-serif',
           fontSize: '14px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
           <span>
-            {payStatus === 'polling'
-              ? '⏳ Payment accepted, waiting for server…'
-              : `✅ +${echoAdded} ECHO credited to your balance!`}
+            {payStatus === 'confirming'
+              ? '⏳ Confirming payment…'
+              : payStatus === 'error'
+                ? payError
+                : `✅ +${echoAdded} ECHO credited to your balance!`}
           </span>
-          {payStatus === 'done' && (
+          {(payStatus === 'done' || payStatus === 'error') && (
             <button
-              onClick={() => setPayStatus(null)}
-              style={{ background: 'none', border: 'none', color: '#00F300', cursor: 'pointer', fontSize: '18px' }}
+              onClick={() => { setPayStatus(null); setPayError(''); }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: payStatus === 'done' ? '#00F300' : '#ff4d4d',
+                cursor: 'pointer',
+                fontSize: '18px',
+              }}
             >×</button>
           )}
         </div>

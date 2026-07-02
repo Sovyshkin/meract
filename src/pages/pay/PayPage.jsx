@@ -25,7 +25,6 @@ const PayPage = () => {
         const fetchUserRanks = async () => {
           try {
             const data = await payApi.getAll();
-            console.log(data)
             setBalance(data.balance)
             setCards(data.data)
           } catch (error) {
@@ -33,6 +32,10 @@ const PayPage = () => {
           } 
         };
         fetchUserRanks();
+
+        const onFocus = () => fetchUserRanks();
+        window.addEventListener('focus', onFocus);
+        return () => window.removeEventListener('focus', onFocus);
       }, []);
 
     const groupedCards = cards.reduce((acc, card) => {
