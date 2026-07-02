@@ -32,9 +32,9 @@ export const payApi = {
     return response.data;
   },
 
-  /** Подтвердить оплату и зачислить ECHO (если webhook ещё не сработал) */
+  /** Подтвердить оплату и зачислить ECHO */
   shopConfirm: async (paymentIntentId) => {
-    const response = await api.post('/meract-shop/confirm-payment', {
+    const response = await api.post('/payment/shop-confirm', {
       paymentIntentId,
     });
     return response.data;
