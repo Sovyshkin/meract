@@ -55,7 +55,7 @@ export default function ActWatch() {
         const playback = await actApi.getRecordingPlayback(id);
         if (cancelled) return;
 
-        setTitle(playback.title || t("watchAct"));
+        setTitle(playback.title || "Watch Act");
         setChatMessages(
           Array.isArray(playback.chatMessages) ? playback.chatMessages : [],
         );
@@ -114,7 +114,7 @@ export default function ActWatch() {
         hlsRef.current = null;
       }
     };
-  }, [id, t]);
+  }, [id]);
 
   return (
     <div className={styles.page}>
