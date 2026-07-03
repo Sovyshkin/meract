@@ -245,25 +245,35 @@ export default function ActDetail() {
         if (data) {
           setActRealId(data.id ?? null);
           let effectiveStatus = data.status;
-          if (data.status === 'ONLINE') {
-            try {
-              const heroStreams = await actApi.getHeroStreams(data.id ?? id);
-              const hasStreams = Array.isArray(heroStreams) && heroStreams.length > 0;
-              const hasOnlineHero = Array.isArray(heroStreams)
-                ? heroStreams.some((s) => s?.status === 'ONLINE')
-                : false;
-              if (hasStreams && !hasOnlineHero) {
-                effectiveStatus = 'OFFLINE';
-              }
-            } catch (_e) {
-              // Keep backend status if hero-stream endpoint is temporarily unavailable.
+          let heroStreams = [];
+          try {
+            heroStreams = await actApi.getHeroStreams(data.id ?? id);
+            const hasStreams = Array.isArray(heroStreams) && heroStreams.length > 0;
+            const hasOnlineHero = Array.isArray(heroStreams)
+              ? heroStreams.some((stream) => stream?.status === 'ONLINE')
+              : false;
+            if (data.status === 'ONLINE' && hasStreams && !hasOnlineHero) {
+              effectiveStatus = 'OFFLINE';
             }
+          } catch (_e) {
+            // Keep backend status if hero-stream endpoint is temporarily unavailable.
           }
+
+          // Legacy acts received startedAt at creation time. A real stream lifecycle,
+          // recording, or endedAt is the reliable evidence that an act actually ran.
+          const hasStreamHistory = Array.isArray(heroStreams) && heroStreams.some(
+            (stream) =>
+              Boolean(stream?.startedAt || stream?.endedAt) ||
+              ['ONLINE', 'ENDED', 'FAILED'].includes(stream?.status),
+          );
+          const hasActuallyStarted = Boolean(
+            data.endedAt || data.recordingStatus || hasStreamHistory,
+          );
 
           setIsLive(effectiveStatus);
           setRecordingStatus(data.recordingStatus ?? null);
-          setActStartedAt(data.startedAt ?? null);
-          setHasActStarted(Boolean(data.startedAt));
+          setActStartedAt(hasActuallyStarted ? (data.startedAt ?? true) : null);
+          setHasActStarted(hasActuallyStarted);
 
           if (effectiveStatus === 'OFFLINE') {
             try {
@@ -841,17 +851,19 @@ const handleRateAct = async () => {
                     disabled={isLive !== 'ONLINE'}
                     style={isLive !== 'ONLINE' ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
                   >
-                    {isUpcoming && actStartsIn
+                    {!hasActStarted && isLive !== 'ONLINE'
+                      ? 'Coming Soon'
+                      : isUpcoming && actStartsIn
                       ? `${t('startsIn')} ${actStartsIn}`
                       : isLive === 'PLANNED'
                         ? t('scheduled')
                         : isLive === 'OFFLINE'
-                          ? !hasActStarted
-                            ? t('notStarted')
-                            : recordingStatus === 'processing'
+                          ? recordingStatus === 'processing'
                             ? t('processing')
                             : t('ended')
-                          : t('watch')}
+                          : isLive === 'ENDED'
+                            ? t('ended')
+                            : t('watch')}
                   </button>
                 )}
               </div>
