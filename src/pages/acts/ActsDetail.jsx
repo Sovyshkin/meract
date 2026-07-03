@@ -841,17 +841,19 @@ const handleRateAct = async () => {
                     disabled={isLive !== 'ONLINE'}
                     style={isLive !== 'ONLINE' ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
                   >
-                    {isUpcoming && actStartsIn
+                    {!hasActStarted && isLive !== 'ONLINE'
+                      ? 'Coming Soon'
+                      : isUpcoming && actStartsIn
                       ? `${t('startsIn')} ${actStartsIn}`
                       : isLive === 'PLANNED'
                         ? t('scheduled')
                         : isLive === 'OFFLINE'
-                          ? !hasActStarted
-                            ? t('notStarted')
-                            : recordingStatus === 'processing'
+                          ? recordingStatus === 'processing'
                             ? t('processing')
                             : t('ended')
-                          : t('watch')}
+                          : isLive === 'ENDED'
+                            ? t('ended')
+                            : t('watch')}
                   </button>
                 )}
               </div>
