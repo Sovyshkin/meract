@@ -117,7 +117,7 @@ export default function ActWatch() {
   }, [id]);
 
   return (
-    <div className={styles.page}>
+    <div className={styles.container}>
       <div className={styles.header}>
         <img
           src={arrowLeft}
@@ -128,21 +128,24 @@ export default function ActWatch() {
         <h1 className={styles.title}>{title || t("watchAct")}</h1>
       </div>
 
-      <div className={styles.content}>
+      <div className={styles.contentWrapper}>
         {loading && (
-          <p className={styles.statusText}>{t("actWatchLoading")}</p>
+          <div className={styles.loadingBox}>
+            <p className={styles.statusText}>{t("actWatchLoading")}</p>
+          </div>
         )}
         {error && <p className={styles.errorText}>{error}</p>}
 
-        <video
-          ref={videoRef}
-          controls
-          playsInline
-          onTimeUpdate={handleTimeUpdate}
-          onSeeked={handleTimeUpdate}
-          className={styles.video}
-          style={{ display: loading || error ? "none" : "block" }}
-        />
+        <div className={styles.videoCard}>
+          <video
+            ref={videoRef}
+            controls
+            playsInline
+            onTimeUpdate={handleTimeUpdate}
+            onSeeked={handleTimeUpdate}
+            className={`${styles.video} ${loading || error ? styles.videoHidden : ""}`}
+          />
+        </div>
 
         {!loading && !error && (
           <div className={styles.chatPanel}>
