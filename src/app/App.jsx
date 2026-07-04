@@ -121,7 +121,20 @@ function App() {
       }
     };
 
-    fetchLocationByIP();
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLocation({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+        },
+        fetchLocationByIP,
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+      );
+    } else {
+      fetchLocationByIP();
+    }
   }, [isAuthenticated, setLocation]);
 
   useEffect(() => {

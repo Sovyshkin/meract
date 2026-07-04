@@ -7,8 +7,17 @@ import { buildPreviewUrl } from "../../../shared/utils/previewUrl";
 import { useEffect, useState } from "react";
 import { getDisplayName } from "../../../shared/utils/displayName";
 import { useT } from "../../../shared/hooks/useT";
+import { useAuthStore } from "../../../shared/stores/authStore";
+import { haversineKm } from "../../../shared/utils/geo";
 
 const reverseLocationCache = new Map();
+
+function formatDistance(distanceKm) {
+  const km = Number(distanceKm);
+  if (!Number.isFinite(km)) return null;
+  if (km < 1) return `${Math.max(1, Math.round(km * 1000))} m away`;
+  return `${km < 10 ? km.toFixed(1) : Math.round(km)} km away`;
+}
 
 async function reverseGeocodeTask(lat, lng) {
   if (lat == null || lng == null) return null;
@@ -47,6 +56,7 @@ async function reverseGeocodeTask(lat, lng) {
 export default function ActCard({ act, titleact }) {
   const navigate = useNavigate();
   const t = useT();
+  const userLocation = useAuthStore((state) => state.location);
   const id = act.publicId || act.id;
 const [isLive, setIsLive] = useState(null);
 const [title, setTitle] = useState('');
@@ -59,7 +69,9 @@ const [scheduledAt, setScheduledAt] = useState(act.scheduledAt || null);
 const [countdownText, setCountdownText] = useState('');
 const [roleSummary, setRoleSummary] = useState({ hero: '', navigator: '' });
 const [location, setLocation] = useState('no location');
-const [distance, setDistance] = useState('no distance');
+const [distance, setDistance] = useState(
+  typeof act.distanceKm === 'number' ? act.distanceKm : null,
+);
 const [streamLocation, setStreamLocation] = useState(null);
 const [rating, setRating] = useState(0.0);
 const [rawImageUrl, setRawImageUrl] = useState(act.previewFileName || null);
@@ -144,7 +156,22 @@ useEffect(() => {
           setLocation('no location');
         }
 
-        setDistance(typeof actsdata.distanceKm === 'number' ? actsdata.distanceKm : null);
+        if (typeof actsdata.distanceKm === 'number') {
+          setDistance(actsdata.distanceKm);
+        } else if (
+          userLocation?.latitude != null &&
+          userLocation?.longitude != null &&
+          firstTaskWithCoords
+        ) {
+          setDistance(haversineKm(
+            userLocation.latitude,
+            userLocation.longitude,
+            firstTaskWithCoords.lat,
+            firstTaskWithCoords.lng,
+          ));
+        } else if (typeof act.distanceKm === 'number') {
+          setDistance(act.distanceKm);
+        }
 
         if (actsdata.teams) {
           for (const team of actsdata.teams) {
@@ -178,7 +205,13 @@ useEffect(() => {
   if (id) {
     loadAllData();
   }
-}, [id, act.previewFileName]);
+}, [
+  id,
+  act.previewFileName,
+  act.distanceKm,
+  userLocation?.latitude,
+  userLocation?.longitude,
+]);
 
 useEffect(() => {
   if (!scheduledAt) {
@@ -307,7 +340,7 @@ useEffect(() => {
                 <div style={{ padding: '2px 4px', borderRadius: '8px' }}>
                   <div style={{ background:'#252525', width:'fit-content', padding:'4px 5px', borderRadius:'8px', border:'none'}}>
                     {distance != null ? (
-                      <p className={styles.desc} style={{ color:'#c0c0c0'}}>{Number(distance).toFixed(1)}km away</p>
+                      <p className={styles.desc} style={{ color:'#c0c0c0'}}>{formatDistance(distance)}</p>
                     ) : (
                       <p className={styles.desc} style={{ color:'#c0c0c0'}}>{t('noDistance')}</p>
                     )}
@@ -388,7 +421,7 @@ useEffect(() => {
             <div style={{ padding: '2px 4px', borderRadius: '8px' }}>
               <div style={{ background:'#252525', width:'fit-content', padding:'4px 5px', borderRadius:'8px', border:'none'}}>
                 {distance != null ? (
-                  <p className={styles.desc} style={{ color:'#c0c0c0'}}>{Number(distance).toFixed(1)}km away</p>
+                  <p className={styles.desc} style={{ color:'#c0c0c0'}}>{formatDistance(distance)}</p>
                 ) : (
                   <p className={styles.desc} style={{ color:'#c0c0c0'}}>{t('noDistance')}</p>
                 )}
