@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import default_back from '../../../images/act_back_default.png';
+import default_back from '../../../images/image.jpg';
 import styles from "./ActCard.module.css";
 import star from '../../../images/star.png';
 import { actApi } from "../../../shared/api/act";
