@@ -135,13 +135,14 @@ export const actApi = {
     return response.data;
   },
 
-  // options: { sequelId?, tags?, scheduledAt?, chapterId? }
+  // options: { sequelId?, tags?, scheduledAt?, chapterId?, creationKey }
   createAct: async (name, desc, photoFile, teams = [], options = {}) => {
-    const { sequelId, tags, scheduledAt, chapterId } = options;
+    const { sequelId, tags, scheduledAt, chapterId, creationKey } = options;
 
     const formData = new FormData();
     formData.append("title", String(name || ""));
     formData.append("description", String(desc || ""));
+    formData.append("creationKey", creationKey);
 
     if (sequelId) formData.append("sequelId", String(sequelId));
 
@@ -164,7 +165,12 @@ export const actApi = {
       if (chapterId) patch.chapterId = Number(chapterId);
       if (scheduledAt) patch.scheduledAt = scheduledAt;
       if (tags && tags.length > 0) patch.tags = tags;
-      await api.patch(`/act/${actId}`, patch);
+      try {
+        await api.patch(`/act/${actId}`, patch);
+      } catch (error) {
+        console.error("Act was created, but optional fields could not be updated:", error);
+        return { ...response.data, postCreateWarning: true };
+      }
     }
 
     return response.data;

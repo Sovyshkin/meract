@@ -35,8 +35,8 @@ const AddMember = () => {
         fetchUsers();
     }, []);
 
-    const filteredUsers = allUsers.filter(u =>
-        `${u.login ?? ''} ${u.email ?? ''}`.toLowerCase().includes(searchQuery.toLowerCase())
+    const filteredUsers = allUsers.filter((user) =>
+        getDisplayName(user, '').toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     const handleConfirm = (user) => {
@@ -45,7 +45,7 @@ const AddMember = () => {
                 selectedMember: {
                     id: user.id,
                     name: getDisplayName(user, 'Unknown'),
-                    imageUrl: null,
+                    imageUrl: user.avatarUrl || null,
                     type: type
                 }
             }
@@ -81,11 +81,19 @@ const AddMember = () => {
                             onClick={() => handleConfirm(user)}
                         >
                             <div className={styles.rankBadge}>
-                                <img src={userimg} alt="avatar" className={styles.rankImg} style={{ color: "white", fontSize: "small" }} />
+                                <img
+                                    src={user.avatarUrl || userimg}
+                                    alt={`${getDisplayName(user, 'User')} avatar`}
+                                    className={styles.rankImg}
+                                    onError={(event) => {
+                                        event.currentTarget.onerror = null;
+                                        event.currentTarget.src = userimg;
+                                    }}
+                                    style={{ color: "white", fontSize: "small", objectFit: "cover" }}
+                                />
                             </div>
                             <div className={styles.cardInfo}>
                                 <p className={styles.userName}>{getDisplayName(user, 'Unknown')}</p>
-                                <p style={{ color: "rgb(173, 173, 173)", fontSize: "12px", margin: 0 }}>{user.email}</p>
                             </div>
                         </div>
                     ))

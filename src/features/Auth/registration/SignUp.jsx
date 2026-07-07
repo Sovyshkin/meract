@@ -102,6 +102,11 @@ export default function SignUp() {
       return;
     }
 
+    if (!selectedAvatar) {
+      alert('Please choose a profile picture');
+      return;
+    }
+
     if (!email || email.trim() === '') {
       alert('Email cannot be empty');
       return;
@@ -300,7 +305,7 @@ export default function SignUp() {
             <button
               type="submit"
               className={styles.button}
-              disabled={loading || !login || !email || !password || !repassword || success || !agred}
+              disabled={loading || !login || !email || !password || !repassword || !selectedAvatar || success || !agred}
             >
               {loading ? t('signupRegistering') : t('signupSubmit')}
             </button>

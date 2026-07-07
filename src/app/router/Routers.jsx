@@ -13,6 +13,7 @@ import Login from "../../features/Auth/Login/Login";
 import RequireAuth from "../../features/Auth/RequireAuth";
 import ForgotPassword from "../../features/Auth/forgotPassword/ForgotPassword";
 import SignUp from "../../features/Auth/registration/SignUp";
+import CompleteProfile from "../../features/Auth/CompleteProfile/CompleteProfile";
 import AchievementsPage from "../../pages/achievements/AchievementsPage";
 import ActDetailPage from "../../pages/actDetail/ActDetailPage";
 import ActsPage from "../../pages/acts/ActsPage";
@@ -87,7 +88,10 @@ const HomeRedirect = () => {
           token: accessToken || userData?.token || userData?.accessToken,
         });
 
-        window.history.replaceState({}, document.title, "/acts");
+        const destination = searchParams.get("onboarding") === "1"
+          ? "/complete-profile"
+          : "/acts";
+        window.location.replace(destination);
       } catch (error) {
         console.error("Error parsing user data from Google OAuth:", error);
       }
@@ -224,6 +228,14 @@ export const router = createBrowserRouter([
   {
     path: "/registration",
     element: <SignUp />,
+  },
+  {
+    path: "/complete-profile",
+    element: (
+      <RequireAuth>
+        <CompleteProfile />
+      </RequireAuth>
+    ),
   },
   {
     path: "/forgot-password",

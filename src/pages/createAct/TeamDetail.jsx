@@ -220,7 +220,7 @@ const TeamDetail = () => {
                     } else {
                         const newMember = {
                             id: selectedMember.id,
-                            img: selectedMember.img || selectedMember.imageUrl || teamicon, 
+                            img: user.avatarUrl || selectedMember.img || selectedMember.imageUrl || teamicon,
                             name: selectedMember.name,
                             points: user.points || '1000'
                         };

@@ -36,6 +36,7 @@ export default function CreateAct() {
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const creationKeyRef = useRef(null);
 
   // Состояния для акта
   const [title, setTitle] = useState("");
@@ -282,6 +283,14 @@ export default function CreateAct() {
     setIsSubmitting(true);
 
     try {
+      if (!creationKeyRef.current) {
+        const storedKey = localStorage.getItem("createActCreationKey");
+        creationKeyRef.current = storedKey || (
+          crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`
+        );
+        localStorage.setItem("createActCreationKey", creationKeyRef.current);
+      }
+
       console.log("Original teams data:", teams);
       
       // Создаем акт с командами (трансформация происходит в actApi)
@@ -290,6 +299,7 @@ export default function CreateAct() {
         tags: tags.length > 0 ? tags : undefined,
         scheduledAt: scheduledAt || undefined,
         chapterId: selectedChapterId || undefined,
+        creationKey: creationKeyRef.current,
       });
       
       if (result) {
@@ -297,11 +307,17 @@ export default function CreateAct() {
         console.log("Act created with ID:", newActId);
         
         if (newActId) {
-          const profileData = await profileApi.getProfile();
-          await chatApi.createChatGroup(name, [profileData.id], photoFile, newActId);
+          try {
+            const profileData = await profileApi.getProfile();
+            await chatApi.createChatGroup(name, [profileData.id], photoFile, newActId);
+          } catch (chatError) {
+            console.error("Act was created, but its chat could not be created:", chatError);
+          }
         }
 
         localStorage.removeItem("createActFormState");
+        localStorage.removeItem("createActCreationKey");
+        creationKeyRef.current = null;
         
         clearSelectedSequel();
         clearSelectedIntro();
@@ -312,7 +328,11 @@ export default function CreateAct() {
         setScheduledAt("");
         setSelectedChapterId(null);
 
-        toast.success("Act created successfully!");
+        if (result.postCreateWarning) {
+          toast.warning("Act created, but some optional settings could not be saved");
+        } else {
+          toast.success("Act created successfully!");
+        }
         navigate('/acts');
       }
     } catch (error) {
@@ -443,7 +463,10 @@ export default function CreateAct() {
     <div className={styles.container}>
       {/* Header */}
       <div className={styles.header}>
-        <div className={styles.backButton} onClick={() => window.history.back()}>
+        <div
+          className={styles.backButton}
+          onClick={() => navigate('/acts', { replace: true })}
+        >
           <img src={arrowLeft} alt="Back" className={styles.backIcon} />
         </div>
         <h1>{t('createActNew')}</h1>

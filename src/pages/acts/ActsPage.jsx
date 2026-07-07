@@ -92,6 +92,7 @@ export default function ActsPage() {
 
   useEffect(() => {
     localStorage.removeItem("createActFormState");
+    localStorage.removeItem("createActCreationKey");
     clearAll();
   }, [clearAll]);
 
