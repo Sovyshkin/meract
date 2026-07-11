@@ -604,6 +604,34 @@ flex-direction: column;
     outline: none;
 }
 
+.passwordField {
+    position: relative;
+}
+
+.passwordModalInput {
+    width: 100%;
+    padding-right: 82px;
+}
+
+.passwordToggle {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: none;
+    background: rgba(255, 255, 255, 0.1);
+    color: #7fd7ff;
+    border-radius: 8px;
+    padding: 6px 9px;
+    font: 700 12px "Oxanium", sans-serif;
+    cursor: pointer;
+}
+
+.passwordToggle:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
 .modalButtons {
     display: flex;
     gap: 10px;

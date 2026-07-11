@@ -15,6 +15,7 @@ export default function ForgotPassword() {
   const [code, setCode] = useState("");
   const [userId, setUserId] = useState(null);
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
     sendCode,
@@ -106,7 +107,7 @@ export default function ForgotPassword() {
 
         {step === 2 && (
           <>
-            <div className={styles.input_wrapper}>
+            <div className={styles.inputGroup}>
               <input
                 type="text"
                 placeholder={t('forgotCode')}
@@ -136,15 +137,23 @@ export default function ForgotPassword() {
 
         {step === 3 && (
           <>
-            <div className={styles.input_wrapper}>
+            <div className={styles.inputGroup}>
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 placeholder={t('forgotNewPassword')}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={loadingPassword}
-                className={styles.input} 
+                className={`${styles.input} ${styles.passwordInput}`}
               />
+              <button
+                type="button"
+                className={styles.passwordToggle}
+                onClick={() => setShowPassword((value) => !value)}
+                disabled={loadingPassword || !password}
+              >
+                {showPassword ? "Hide" : "Show"}
+              </button>
             </div>
             <button
               type="submit"

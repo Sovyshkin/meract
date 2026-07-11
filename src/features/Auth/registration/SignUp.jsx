@@ -51,6 +51,8 @@ export default function SignUp() {
   const [login, setLogin] = useState("");
   const [fullName, setFullName] = useState("");
   const [repassword, setRepassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showRepassword, setShowRepassword] = useState(false);
   const [agred, setAgred] = useState(false);
 
   const [step, setStep] = useState(1);
@@ -267,24 +269,40 @@ export default function SignUp() {
 
             <div className={styles.inputGroup}>
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 placeholder={`${t('authPassword')} * (5-20 characters)`}
-                className={styles.input}
+                className={`${styles.input} ${styles.passwordInput}`}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={loading || success}
               />
+              <button
+                type="button"
+                className={styles.passwordToggle}
+                onClick={() => setShowPassword((value) => !value)}
+                disabled={loading || success || !password}
+              >
+                {showPassword ? "Hide" : "Show"}
+              </button>
             </div>
 
             <div className={styles.inputGroup}>
               <input
-                type="password"
+                type={showRepassword ? "text" : "password"}
                 placeholder={`${t('signupRepeatPassword')} *`}
-                className={styles.input}
+                className={`${styles.input} ${styles.passwordInput}`}
                 value={repassword}
                 onChange={(e) => setRepassword(e.target.value)}
                 disabled={loading || success}
               />
+              <button
+                type="button"
+                className={styles.passwordToggle}
+                onClick={() => setShowRepassword((value) => !value)}
+                disabled={loading || success || !repassword}
+              >
+                {showRepassword ? "Hide" : "Show"}
+              </button>
             </div>
 
             <div className={styles.checkbox_wrapper}>

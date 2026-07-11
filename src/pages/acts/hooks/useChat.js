@@ -3,13 +3,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 
 import api from "../../../shared/api/api";
+import { pollApi } from "../../../shared/api/pollApi";
 import { useAuthStore } from "../../../shared/stores/authStore";
+
+const STREAM_HISTORY_LIMIT = 500;
 
 const useChat = (actId, chatId = null) => {
   const [messages, setMessages] = useState([]);
   const [pinnedMessages, setPinnedMessages] = useState([]);
   const [addedTask, setAddedTask] = useState(null);
   const [activePoll, setActivePoll] = useState(null);
+  const [activePolls, setActivePolls] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [sending, setSending] = useState(false);
@@ -44,11 +48,19 @@ const useChat = (actId, chatId = null) => {
         setIsConnected(true);
         setError(null);
         s.emit("joinStream", { actId: parseInt(actId) });
+        pollApi.getActivePolls(actId)
+          .then((polls) => {
+            const list = Array.isArray(polls) ? polls : [];
+            setActivePolls(list);
+            setActivePoll(list[0] || null);
+          })
+          .catch(() => {});
         // Надёжный HTTP-fallback: загружаем историю сразу после подключения
         if (!chatId) return;
-        api.get(`/chat/${chatId}/messages`, { params: { limit: 50, offset: 0 } })
+        api.get(`/chat/${chatId}/messages`, { params: { limit: STREAM_HISTORY_LIMIT, offset: 0 } })
           .then(res => {
-            const msgs = (res.data || []).filter(m => (m.content || m.message || '').trim());
+            const rawMessages = Array.isArray(res.data) ? res.data : (res.data?.messages || []);
+            const msgs = rawMessages.filter(m => (m.content || m.message || m.text || '').trim());
             if (msgs.length > 0) setMessages(msgs);
           })
           .catch(() => {});
@@ -122,15 +134,21 @@ const useChat = (actId, chatId = null) => {
       });
 
       s.on("poll:new", (poll) => {
+        setActivePolls((prev) => [poll, ...prev.filter((item) => item.id !== poll.id)]);
         setActivePoll(poll);
       });
 
       s.on("poll:update", (poll) => {
+        setActivePolls((prev) => {
+          const next = prev.map((item) => (item.id === poll.id ? poll : item));
+          return next.some((item) => item.id === poll.id) ? next : [poll, ...next];
+        });
         setActivePoll(poll);
       });
 
       s.on("poll:closed", (data) => {
-        setActivePoll(null);
+        setActivePolls((prev) => prev.filter((poll) => poll.id !== data.pollId));
+        setActivePoll((current) => (current?.id === data.pollId ? null : current));
       });
     };
 
@@ -145,7 +163,7 @@ const useChat = (actId, chatId = null) => {
 
   // Fetch initial messages (HTTP - для истории)
   const fetchMessages = useCallback(
-    async (limit = 50, offset = 0) => {
+    async (limit = STREAM_HISTORY_LIMIT, offset = 0) => {
       if (!actId || !chatId) return;
 
       try {
@@ -159,8 +177,9 @@ const useChat = (actId, chatId = null) => {
           },
         });
 
-        const filteredMessages = response.data.filter((msg) => {
-          const content = msg.content || msg.message || "";
+        const rawMessages = Array.isArray(response.data) ? response.data : (response.data?.messages || []);
+        const filteredMessages = rawMessages.filter((msg) => {
+          const content = msg.content || msg.message || msg.text || "";
           return content.trim() !== "";
         });
 
@@ -237,13 +256,14 @@ const useChat = (actId, chatId = null) => {
 
         const response = await api.get(`/chat/${chatId}/messages`, {
           params: {
-            limit: 50,
+            limit: STREAM_HISTORY_LIMIT,
             offset,
           },
         });
 
-        const filteredMessages = response.data.filter((msg) => {
-          const content = msg.content || msg.message || "";
+        const rawMessages = Array.isArray(response.data) ? response.data : (response.data?.messages || []);
+        const filteredMessages = rawMessages.filter((msg) => {
+          const content = msg.content || msg.message || msg.text || "";
           return content.trim() !== "";
         });
 
@@ -302,11 +322,20 @@ const useChat = (actId, chatId = null) => {
     addedTask,
     clearAddedTask: () => setAddedTask(null),
     activePoll,
+    activePolls,
     clearActivePoll: () => setActivePoll(null),
-    setActivePoll,
+    setActivePoll: (poll) => {
+      setActivePoll(poll);
+      if (poll) {
+        setActivePolls((prev) => {
+          const next = prev.map((item) => (item.id === poll.id ? poll : item));
+          return next.some((item) => item.id === poll.id) ? next : [poll, ...next];
+        });
+      }
+    },
+    setActivePolls,
   };
 };
 
 export default useChat;
-
 

@@ -114,7 +114,7 @@ const RankDetails = () => {
                     <img 
                         src={back} 
                         alt="back" 
-                        onClick={() => navigate('/rank')} 
+                        onClick={() => navigate('/rank', { replace: true })} 
                         style={{ cursor: 'pointer' }} 
                     />
                 </div>

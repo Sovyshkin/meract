@@ -11,6 +11,7 @@ export default function Login() {
   const t = useT();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const { signIn, loading, error, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
@@ -71,13 +72,21 @@ export default function Login() {
           
           <div className={styles.inputGroup}>
             <input
-              type="password"
+              type={showPassword ? "text" : "password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder={t('authPassword')}
-              className={styles.input}
+              className={`${styles.input} ${styles.passwordInput}`}
               disabled={loading}
             />
+            <button
+              type="button"
+              className={styles.passwordToggle}
+              onClick={() => setShowPassword((value) => !value)}
+              disabled={loading || !password}
+            >
+              {showPassword ? "Hide" : "Show"}
+            </button>
           </div>
 
 

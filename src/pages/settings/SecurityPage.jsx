@@ -52,6 +52,8 @@ const SecurityPage = () => {
     const [passwordOtp, setPasswordOtp] = useState(['', '', '', '']);
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const passwordInputRefs = useRef([]);
 
     // Состояния для Phone модалки (3 шага)
@@ -451,6 +453,8 @@ const SecurityPage = () => {
         setPasswordOtp(['', '', '', '']);
         setNewPassword('');
         setConfirmPassword('');
+        setShowNewPassword(false);
+        setShowConfirmPassword(false);
         
         // Сброс phone
         setPhoneStep(1);
@@ -618,21 +622,40 @@ const SecurityPage = () => {
                         </div>
                     ) : (
                         <div style={{ marginBottom: '20px' }}>
-                            <input 
-                                type="password" 
-                                className={styles.modalInput} 
-                                placeholder="New password"
-                                value={newPassword}
-                                onChange={(e) => setNewPassword(e.target.value)}
-                                style={{ marginBottom: '10px' }}
-                            />
-                            <input 
-                                type="password" 
-                                className={styles.modalInput} 
-                                placeholder="Confirm new password"
-                                value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
-                            />
+                            <div className={styles.passwordField} style={{ marginBottom: '10px' }}>
+                                <input 
+                                    type={showNewPassword ? "text" : "password"}
+                                    className={`${styles.modalInput} ${styles.passwordModalInput}`}
+                                    placeholder="New password"
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                />
+                                <button
+                                    type="button"
+                                    className={styles.passwordToggle}
+                                    onClick={() => setShowNewPassword((value) => !value)}
+                                    disabled={!newPassword}
+                                >
+                                    {showNewPassword ? "Hide" : "Show"}
+                                </button>
+                            </div>
+                            <div className={styles.passwordField}>
+                                <input 
+                                    type={showConfirmPassword ? "text" : "password"}
+                                    className={`${styles.modalInput} ${styles.passwordModalInput}`}
+                                    placeholder="Confirm new password"
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                />
+                                <button
+                                    type="button"
+                                    className={styles.passwordToggle}
+                                    onClick={() => setShowConfirmPassword((value) => !value)}
+                                    disabled={!confirmPassword}
+                                >
+                                    {showConfirmPassword ? "Hide" : "Show"}
+                                </button>
+                            </div>
                         </div>
                     )}
                 </ModalLayout>

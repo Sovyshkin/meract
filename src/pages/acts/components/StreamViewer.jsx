@@ -136,6 +136,8 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const [activeChat, setActiveChat] = useState('general');
   const [showChatQuickActions, setShowChatQuickActions] = useState(false);
   const [showFullscreenChat, setShowFullscreenChat] = useState(false);
+  const [unreadGeneralCount, setUnreadGeneralCount] = useState(0);
+  const [unreadTeamCount, setUnreadTeamCount] = useState(0);
   const [selectedStreamerId, setSelectedStreamerId] = useState(null);
   const [heroStreams, setHeroStreams] = useState([]);
   const [showHeroPicker, setShowHeroPicker] = useState(false);
@@ -143,6 +145,9 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const [viewerCount, setViewerCount] = useState(0);
   const teamChatSocketRef = useRef(null);
   const teamChatEndRef = useRef(null);
+  const chatOpenedAtRef = useRef(Date.now());
+  const seenGeneralMessageKeysRef = useRef(new Set());
+  const seenTeamMessageKeysRef = useRef(new Set());
   // Состояния для записей
   const [showRecordingPlayer, setShowRecordingPlayer] = useState(false);
   const [recordingUrl, setRecordingUrl] = useState("");
@@ -162,6 +167,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [ratingValue, setRatingValue] = useState(8);
   const [hasRated, setHasRated] = useState(false);
+  const [closeAfterRating, setCloseAfterRating] = useState(false);
   const [currentRating, setCurrentRating] = useState(null);
   const [currentRatingsCount, setCurrentRatingsCount] = useState(0);
   const watchedTimeRef = useRef(0);
@@ -340,7 +346,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
   }, [actualStreamData?.id, streamData?.id]);
   const { user } = useAuthStore();
-  const { messages: chatMessages, sendMessage: sendChatMessage, sending, fetchMessages: fetchChatMessages, pinnedMessages, pinMessage, unpinMessage, proposeTask, addTask, addedTask, clearAddedTask, activePoll, clearActivePoll, setActivePoll } = useChat(numericActId);
+  const { messages: chatMessages, sendMessage: sendChatMessage, sending, fetchMessages: fetchChatMessages, pinnedMessages, pinMessage, unpinMessage, proposeTask, addTask, addedTask, clearAddedTask, activePoll, activePolls, clearActivePoll, setActivePoll } = useChat(numericActId);
 
   // Spot Agent state
   const {
@@ -378,6 +384,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     }
     return null;
   }, [user]);
+  const unreadChatCount = unreadGeneralCount + unreadTeamCount;
   const isInitiator = currentUserId === actualStreamData?.userId;
   const spotAgentCount = actualStreamData?.spotAgentCount || 0;
   const hasApplied = candidates.some((c) => c.userId === currentUserId);
@@ -505,6 +512,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const streamStartTimeRef = useRef(null);
   const localVideoTrackRef = useRef(null);
   const localAudioTrackRef = useRef(null);
+  const micMutedRef = useRef(false);
   const retryStartTimerRef = useRef(null);
   const startRetryCountRef = useRef(0);
   const MAX_START_RETRIES = 3;
@@ -519,6 +527,45 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const heroAutoSelectedRef = useRef(false);
 
   const [isopenmenu, setisopenmenu] = useState(false);
+
+  useEffect(() => {
+    micMutedRef.current = isMicMuted;
+  }, [isMicMuted]);
+
+  const applyMicMuted = useCallback(async (audioTrack, muted) => {
+    if (!audioTrack) return;
+
+    await audioTrack.setEnabled(!muted);
+
+    const mediaStreamTrack = audioTrack.getMediaStreamTrack?.();
+    if (mediaStreamTrack) {
+      mediaStreamTrack.enabled = !muted;
+    }
+  }, []);
+
+  const toggleMicrophone = useCallback(async () => {
+    const audioTrack = localAudioTrackRef.current || localAudioTrack;
+    const nextMuted = !micMutedRef.current;
+
+    micMutedRef.current = nextMuted;
+    setIsMicMuted(nextMuted);
+
+    if (!audioTrack) {
+      toast.error('Microphone track is not available');
+      return;
+    }
+
+    try {
+      await applyMicMuted(audioTrack, nextMuted);
+      toast.success(nextMuted ? 'Microphone muted' : 'Microphone unmuted');
+    } catch (err) {
+      micMutedRef.current = !nextMuted;
+      setIsMicMuted(!nextMuted);
+      console.error('Microphone toggle failed:', err);
+      toast.error(`Failed to toggle microphone: ${err?.message || 'unknown error'}`);
+    }
+  }, [applyMicMuted, localAudioTrack]);
+
   const forceResetAgoraClient = useCallback(async () => {
     try {
       if (localVideoTrackRef.current) {
@@ -700,6 +747,12 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
         const response = await api.get(`/act/find-by-id/${actRef}`);
         debugLog("StreamViewer - Loaded stream data:", response.data);
         setActualStreamData(response.data);
+        setCurrentRating(response.data?.rating ?? null);
+        setCurrentRatingsCount(response.data?.ratingsCount ?? 0);
+        if (response.data?.myRating != null) {
+          setRatingValue(response.data.myRating);
+          setHasRated(true);
+        }
       } catch (error) {
         console.error("Error loading stream data:", error);
         setActualStreamData(streamData);
@@ -883,10 +936,12 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     }
   };
 
-  const handleVote = async (optionId) => {
-    if (!activePoll) return;
+  const visibleActivePolls = activePolls.length > 0 ? activePolls : (activePoll ? [activePoll] : []);
+
+  const handleVote = async (pollId, optionId) => {
+    if (!pollId) return;
     try {
-      const updated = await pollApi.vote(activePoll.id, optionId);
+      const updated = await pollApi.vote(pollId, optionId);
       setActivePoll(updated);
       toast.success("Vote cast!");
     } catch (err) {
@@ -1318,9 +1373,10 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       localAudioTrackRef.current = audioTrack;
       setLocalVideoTrack(videoTrack);
       setLocalAudioTrack(audioTrack);
+      await applyMicMuted(audioTrack, micMutedRef.current);
 
       if (localVideoRef.current && videoTrack) {
-        videoTrack.play(localVideoRef.current, { mirror: false });
+        videoTrack.play(localVideoRef.current, { mirror: false, fit: 'contain' });
       }
 
       await client.publish([videoTrack, audioTrack].filter(Boolean));
@@ -1379,10 +1435,11 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       // Синхронизируем в ref для корректной очистки
       localVideoTrackRef.current = videoTrack;
       localAudioTrackRef.current = audioTrack;
+      await applyMicMuted(audioTrack, micMutedRef.current);
 
       // Показываем превью стримеру
       if (localVideoRef.current && videoTrack) {
-        videoTrack.play(localVideoRef.current, { mirror: false });
+        videoTrack.play(localVideoRef.current, { mirror: false, fit: 'contain' });
       }
 
       // Публикуем стрим
@@ -1513,7 +1570,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
           localVideoTrackRef.current = fallbackVideoTrack;
           setLocalVideoTrack(fallbackVideoTrack);
           if (localVideoRef.current) {
-            fallbackVideoTrack.play(localVideoRef.current, { mirror: false });
+            fallbackVideoTrack.play(localVideoRef.current, { mirror: false, fit: 'contain' });
           }
           await clientRef.current.publish([fallbackVideoTrack]);
         } catch (restoreError) {
@@ -1526,7 +1583,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       setLocalVideoTrack(newVideoTrack);
 
       if (localVideoRef.current) {
-        newVideoTrack.play(localVideoRef.current, { mirror: false });
+        newVideoTrack.play(localVideoRef.current, { mirror: false, fit: 'contain' });
       }
 
       await clientRef.current.publish([newVideoTrack]);
@@ -1796,7 +1853,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
             if (mediaType === "video") {
               if (remoteVideoRef.current) {
-                user.videoTrack?.play(remoteVideoRef.current);
+                user.videoTrack?.play(remoteVideoRef.current, { fit: 'contain' });
                 debugLog("👀 Playing video");
               }
             }
@@ -1946,7 +2003,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   // Close emoji picker when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (showEmojiPicker && !event.target.closest(`.${styles.chatInput}`)) {
+      if (showEmojiPicker && !event.target.closest(`.${styles.emojiInputArea}`)) {
         setShowEmojiPicker(false);
       }
     };
@@ -1983,19 +2040,26 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     };
   }, [isConnected, hasRated]);
 
-  // Show rating modal when user leaves after 10+ seconds of watching
+  const shouldAskForRating = useCallback(() => (
+    !isSelectedStreamer &&
+    !hasRated &&
+    watchedTimeRef.current >= 10
+  ), [hasRated, isSelectedStreamer]);
+
   useEffect(() => {
-    if (!showRatingModal || hasRated) return;
+    if (isSelectedHeroEnded && shouldAskForRating()) {
+      setCloseAfterRating(false);
+      setShowRatingModal(true);
+    }
+  }, [isSelectedHeroEnded, shouldAskForRating]);
 
-    const handleBeforeUnload = () => {
-      if (watchedTimeRef.current >= 10 && !hasRated) {
-        setShowRatingModal(true);
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [showRatingModal, hasRated]);
+  const closeStreamView = useCallback(() => {
+    setCloseAfterRating(false);
+    if (onClose) {
+      onClose();
+    }
+    navigate("/acts", { replace: true });
+  }, [navigate, onClose]);
 
   const handleRateAct = async () => {
     if (hasRated) return;
@@ -2010,13 +2074,17 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       console.error('Failed to submit rating:', err);
     }
     setShowRatingModal(false);
+    if (closeAfterRating) {
+      await disconnectFromStream();
+      closeStreamView();
+    }
   };
 
-  const handleRatingClose = () => {
-    if (watchedTimeRef.current >= 10 && !hasRated) {
-      setShowRatingModal(true);
-    } else {
-      onClose?.();
+  const handleRatingClose = async () => {
+    setShowRatingModal(false);
+    if (closeAfterRating) {
+      await disconnectFromStream();
+      closeStreamView();
     }
   };
 
@@ -2048,7 +2116,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const fetchTeamMessages = useCallback(async () => {
     if (!teamChatId) return;
     try {
-      const res = await api.get(`/chat/${teamChatId}/messages`, { params: { limit: 50 } });
+      const res = await api.get(`/chat/${teamChatId}/messages`, { params: { limit: 500 } });
       const msgs = (res.data?.messages || []).filter((m) => (m.text || '').trim());
       setTeamMessages((prev) => {
         if (prev.length === msgs.length) return prev;
@@ -2119,6 +2187,64 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   }, [showChatPanel]);
 
   // Chat panel auto-show removed - now opens only on button click
+
+  useEffect(() => {
+    const isGeneralVisible = (showChatPanel || showFullscreenChat) && activeChat === 'general';
+    if (isGeneralVisible) {
+      setUnreadGeneralCount(0);
+    }
+
+    let incomingCount = 0;
+    chatMessages
+      .filter((m) => (m.message || m.content || '').trim())
+      .forEach((message, index) => {
+        const key = message.id || `${message.createdAt || ''}-${message.userId || message.user?.id || ''}-${message.message || message.content || ''}-${index}`;
+        if (seenGeneralMessageKeysRef.current.has(key)) return;
+
+        seenGeneralMessageKeysRef.current.add(key);
+
+        const createdAtMs = message.createdAt ? new Date(message.createdAt).getTime() : Date.now();
+        const messageUserId = message.user?.id ?? message.userId;
+        const isOwnMessage = currentUserId && String(messageUserId) === String(currentUserId);
+
+        if (!isGeneralVisible && !isOwnMessage && createdAtMs >= chatOpenedAtRef.current) {
+          incomingCount += 1;
+        }
+      });
+
+    if (incomingCount > 0) {
+      setUnreadGeneralCount((count) => count + incomingCount);
+    }
+  }, [chatMessages, showChatPanel, showFullscreenChat, activeChat, currentUserId]);
+
+  useEffect(() => {
+    const isTeamVisible = (showChatPanel || showFullscreenChat) && activeChat === 'team';
+    if (isTeamVisible) {
+      setUnreadTeamCount(0);
+    }
+
+    let incomingCount = 0;
+    teamMessages
+      .filter((m) => (m.text || '').trim())
+      .forEach((message, index) => {
+        const key = message.id || `${message.createdAt || ''}-${message.senderId || message.sender?.id || ''}-${message.text || ''}-${index}`;
+        if (seenTeamMessageKeysRef.current.has(key)) return;
+
+        seenTeamMessageKeysRef.current.add(key);
+
+        const createdAtMs = message.createdAt ? new Date(message.createdAt).getTime() : Date.now();
+        const messageUserId = message.sender?.id ?? message.senderId;
+        const isOwnMessage = currentUserId && String(messageUserId) === String(currentUserId);
+
+        if (!isTeamVisible && !isOwnMessage && createdAtMs >= chatOpenedAtRef.current) {
+          incomingCount += 1;
+        }
+      });
+
+    if (incomingCount > 0) {
+      setUnreadTeamCount((count) => count + incomingCount);
+    }
+  }, [teamMessages, showChatPanel, showFullscreenChat, activeChat, currentUserId]);
 
   // Auto-scroll chat overlay to bottom on new messages
   useEffect(() => {
@@ -2315,13 +2441,14 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   };
 
   const handleClose = async () => {
-    await disconnectFromStream();
-
-    if (onClose) {
-      onClose();
+    if (shouldAskForRating()) {
+      setCloseAfterRating(true);
+      setShowRatingModal(true);
+      return;
     }
 
-    navigate("/acts");
+    await disconnectFromStream();
+    closeStreamView();
   };
 
   const handleSendMessage = () => {
@@ -2393,10 +2520,12 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   };
 
   const handleEmojiSelect = (emoji) => {
-    // if (!sending) {
-    //   sendMessage(emoji);
-    //   setShowEmojiPicker(false);
-    // }
+    if (activeChat === 'team') {
+      setTeamChatMessage((message) => `${message}${emoji}`);
+      return;
+    }
+
+    setChatMessage((message) => `${message}${emoji}`);
   };
 
   const handleCloseEmojiPicker = () => {
@@ -2521,12 +2650,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
           <div className={styles.header}>
             <div className={styles.header_cont}>
               <img src={back} alt="Back" 
-                onClick={async () => {
-                  if (!isSelectedStreamer) {
-                    await disconnectFromStream();
-                  }
-                  navigate('/acts', { replace: true });
-                }}
+                onClick={handleClose}
               />
               {!isSelectedStreamer ?
                 <div className={styles.online}>
@@ -2691,11 +2815,25 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                       <button
                         onClick={() => setActiveChat('general')}
                         className={`${styles.chatTabBtn} ${activeChat === 'general' ? styles.chatTabBtnActive : ''}`}
-                      >{t('streamGeneralChat')}</button>
+                      >
+                        {t('streamGeneralChat')}
+                        {unreadGeneralCount > 0 && (
+                          <span className={styles.chatTabUnreadBadge}>
+                            {unreadGeneralCount > 9 ? '9+' : unreadGeneralCount}
+                          </span>
+                        )}
+                      </button>
                       <button
                         onClick={() => setActiveChat('team')}
                         className={`${styles.chatTabBtn} ${activeChat === 'team' ? styles.chatTabBtnActive : ''}`}
-                      >{t('streamPlayerChat')}</button>
+                      >
+                        {t('streamPlayerChat')}
+                        {unreadTeamCount > 0 && (
+                          <span className={styles.chatTabUnreadBadge}>
+                            {unreadTeamCount > 9 ? '9+' : unreadTeamCount}
+                          </span>
+                        )}
+                      </button>
                     </div>
                   )}
 
@@ -2703,18 +2841,18 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                   {activeChat === 'general' && (
                     <>
                       <div className={styles.chatOverlayMessages}>
-                        {activePoll && (
-                          <div className={styles.pollCard}>
-                            <div className={styles.pollTitle}>{activePoll.title}</div>
-                            {activePoll.description && (
-                              <div className={styles.pollDesc}>{activePoll.description}</div>
+                        {visibleActivePolls.map((poll) => (
+                          <div key={poll.id} className={styles.pollCard}>
+                            <div className={styles.pollTitle}>{poll.title}</div>
+                            {poll.description && (
+                              <div className={styles.pollDesc}>{poll.description}</div>
                             )}
                             <div className={styles.pollOptions}>
-                              {activePoll.options?.map((opt) => (
+                              {poll.options?.map((opt) => (
                                 <button
                                   key={opt.id}
                                   className={styles.pollOptionBtn}
-                                  onClick={() => handleVote(opt.id)}
+                                  onClick={() => handleVote(poll.id, opt.id)}
                                 >
                                   <span className={styles.pollOptionFill} style={{ width: `${opt.percent || 0}%` }} />
                                   <span className={styles.pollOptionLabel}>{opt.text}</span>
@@ -2723,10 +2861,10 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                               ))}
                             </div>
                             <div className={styles.pollFooter}>
-                              {activePoll.totalVotes} votes · Ends {new Date(activePoll.endsAt).toLocaleTimeString()}
+                              {poll.totalVotes} votes · Ends {new Date(poll.endsAt).toLocaleTimeString()}
                             </div>
                           </div>
-                        )}
+                        ))}
                         {pinnedMessages.length > 0 && (
                           <div className={styles.pinnedMessagesHeader}>
                             <div className={styles.pinnedLabel}>{t('streamPinned')}</div>
@@ -2762,7 +2900,21 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                         ))}
                         <div ref={chatEndRef} />
                       </div>
-                      <div className={styles.chatOverlayInput}>
+                      <div className={`${styles.chatOverlayInput} ${styles.emojiInputArea}`}>
+                        <button
+                          type="button"
+                          className={styles.emojiToggleBtn}
+                          onClick={handleEmojiClick}
+                          title="Emoji"
+                        >
+                          🙂
+                        </button>
+                        {showEmojiPicker && activeChat === 'general' && (
+                          <EmojiPicker
+                            onEmojiSelect={handleEmojiSelect}
+                            onClose={handleCloseEmojiPicker}
+                          />
+                        )}
                         <input
                           className={styles.messageInput}
                           value={chatMessage}
@@ -2827,7 +2979,21 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                         ))}
                         <div ref={teamChatEndRef} />
                       </div>
-                      <div className={styles.chatOverlayInput}>
+                      <div className={`${styles.chatOverlayInput} ${styles.emojiInputArea}`}>
+                        <button
+                          type="button"
+                          className={styles.emojiToggleBtn}
+                          onClick={handleEmojiClick}
+                          title="Emoji"
+                        >
+                          🙂
+                        </button>
+                        {showEmojiPicker && activeChat === 'team' && (
+                          <EmojiPicker
+                            onEmojiSelect={handleEmojiSelect}
+                            onClose={handleCloseEmojiPicker}
+                          />
+                        )}
                         <input
                           className={styles.messageInput}
                           value={teamChatMessage}
@@ -2881,6 +3047,11 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                   onClick={() => setShowFullscreenChat(true)}
                 >
                   <img src={messages} alt="Chat" />
+                  {unreadChatCount > 0 && (
+                    <span className={styles.chatUnreadBadge}>
+                      {unreadChatCount > 9 ? '9+' : unreadChatCount}
+                    </span>
+                  )}
                 </button>
 
                 {/* Navigator buttons */}
@@ -2924,13 +3095,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                 {isSelectedStreamer && (
                   <button
                     className={styles.actionButton}
-                    onClick={() => {
-                      const newMuted = !isMicMuted;
-                      setIsMicMuted(newMuted);
-                      if (localAudioTrackRef.current) {
-                        localAudioTrackRef.current.setEnabled(!newMuted);
-                      }
-                    }}
+                    onClick={toggleMicrophone}
                     title={isMicMuted ? 'Unmute microphone' : 'Mute microphone'}
                   >
                     <span style={{ fontSize: '22px', lineHeight: 1 }}>
@@ -3323,7 +3488,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                 <div className={styles.recordingPlayerHeader}>
                   <h3>{t('streamRateAct')}</h3>
                   <button 
-                    onClick={() => setShowRatingModal(false)}
+                    onClick={handleRatingClose}
                     className={styles.closePlayerButton}
                   >
                     ×
@@ -3362,7 +3527,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                   </div>
                   <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
                     <button
-                      onClick={() => setShowRatingModal(false)}
+                      onClick={handleRatingClose}
                       style={{
                         padding: '12px 24px',
                         borderRadius: '10px',
@@ -3667,12 +3832,22 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                     className={`${styles.fullscreenChatTab} ${activeChat === 'general' ? styles.fullscreenChatTabActive : ''}`}
                   >
                     {t('streamGeneralChat')}
+                    {unreadGeneralCount > 0 && (
+                      <span className={styles.chatTabUnreadBadge}>
+                        {unreadGeneralCount > 9 ? '9+' : unreadGeneralCount}
+                      </span>
+                    )}
                   </button>
                   <button
                     onClick={() => setActiveChat('team')}
                     className={`${styles.fullscreenChatTab} ${activeChat === 'team' ? styles.fullscreenChatTabActive : ''}`}
                   >
                     {t('streamPlayerChat')}
+                    {unreadTeamCount > 0 && (
+                      <span className={styles.chatTabUnreadBadge}>
+                        {unreadTeamCount > 9 ? '9+' : unreadTeamCount}
+                      </span>
+                    )}
                   </button>
                 </div>
               )}
@@ -3680,18 +3855,18 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
               {/* General Chat */}
               {activeChat === 'general' && (
                 <>
-                  {activePoll && (
-                    <div className={styles.fullscreenPollCard}>
-                      <div className={styles.fullscreenPollTitle}>{activePoll.title}</div>
-                      {activePoll.description && (
-                        <div className={styles.fullscreenPollDesc}>{activePoll.description}</div>
+                  {visibleActivePolls.map((poll) => (
+                    <div key={poll.id} className={styles.fullscreenPollCard}>
+                      <div className={styles.fullscreenPollTitle}>{poll.title}</div>
+                      {poll.description && (
+                        <div className={styles.fullscreenPollDesc}>{poll.description}</div>
                       )}
                       <div className={styles.fullscreenPollOptions}>
-                        {activePoll.options?.map((opt) => (
+                        {poll.options?.map((opt) => (
                           <button
                             key={opt.id}
                             className={styles.fullscreenPollOptionBtn}
-                            onClick={() => handleVote(opt.id)}
+                            onClick={() => handleVote(poll.id, opt.id)}
                           >
                             <span className={styles.fullscreenPollFill} style={{ width: `${opt.percent || 0}%` }} />
                             <span className={styles.fullscreenPollLabel}>{opt.text}</span>
@@ -3700,10 +3875,10 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                         ))}
                       </div>
                       <div className={styles.fullscreenPollFooter}>
-                        {activePoll.totalVotes} votes · Ends {new Date(activePoll.endsAt).toLocaleTimeString()}
+                        {poll.totalVotes} votes · Ends {new Date(poll.endsAt).toLocaleTimeString()}
                       </div>
                     </div>
-                  )}
+                  ))}
                   {pinnedMessages.length > 0 && (
                     <div className={styles.fullscreenPinnedSection}>
                       <div className={styles.fullscreenPinnedTitle}>{t('streamPinnedMessages')}</div>
@@ -3771,7 +3946,21 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                     <div ref={chatEndRef} />
                   </div>
                   <div className={styles.fullscreenChatInputArea}>
-                    <div className={styles.fullscreenChatInputWrapper}>
+                    <div className={`${styles.fullscreenChatInputWrapper} ${styles.emojiInputArea}`}>
+                      <button
+                        type="button"
+                        className={styles.fullscreenEmojiBtn}
+                        onClick={handleEmojiClick}
+                        title="Emoji"
+                      >
+                        🙂
+                      </button>
+                      {showEmojiPicker && activeChat === 'general' && (
+                        <EmojiPicker
+                          onEmojiSelect={handleEmojiSelect}
+                          onClose={handleCloseEmojiPicker}
+                        />
+                      )}
                       <input
                         className={styles.fullscreenChatInput}
                         value={chatMessage}
@@ -3851,7 +4040,21 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                     <div ref={teamChatEndRef} />
                   </div>
                   <div className={styles.fullscreenChatInputArea}>
-                    <div className={styles.fullscreenChatInputWrapper}>
+                    <div className={`${styles.fullscreenChatInputWrapper} ${styles.emojiInputArea}`}>
+                      <button
+                        type="button"
+                        className={styles.fullscreenEmojiBtn}
+                        onClick={handleEmojiClick}
+                        title="Emoji"
+                      >
+                        🙂
+                      </button>
+                      {showEmojiPicker && activeChat === 'team' && (
+                        <EmojiPicker
+                          onEmojiSelect={handleEmojiSelect}
+                          onClose={handleCloseEmojiPicker}
+                        />
+                      )}
                       <input
                         className={styles.fullscreenChatInput}
                         value={teamChatMessage}

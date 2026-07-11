@@ -170,6 +170,18 @@
   width: 100%;
   height: 100%;
   background: linear-gradient(45deg, #1a1a1a 0%, #2d2d2d 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.videoElement video,
+.videoElement canvas {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  background: #000;
 }
 
 .statusPanel {
@@ -261,6 +273,7 @@
   transition: all 0.2s ease;
   border: none;
   background-color: #00000066;
+  position: relative;
 
 }
 .active{
@@ -276,6 +289,26 @@
 .actionButton img {
   width: 24px;
   height: 24px;
+}
+
+.chatUnreadBadge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #ff3b57;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.72), 0 0 16px rgba(255, 59, 87, 0.72);
+  animation: unreadPulse 1.4s ease-in-out infinite;
 }
 
 .actionButton:nth-child(1) img,
@@ -1010,6 +1043,33 @@ position: absolute;
   background: rgba(0, 0, 0, 0.35);
 }
 
+.emojiInputArea {
+  position: relative;
+}
+
+.emojiToggleBtn,
+.fullscreenEmojiBtn {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 17px;
+  cursor: pointer;
+  transition: background 0.18s ease, transform 0.18s ease;
+}
+
+.emojiToggleBtn:hover,
+.fullscreenEmojiBtn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+}
+
 .chatOverlaySendBtn {
   flex-shrink: 0;
   padding: 6px 10px;
@@ -1186,12 +1246,37 @@ position: absolute;
   background: transparent;
   color: #8f8f8f;
   font-family: "Oxanium", sans-serif;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 .chatTabBtnActive {
   background: rgba(0, 157, 255, 0.16);
   color: #009dff;
   font-weight: 700;
+}
+
+.chatTabUnreadBadge {
+  min-width: 17px;
+  height: 17px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #ff3b57;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 0 10px rgba(255, 59, 87, 0.55);
+}
+
+@keyframes unreadPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.12); }
 }
 
 .pinnedLabel {
@@ -1316,6 +1401,10 @@ position: absolute;
   cursor: pointer;
   border-bottom: 2px solid transparent;
   transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 .fullscreenChatTabActive {

@@ -198,7 +198,7 @@ const RankAchive = () => {
                         <img 
                             src={back} 
                             alt="back" 
-                            onClick={() => navigate(id ? `/rank/${id}` : '/acts')} 
+                            onClick={() => navigate(id ? `/rank/${id}` : '/acts', { replace: true })} 
                             style={{ cursor: 'pointer' }}
                         />
                         <div className="name">

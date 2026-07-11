@@ -218,6 +218,8 @@ export default function ActDetail() {
   const [scheduledAt, setScheduledAt] = useState(null);
   const [date, setDate] = useState('');
   const [rating, setRating] = useState(0);
+  const [ratingsCount, setRatingsCount] = useState(0);
+  const [myRating, setMyRating] = useState(null);
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [ratingValue, setRatingValue] = useState(5);
   const [genre, setGenre] = useState([]);
@@ -312,7 +314,12 @@ export default function ActDetail() {
             }
           }
           
-          setRating(data.likes || 0);
+          setRating(data.rating ?? 0);
+          setRatingsCount(data.ratingsCount ?? 0);
+          setMyRating(data.myRating ?? null);
+          if (data.myRating != null) {
+            setRatingValue(data.myRating);
+          }
           if (data.userId) setActOwnerId(data.userId);
           if (data.sequel) setSequel(data.sequel);
           if (data.chapterId) setActChapterId(data.chapterId);
@@ -681,6 +688,8 @@ const handleRateAct = async () => {
     try {
       const response = await actApi.rateAct(id, ratingValue);
       setRating(response.rating);
+      setRatingsCount(response.ratingsCount);
+      setMyRating(response.myRating);
       setShowRatingModal(false);
       toast.success('Rating submitted!');
     } catch (err) {
@@ -761,10 +770,31 @@ const handleRateAct = async () => {
                 </p>
               )}
               <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'center' }}>
-                <div style={{ display: 'flex', gap: '5px', cursor: 'pointer' }} onClick={() => setShowRatingModal(true)}>
+                <div style={{ display: 'flex', gap: '5px', cursor: 'pointer', alignItems: 'center' }} onClick={() => setShowRatingModal(true)}>
                   <img src={star} alt="" style={{ width: '20px', height: '20px' }} />
-                  <p style={{ color: '#00F300' }}>{rating}</p>
+                  <p style={{ color: '#00F300' }}>{rating || 0}</p>
+                  {ratingsCount > 0 && (
+                    <p className={styles.desc} style={{ color: '#c0c0c0' }}>
+                      ({ratingsCount})
+                    </p>
+                  )}
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setShowRatingModal(true)}
+                  style={{
+                    border: '1px solid rgba(0,147,255,0.5)',
+                    background: 'rgba(0,147,255,0.12)',
+                    color: '#7fd7ff',
+                    borderRadius: '10px',
+                    padding: '7px 12px',
+                    cursor: 'pointer',
+                    fontFamily: '"Oxanium", sans-serif',
+                    fontWeight: 700,
+                  }}
+                >
+                  {myRating != null ? `Your rating: ${myRating}` : 'Rate act'}
+                </button>
                 <p className={styles.desc} style={{ color: '#c0c0c0' }}>{date}</p>
                 {Number(seasons) > 0 && (
                   <p className={styles.desc} style={{ color: '#c0c0c0' }}>
