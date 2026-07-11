@@ -10,6 +10,7 @@ export const useAuthStore = create(
       user: null,
       token: null,
       isAuthenticated: false,
+      onboardingRequired: false,
       isLoading: false,
       location: null,
       routeDestination: null,
@@ -24,6 +25,7 @@ export const useAuthStore = create(
           user: normalizeUserDisplay(rawUser),
           token: userData.token || userData.accessToken,
           isAuthenticated: true,
+          onboardingRequired: Boolean(userData.onboardingRequired),
           isLoading: false,
         });
       },
@@ -115,6 +117,7 @@ export const useAuthStore = create(
           user: normalizeUserDisplay(rawUser),
           token: token,
           isAuthenticated: true,
+          onboardingRequired: Boolean(userData.onboardingRequired),
           isLoading: false,
         });
 
@@ -128,6 +131,7 @@ export const useAuthStore = create(
           user: null,
           token: null,
           isAuthenticated: false,
+          onboardingRequired: false,
           isLoading: false,
           location: null,
           routeDestination: null,
@@ -154,9 +158,14 @@ export const useAuthStore = create(
         const state = get();
         if (state.user) {
           set({
-            user: { ...state.user, ...updatedData },
+            user: normalizeUserDisplay({ ...state.user, ...updatedData }),
+            onboardingRequired: updatedData?.onboardingRequired ?? state.onboardingRequired,
           });
         }
+      },
+
+      setOnboardingRequired: (required) => {
+        set({ onboardingRequired: Boolean(required) });
       },
 
       getCachedGuildId: () => get().cachedGuildId,
@@ -167,6 +176,7 @@ export const useAuthStore = create(
         user: state.user,
         token: state.token,
         isAuthenticated: state.isAuthenticated,
+        onboardingRequired: state.onboardingRequired,
         location: state.location,
         cachedGuildId: state.cachedGuildId,
         cachedLocation: state.cachedLocation,

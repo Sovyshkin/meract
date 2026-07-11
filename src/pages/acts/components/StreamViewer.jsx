@@ -186,6 +186,18 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   const [addTaskLocationInit, setAddTaskLocationInit] = useState(false);
   const [proposeTaskLocationInit, setProposeTaskLocationInit] = useState(false);
 
+  const openStreamPanel = useCallback((panel) => {
+    setShowMap(panel === 'map');
+    setIsTasksModalOpen(panel === 'tasks');
+    setShowChatPanel(panel === 'chatPanel');
+    setShowFullscreenChat(panel === 'fullscreenChat');
+    setShowAddTaskModal(panel === 'addTask');
+    setShowProposeTaskModal(panel === 'proposeTask');
+    setShowHeroPicker(panel === 'heroPicker');
+    setShowEmojiPicker(false);
+    setShowChatQuickActions(false);
+  }, []);
+
   const ensureMediaPermissions = useCallback(async () => {
     const isLocalhost =
       window.location.hostname === "localhost" ||
@@ -812,6 +824,25 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   }, [actRef, selectedStreamerId, isSelectedHeroOnline]);
 
   const heroStatusSocketRef = useRef(null);
+  const publisherStateRef = useRef({ active: false, actId: null, heroUserId: null });
+  const emitPublisherOnline = useCallback((heroUserId = selectedStreamerId) => {
+    if (!numericActId || !heroUserId) return;
+    publisherStateRef.current = {
+      active: true,
+      actId: numericActId,
+      heroUserId,
+    };
+    heroStatusSocketRef.current?.emit('heroStream:publisherOnline', {
+      actId: numericActId,
+      heroUserId,
+    });
+  }, [numericActId, selectedStreamerId]);
+
+  const emitPublisherOffline = useCallback(() => {
+    publisherStateRef.current = { active: false, actId: null, heroUserId: null };
+    heroStatusSocketRef.current?.emit('heroStream:publisherOffline');
+  }, []);
+
   useEffect(() => {
     if (!numericActId) return;
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -826,6 +857,13 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
     socket.on('connect', () => {
       socket.emit('joinStream', { actId: numericActId });
+      const publisherState = publisherStateRef.current;
+      if (publisherState.active && publisherState.actId && publisherState.heroUserId) {
+        socket.emit('heroStream:publisherOnline', {
+          actId: publisherState.actId,
+          heroUserId: publisherState.heroUserId,
+        });
+      }
     });
 
     const applyHeroStatus = (payload, status) => {
@@ -913,6 +951,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     });
 
     return () => {
+      socket.emit('heroStream:publisherOffline');
       socket.disconnect();
       heroStatusSocketRef.current = null;
     };
@@ -1174,6 +1213,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       // Start backend hero-stream session only after media is published.
       await actApi.startHeroStream(actRef, selectedStreamerId);
       backendStarted = true;
+      emitPublisherOnline(selectedStreamerId);
 
       setHeroStreams((prev) =>
         prev.map((item) =>
@@ -1275,6 +1315,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
   // Очистка Agora для стримера без остановки бэкенд-стрима (при уходе со страницы)
   const cleanupStreamerAgora = async () => {
+    emitPublisherOffline();
     try {
       if (localVideoTrackRef.current) {
         localVideoTrackRef.current.stop();
@@ -1304,7 +1345,8 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   useEffect(() => {
     if (!isSelectedStreamer) return;
     return () => {
-      // Размонтирование: тихо отключаемся от Agora, стрим остаётся ONLINE
+      emitPublisherOffline();
+      // Размонтирование: отключаем Agora и даём backend шанс снять live-статус.
       if (localVideoTrackRef.current) {
         localVideoTrackRef.current.stop();
         localVideoTrackRef.current.close();
@@ -1318,7 +1360,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
         clientRef.current = null;
       }
     };
-  }, [isSelectedStreamer]);
+  }, [isSelectedStreamer, emitPublisherOffline]);
 
   // Переподключение стримера без повторного /act/start-act
   const reconnectAsStreamer = async () => {
@@ -1650,6 +1692,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
       setIsStreamActive(false);
       setIsConnected(false);
       streamStartTimeRef.current = null;
+      emitPublisherOffline();
       
       debugLog("🛑 Stream stopped successfully");
 
@@ -1702,6 +1745,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
         );
         stoppedHeroId = fallbackHeroId;
       }
+      emitPublisherOffline();
 
       setHeroStreams((prev) =>
         prev.map((item) =>
@@ -2937,8 +2981,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                                 <button
                                   className={styles.chatQuickActionItem}
                                   onClick={() => {
-                                    setShowChatQuickActions(false);
-                                    setShowAddTaskModal(true);
+                                    openStreamPanel('addTask');
                                   }}
                                 >
                                   Add task
@@ -2946,8 +2989,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                                 <button
                                   className={styles.chatQuickActionItem}
                                   onClick={() => {
-                                    setShowChatQuickActions(false);
-                                    setShowProposeTaskModal(true);
+                                    openStreamPanel('proposeTask');
                                   }}
                                 >
                                   Create poll
@@ -3017,7 +3059,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                 {shouldShowHeroSwitchIcon && (
                   <button
                     className={styles.actionButton}
-                    onClick={() => setShowHeroPicker(true)}
+                    onClick={() => openStreamPanel('heroPicker')}
                     title="Switch hero stream"
                   >
                     <span className={styles.heroSwitchIcon}>🦸</span>
@@ -3026,9 +3068,8 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                 <button
                   className={styles.actionButton}
                   onClick={() => {
-                    setShowChatPanel(false);
                     requestLocation();
-                    setShowMap(true);
+                    openStreamPanel('map');
                   }}
                 >
                   <img src={geo} alt="Location" />
@@ -3036,15 +3077,14 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                 <button
                   className={styles.actionButton}
                   onClick={() => {
-                    setShowChatPanel(false);
-                    setIsTasksModalOpen(true);
+                    openStreamPanel('tasks');
                   }}
                 >
                   <img src={tasks_image} alt="Tasks" />
                 </button>
                 <button
                   className={`${styles.actionButton} ${showChatPanel || showFullscreenChat ? styles.active : ''}`}
-                  onClick={() => setShowFullscreenChat(true)}
+                  onClick={() => openStreamPanel('fullscreenChat')}
                 >
                   <img src={messages} alt="Chat" />
                   {unreadChatCount > 0 && (
@@ -3059,14 +3099,14 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                   <>
                     <button
                       className={styles.actionButton}
-                      onClick={() => setShowAddTaskModal(true)}
+                      onClick={() => openStreamPanel('addTask')}
                       title="Add task"
                     >
                       <span style={{ fontSize: '16px' }}>➕</span>
                     </button>
                     <button
                       className={styles.actionButton}
-                      onClick={() => setShowProposeTaskModal(true)}
+                      onClick={() => openStreamPanel('proposeTask')}
                       title="Propose task for voting"
                     >
                       <span style={{ fontSize: '16px' }}>🗳️</span>
@@ -3431,8 +3471,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                               onClick={(e) => {
                                 e.stopPropagation();
                                 buildRouteToTask(task.id);
-                                setIsTasksModalOpen(false);
-                                setShowMap(true);
+                                openStreamPanel('map');
                               }}
                               style={{
                                 background: selectedTaskRouteId === task.id ? '#FF6B00' : '#0092FE',
@@ -3983,8 +4022,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                               <button
                                 className={styles.fullscreenChatQuickItem}
                                 onClick={() => {
-                                  setShowChatQuickActions(false);
-                                  setShowAddTaskModal(true);
+                                  openStreamPanel('addTask');
                                 }}
                               >
                                 Add task
@@ -3992,8 +4030,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                               <button
                                 className={styles.fullscreenChatQuickItem}
                                 onClick={() => {
-                                  setShowChatQuickActions(false);
-                                  setShowProposeTaskModal(true);
+                                  openStreamPanel('proposeTask');
                                 }}
                               >
                                 Create poll

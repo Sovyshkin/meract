@@ -73,7 +73,7 @@ function getCookie(name) {
 
 const HomeRedirect = () => {
   const [searchParams] = useSearchParams();
-  const { isAuthenticated, login } = useAuthStore();
+  const { isAuthenticated, login, onboardingRequired } = useAuthStore();
 
   useEffect(() => {
     const userParam = searchParams.get("user");
@@ -86,6 +86,7 @@ const HomeRedirect = () => {
         login({
           user: userData,
           token: accessToken || userData?.token || userData?.accessToken,
+          onboardingRequired: searchParams.get("onboarding") === "1",
         });
 
         const destination = searchParams.get("onboarding") === "1"
@@ -98,7 +99,9 @@ const HomeRedirect = () => {
     }
   }, [searchParams, login]);
 
-  if (isAuthenticated) return <Navigate to="/acts" replace />;
+  if (isAuthenticated) {
+    return <Navigate to={onboardingRequired ? "/complete-profile" : "/acts"} replace />;
+  }
   return <StartPage />;
 };
 export const technicalRouter = createBrowserRouter([

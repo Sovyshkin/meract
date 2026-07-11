@@ -11,10 +11,12 @@ export default function CompleteProfile() {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const user = useAuthStore((state) => state.user);
+  const onboardingRequired = useAuthStore((state) => state.onboardingRequired);
   const updateUser = useAuthStore((state) => state.updateUser);
-  const [nickname, setNickname] = useState(user?.login || "");
+  const setOnboardingRequired = useAuthStore((state) => state.setOnboardingRequired);
+  const [nickname, setNickname] = useState(onboardingRequired ? "" : (user?.login || ""));
   const [avatarFile, setAvatarFile] = useState(null);
-  const [avatarPreview, setAvatarPreview] = useState(user?.avatarUrl || null);
+  const [avatarPreview, setAvatarPreview] = useState(onboardingRequired ? null : (user?.avatarUrl || null));
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -46,7 +48,7 @@ export default function CompleteProfile() {
       toast.error("Nickname must be 3-24 characters: letters, numbers, dot, dash or underscore");
       return;
     }
-    if (!avatarFile && !user?.avatarUrl) {
+    if (!avatarFile && (onboardingRequired || !user?.avatarUrl)) {
       toast.error("Please choose a profile picture");
       return;
     }
@@ -60,7 +62,8 @@ export default function CompleteProfile() {
         await profileApi.updatePhoto(avatarFile);
       }
       const profile = await profileApi.getProfile();
-      updateUser(profile);
+      updateUser({ ...profile, onboardingRequired: false });
+      setOnboardingRequired(false);
       navigate("/acts", { replace: true });
     } catch (error) {
       const message = error?.response?.data?.message || "Failed to complete profile";
@@ -86,7 +89,7 @@ export default function CompleteProfile() {
             aria-label="Choose profile picture"
           >
             <img src={avatarPreview || fallbackAvatar} alt="Profile preview" />
-            <span>Change</span>
+            <span>{avatarFile || avatarPreview ? "Change" : "Choose"}</span>
           </button>
           <input
             ref={fileInputRef}
@@ -107,7 +110,9 @@ export default function CompleteProfile() {
             autoComplete="nickname"
             autoFocus
           />
-          <p className={styles.hint}>This is public. Your email stays private.</p>
+          <p className={styles.hint}>
+            This is public. Your email stays private. Username and picture are required.
+          </p>
 
           <button className={styles.submit} type="submit" disabled={saving}>
             {saving ? "Saving..." : "Enter Meract"}

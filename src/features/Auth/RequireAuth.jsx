@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { useAuthStore } from "../../shared/stores/authStore";
 
@@ -11,7 +11,8 @@ function getCookie(name) {
 
 export default function RequireAuth({ children }) {
   const navigate = useNavigate();
-  const { isAuthenticated, login } = useAuthStore();
+  const location = useLocation();
+  const { isAuthenticated, login, onboardingRequired } = useAuthStore();
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -24,7 +25,17 @@ export default function RequireAuth({ children }) {
     }
   }, [isAuthenticated, navigate, login]);
 
+  useEffect(() => {
+    if (isAuthenticated && onboardingRequired && location.pathname !== "/complete-profile") {
+      navigate("/complete-profile", { replace: true });
+    }
+  }, [isAuthenticated, onboardingRequired, location.pathname, navigate]);
+
   if (!isAuthenticated && !getCookie("access_token")) {
+    return null;
+  }
+
+  if (isAuthenticated && onboardingRequired && location.pathname !== "/complete-profile") {
     return null;
   }
 
