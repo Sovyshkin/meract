@@ -34,6 +34,7 @@ import { chatApi } from "../../../shared/api/chat";
 import { pollApi } from "../../../shared/api/pollApi";
 import { getDisplayName } from "../../../shared/utils/displayName";
 import { useT } from "../../../shared/hooks/useT";
+import { buildPreviewUrl } from "../../../shared/utils/previewUrl";
 
 import streaminfo from '../../../images/streaminfo.png';
 import video_slash from '../../../images/video-slash.png';
@@ -493,12 +494,14 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   } = useRecordings(numericActId, selectedStreamerId ? Number(selectedStreamerId) : undefined);
 
   useEffect(() => {
-    if (selectedStreamerId) {
+    if (selectedStreamerId && mergedHeroStreamers.length > 0 && String(selectedStreamerId) === String(currentUserId) && !isHero) {
+      // Allow selecting correct hero
+    } else if (selectedStreamerId && (String(selectedStreamerId) !== String(currentUserId) || isHero)) {
       return;
     }
 
     if (mergedHeroStreamers.length === 0) {
-      if (currentUserId && (isHero || isInitiator)) {
+      if (currentUserId && isHero) {
         setSelectedStreamerId(currentUserId);
       }
       return;
@@ -2044,6 +2047,22 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     };
   }, [isConnected]);
 
+  // Effect to ensure remote video tracks are played when ref or remoteUsers change
+  useEffect(() => {
+    if (isSelectedStreamer || !remoteVideoRef.current) return;
+
+    remoteUsers.forEach((u) => {
+      if (u.videoTrack && !u.videoTrack.isPlaying) {
+        try {
+          u.videoTrack.play(remoteVideoRef.current, { fit: 'contain' });
+          debugLog("👀 Auto-playing video track for user:", u.uid);
+        } catch (e) {
+          console.warn("Failed to auto-play remote video track:", e);
+        }
+      }
+    });
+  }, [remoteUsers, isSelectedStreamer]);
+
   // Close emoji picker when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -2158,7 +2177,8 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
   // WebSocket для командного чата
   const fetchTeamMessages = useCallback(async () => {
-    if (!teamChatId) return;
+    const numericChatId = Number(teamChatId);
+    if (!Number.isFinite(numericChatId) || numericChatId <= 0) return;
     try {
       const res = await api.get(`/chat/${teamChatId}/messages`, { params: { limit: 500 } });
       const msgs = (res.data?.messages || []).filter((m) => (m.text || '').trim());
@@ -2504,7 +2524,8 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
   const handleSendTeamMessage = async () => {
     const text = teamChatMessage.trim();
-    if (!text || !teamChatId) return;
+    const numericChatId = Number(teamChatId);
+    if (!text || !Number.isFinite(numericChatId) || numericChatId <= 0) return;
 
     try {
       // Persist via HTTP (works with current backend), then refresh immediately.
@@ -3459,6 +3480,14 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                                 style={{ width: 18, height: 18, accentColor: '#0092FE', cursor: 'pointer', flexShrink: 0 }}
                               />
                             </div>
+                          )}
+                          {task.imageUrl && (
+                            <img
+                              src={buildPreviewUrl(task.imageUrl)}
+                              alt="task icon"
+                              className={styles.taskIcon}
+                              style={{ width: 32, height: 32, marginRight: 8, borderRadius: '4px', flexShrink: 0 }}
+                            />
                           )}
                           <div className={styles.taskContent}>
                             <div className={styles.taskTitle} style={{ textDecoration: done ? 'line-through' : 'none' }}>{task.description}</div>

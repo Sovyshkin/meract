@@ -35,7 +35,11 @@ const useChat = (actId, chatId = null) => {
         transports: ["websocket", "polling"],
         auth: token ? { token } : {},
         query: token ? { token } : {},
-        reconnection: false, // управляем вручную, чтобы брать свежий токен
+        // reconnection: false, // управляем вручную, чтобы брать свежий токен
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        reconnectionMaxDelay: 5000,
       });
     };
 
@@ -56,7 +60,8 @@ const useChat = (actId, chatId = null) => {
           })
           .catch(() => {});
         // Надёжный HTTP-fallback: загружаем историю сразу после подключения
-        if (!chatId) return;
+        const numericChatId = Number(chatId);
+        if (!Number.isFinite(numericChatId) || numericChatId <= 0) return;
         api.get(`/chat/${chatId}/messages`, { params: { limit: STREAM_HISTORY_LIMIT, offset: 0 } })
           .then(res => {
             const rawMessages = Array.isArray(res.data) ? res.data : (res.data?.messages || []);
@@ -164,7 +169,8 @@ const useChat = (actId, chatId = null) => {
   // Fetch initial messages (HTTP - для истории)
   const fetchMessages = useCallback(
     async (limit = STREAM_HISTORY_LIMIT, offset = 0) => {
-      if (!actId || !chatId) return;
+      const numericChatId = Number(chatId);
+      if (!actId || !Number.isFinite(numericChatId) || numericChatId <= 0) return;
 
       try {
         setLoading(true);
@@ -249,7 +255,8 @@ const useChat = (actId, chatId = null) => {
   // Load more messages (for pagination)
   const loadMoreMessages = useCallback(
     async (offset) => {
-      if (!actId || !chatId) return;
+      const numericChatId = Number(chatId);
+      if (!actId || !Number.isFinite(numericChatId) || numericChatId <= 0) return;
 
       try {
         setLoading(true);

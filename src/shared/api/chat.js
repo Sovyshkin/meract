@@ -62,10 +62,20 @@ export const chatApi = {
   },
 
   getMessages: async (id) => {
+    const numericId = Number(id);
+    if (!id || !Number.isFinite(numericId) || numericId <= 0) {
+      console.warn(`[chatApi.getMessages] Invalid chat ID: ${id}, skipping request.`);
+      return { messages: [] };
+    }
     const response = await api.get(`/chat/${id}/messages`);
     return response.data;    
   },
- sendMessage: async (id, text, replyToId, forwardedFromId, file) => {
+  sendMessage: async (id, text, replyToId, forwardedFromId, file) => {
+    const numericId = Number(id);
+    if (!id || !Number.isFinite(numericId) || numericId <= 0) {
+      console.warn(`[chatApi.sendMessage] Invalid chat ID: ${id}, skipping request.`);
+      return null;
+    }
     const token = useAuthStore.getState().getToken();
     const formData = new FormData();
     
@@ -94,7 +104,7 @@ export const chatApi = {
     );
 
     return response.data;
-},
+  },
 deleteMessage: async (messageId) => {
     const response = await api.delete(`/chat/messages/${messageId}`);
     return response.data;
