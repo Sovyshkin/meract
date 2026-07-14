@@ -494,9 +494,15 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
   } = useRecordings(numericActId, selectedStreamerId ? Number(selectedStreamerId) : undefined);
 
   useEffect(() => {
-    if (selectedStreamerId && mergedHeroStreamers.length > 0 && String(selectedStreamerId) === String(currentUserId) && !isHero) {
-      // Allow selecting correct hero
-    } else if (selectedStreamerId && (String(selectedStreamerId) !== String(currentUserId) || isHero)) {
+    // If the current user is not the hero, they should never be the selected streamer.
+    // If selectedStreamerId is set to currentUserId, reset it.
+    if (selectedStreamerId && String(selectedStreamerId) === String(currentUserId) && !isHero) {
+      setSelectedStreamerId(null);
+      return;
+    }
+
+    // Otherwise, if selectedStreamerId is already set to the correct hero, do not re-run selection.
+    if (selectedStreamerId && (String(selectedStreamerId) !== String(currentUserId) || isHero)) {
       return;
     }
 
@@ -1111,6 +1117,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
   // Функция для начала стрима (только для стримера)
   const startStream = async () => {
+    console.log("🎥 startStream clicked! selectedStreamerId:", selectedStreamerId, "isSelectedStreamer:", isSelectedStreamer, "isStartingStream:", isStartingStream, "isStreamActive:", isStreamActive, "isConnecting:", isConnectingRef.current);
     if (!selectedStreamerId) {
       toast.error('Hero stream is unavailable for this account');
       return;
@@ -1367,6 +1374,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
 
   // Переподключение стримера без повторного /act/start-act
   const reconnectAsStreamer = async () => {
+    console.log("🎥 reconnectAsStreamer clicked! selectedHeroStream:", selectedHeroStream, "selectedStreamerId:", selectedStreamerId, "isConnecting:", isConnectingRef.current, "clientRef:", clientRef.current ? "present" : "null");
     if (!selectedHeroStream || !selectedStreamerId) return;
     if (isConnectingRef.current || clientRef.current) return;
 
