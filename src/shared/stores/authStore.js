@@ -42,7 +42,7 @@ export const useAuthStore = create(
           user: normalizeUserDisplay(rawUser),
           token: token,
           isAuthenticated: true,
-          // Если значение передано явно - используем его, иначе сохраняем текущее
+          // Сохраняем текущий onboarding, если новый явно не пришел как false
           onboardingRequired: userData.onboardingRequired !== undefined
             ? Boolean(userData.onboardingRequired)
             : currentOnboarding,

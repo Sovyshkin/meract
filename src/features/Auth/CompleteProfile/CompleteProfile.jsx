@@ -78,10 +78,8 @@ export default function CompleteProfile() {
 
   const handleNextStep = () => {
     if (step === 1) {
-      if (!avatarFile && (onboardingRequired || !user?.avatarUrl)) {
-        toast.error("Пожалуйста, выберите фото профиля");
-        return;
-      }
+      // Убираем жесткую блокировку onboardingRequired, если кнопка называется "Пропустить"
+      // Теперь пользователь сможет пройти на Шаг 2 (ввод логина), даже если не выбрал фото.
       setStep(2);
       return;
     }
