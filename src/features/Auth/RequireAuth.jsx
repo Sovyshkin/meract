@@ -12,9 +12,38 @@ function getCookie(name) {
 export default function RequireAuth({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const { isAuthenticated, login, onboardingRequired } = useAuthStore();
 
   useEffect(() => {
+    const userParam = searchParams.get("user");
+    const isOnboarding = searchParams.get("onboarding") === "1";
+
+    // 1. Если параметры OAuth пришли прямо на эту страницу
+    if (userParam) {
+      try {
+        const userData = JSON.parse(decodeURIComponent(userParam));
+        const accessToken = getCookie("access_token");
+
+        login({
+          user: userData,
+          token: accessToken || userData?.token || userData?.accessToken,
+          onboardingRequired: isOnboarding,
+        });
+
+        // Очищаем строку, чтобы параметры не висели в URL
+        window.history.replaceState({}, document.title, location.pathname);
+
+        if (isOnboarding) {
+          navigate("/complete-profile", { replace: true });
+        }
+        return;
+      } catch (e) {
+        console.error("OAuth parse error in RequireAuth:", e);
+      }
+    }
+
+    // 2. Стандартная проверка авторизации
     if (!isAuthenticated) {
       const token = getCookie("access_token");
       if (token) {
@@ -23,15 +52,16 @@ export default function RequireAuth({ children }) {
         navigate("/login", { replace: true });
       }
     }
-  }, [isAuthenticated, navigate, login]);
+  }, [isAuthenticated, searchParams, navigate, login, location.pathname]);
 
+  // 3. Редирект на онбординг, если флаг активен
   useEffect(() => {
     if (isAuthenticated && onboardingRequired && location.pathname !== "/complete-profile") {
       navigate("/complete-profile", { replace: true });
     }
   }, [isAuthenticated, onboardingRequired, location.pathname, navigate]);
 
-  if (!isAuthenticated && !getCookie("access_token")) {
+  if (!isAuthenticated && !getCookie("access_token") && !searchParams.get("user")) {
     return null;
   }
 
