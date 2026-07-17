@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import {
   Navigate,
@@ -74,6 +74,7 @@ function getCookie(name) {
 const HomeRedirect = () => {
   const [searchParams] = useSearchParams();
   const { isAuthenticated, login, onboardingRequired } = useAuthStore();
+  const [processed, setProcessed] = useState(false);
 
   useEffect(() => {
     const userParam = searchParams.get("user");
@@ -83,24 +84,24 @@ const HomeRedirect = () => {
         const userData = JSON.parse(decodeURIComponent(userParam));
         console.log("Google OAuth user data received:", userData);
         const accessToken = getCookie("access_token");
+        const isOnboarding = searchParams.get("onboarding") === "1";
         login({
           user: userData,
           token: accessToken || userData?.token || userData?.accessToken,
-          onboardingRequired: searchParams.get("onboarding") === "1",
+          onboardingRequired: isOnboarding,
         });
-
-        const destination = searchParams.get("onboarding") === "1"
-          ? "/complete-profile"
-          : "/acts";
-        window.location.replace(destination);
+        setProcessed(true);
       } catch (error) {
         console.error("Error parsing user data from Google OAuth:", error);
       }
     }
   }, [searchParams, login]);
 
-  if (isAuthenticated) {
-    return <Navigate to={onboardingRequired ? "/complete-profile" : "/acts"} replace />;
+  if (processed || isAuthenticated) {
+    const needsOnboarding = processed
+      ? searchParams.get("onboarding") === "1"
+      : onboardingRequired;
+    return <Navigate to={needsOnboarding ? "/complete-profile" : "/acts"} replace />;
   }
   return <StartPage />;
 };
