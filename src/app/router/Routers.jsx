@@ -73,23 +73,38 @@ function getCookie(name) {
 
 const HomeRedirect = () => {
   const [searchParams] = useSearchParams();
-  const { isAuthenticated, login, onboardingRequired } = useAuthStore();
+  const { isAuthenticated, login, onboardingRequired, user } = useAuthStore();
   const [processed, setProcessed] = useState(false);
 
   useEffect(() => {
     const userParam = searchParams.get("user");
+    const isOnboardingParam = searchParams.get("onboarding");
+
+    console.log("[DEBUG 1] HomeRedirect mounted / updated", {
+      hasUserParam: !!userParam,
+      isOnboardingParam,
+      isAuthenticated,
+      onboardingRequired,
+      user
+    });
 
     if (userParam) {
       try {
         const userData = JSON.parse(decodeURIComponent(userParam));
-        console.log("Google OAuth user data received:", userData);
         const accessToken = getCookie("access_token");
-        const isOnboarding = searchParams.get("onboarding") === "1";
+        const isOnboarding = isOnboardingParam === "1";
+
+        console.log("[DEBUG 2] Parsing OAuth success. Calling login()...", {
+          userLogin: userData?.login,
+          isOnboarding
+        });
+
         login({
           user: userData,
           token: accessToken || userData?.token || userData?.accessToken,
           onboardingRequired: isOnboarding,
         });
+
         setProcessed(true);
       } catch (error) {
         console.error("Error parsing user data from Google OAuth:", error);
@@ -97,12 +112,22 @@ const HomeRedirect = () => {
     }
   }, [searchParams, login]);
 
+  // Следим за тем, куда роутер пытается нас отправить
   if (processed || isAuthenticated) {
     const needsOnboarding = processed
       ? searchParams.get("onboarding") === "1"
       : onboardingRequired;
+
+    console.log("[DEBUG 3] Deciding redirect path:", {
+      processed,
+      isAuthenticated,
+      needsOnboarding,
+      finalPath: needsOnboarding ? "/complete-profile" : "/acts"
+    });
+
     return <Navigate to={needsOnboarding ? "/complete-profile" : "/acts"} replace />;
   }
+
   return <StartPage />;
 };
 export const technicalRouter = createBrowserRouter([
@@ -261,15 +286,15 @@ export const router = createBrowserRouter([
     path: "test/:id",
     element: <StreamHostPage />,
   },
-   {
+  {
     path: "guilds-filters",
     element: <GuildsFilters />,
   },
-   {
+  {
     path: "guild-about/:id",
     element: <GuildAbout />,
   },
-   {
+  {
     path: "guild-settings/:id",
     element: <GuildSettings />,
   },
@@ -277,7 +302,7 @@ export const router = createBrowserRouter([
     path: "notifications",
     element: <Notifications />,
   },
-   {
+  {
     path: "chats",
     element: <ChatPage />,
   },
@@ -293,7 +318,7 @@ export const router = createBrowserRouter([
     path: "group/:id/",
     element: <ChatMulti />,
   },
-  
+
   {
     path: "wallet",
     element: <PayPage />,
@@ -306,15 +331,15 @@ export const router = createBrowserRouter([
     path: "wallet/shop",
     element: <PayStore />,
   },
-   {
+  {
     path: "wallet/transfer",
     element: <PayTransfer />,
   },
-   {
+  {
     path: "wallet/transfer/:id",
     element: <PayTransferDetail />,
   },
-   {
+  {
     path: "settings",
     element: <SettingsPage />,
   },
@@ -359,25 +384,25 @@ export const router = createBrowserRouter([
     element: <MyActsPage />,
   },
 
-{
+  {
     path: "/profile/:id/:userId",
     element: (
-        <CompanionProfile />
+      <CompanionProfile />
     ),
   },
 
   {
     path: "/my-achievements",
     element: (
-        <MyAchieve />
+      <MyAchieve />
     ),
-  },  
+  },
   {
     path: "/add-member/:type",
     element: (
-        <AddMember />
+      <AddMember />
     ),
-  },  
+  },
 
 
   {
