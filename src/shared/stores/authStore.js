@@ -21,13 +21,37 @@ export const useAuthStore = create(
 
       setUser: (userData) => {
         const rawUser = userData.user || userData;
+        const currentOnboarding = get().onboardingRequired;
         set({
           user: normalizeUserDisplay(rawUser),
           token: userData.token || userData.accessToken,
           isAuthenticated: true,
-          onboardingRequired: Boolean(userData.onboardingRequired),
+          // Если значение передано явно - используем его, иначе сохраняем текущее
+          onboardingRequired: userData.onboardingRequired !== undefined
+            ? Boolean(userData.onboardingRequired)
+            : currentOnboarding,
           isLoading: false,
         });
+      },
+
+      login: (userData) => {
+        const token = userData.token || userData.accessToken;
+        const rawUser = userData.user || userData;
+        const currentOnboarding = get().onboardingRequired;
+        set({
+          user: normalizeUserDisplay(rawUser),
+          token: token,
+          isAuthenticated: true,
+          // Если значение передано явно - используем его, иначе сохраняем текущее
+          onboardingRequired: userData.onboardingRequired !== undefined
+            ? Boolean(userData.onboardingRequired)
+            : currentOnboarding,
+          isLoading: false,
+        });
+
+        if (token) {
+          localStorage.setItem("authToken", token);
+        }
       },
 
       setLocation: (locationData) => {
@@ -44,9 +68,9 @@ export const useAuthStore = create(
         set({
           routeDestination: destination
             ? {
-                latitude: destination.latitude,
-                longitude: destination.longitude,
-              }
+              latitude: destination.latitude,
+              longitude: destination.longitude,
+            }
             : null,
         });
       },
@@ -110,21 +134,7 @@ export const useAuthStore = create(
         }
       },
 
-      login: (userData) => {
-        const token = userData.token || userData.accessToken;
-        const rawUser = userData.user || userData;
-        set({
-          user: normalizeUserDisplay(rawUser),
-          token: token,
-          isAuthenticated: true,
-          onboardingRequired: Boolean(userData.onboardingRequired),
-          isLoading: false,
-        });
 
-        if (token) {
-          localStorage.setItem("authToken", token);
-        }
-      },
 
       logout: () => {
         set({
