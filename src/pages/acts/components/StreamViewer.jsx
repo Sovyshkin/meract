@@ -2410,9 +2410,17 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     setCompletedTaskIds(new Set(teamTasks.filter(t => t.isCompleted).map(t => t.id)));
   };
 
+  const togglingTasksRef = useRef(new Set());
   const toggleTaskLocal = async (taskId) => {
     // Только герой, навигатор или инициатор акта могут менять статус задания
     if (!isHero && !isNavigator && !isSpotAgent && !isInitiator) return;
+    // Prevent concurrent requests for the same task
+    if (togglingTasksRef.current.has(taskId)) return;
+    togglingTasksRef.current.add(taskId);
+
+    // Capture current state for reliable rollback
+    const wasCompleted = completedTaskIds.has(taskId);
+
     // Optimistic update
     setCompletedTaskIds(prev => {
       const next = new Set(prev);
@@ -2421,28 +2429,36 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
     });
     setTasks(prev => prev.map(t =>
       t.id === taskId
-        ? { ...t, isCompleted: !t.isCompleted, completedAt: !t.isCompleted ? new Date().toISOString() : null }
+        ? { ...t, isCompleted: !wasCompleted, completedAt: !wasCompleted ? new Date().toISOString() : null }
         : t
     ));
     try {
       const updated = await api.patch(`/act/${actRef}/team-tasks/${taskId}/toggle`);
       setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updated.data } : t));
-      // Server emits taskToggled to chat room on successful toggle.
-    } catch (err) {
-      // Rollback on error
+      // sync completedTaskIds from server response
       setCompletedTaskIds(prev => {
         const next = new Set(prev);
-        if (next.has(taskId)) next.delete(taskId); else next.add(taskId);
+        if (updated.data?.isCompleted) next.add(taskId); else next.delete(taskId);
+        return next;
+      });
+    } catch (err) {
+      // Rollback to captured state
+      setCompletedTaskIds(prev => {
+        const next = new Set(prev);
+        if (wasCompleted) next.add(taskId); else next.delete(taskId);
         return next;
       });
       setTasks(prev => prev.map(t =>
         t.id === taskId
-          ? { ...t, isCompleted: !t.isCompleted, completedAt: !t.isCompleted ? new Date().toISOString() : null }
+          ? { ...t, isCompleted: wasCompleted, completedAt: wasCompleted ? t.completedAt : null }
           : t
       ));
       toast.error('Не удалось обновить статус задания');
+    } finally {
+      togglingTasksRef.current.delete(taskId);
     }
   };
+
 
   useEffect(() => {
     if (!isTasksModalOpen) return;
@@ -3483,7 +3499,7 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
                               <input
                                 type="checkbox"
                                 checked={done}
-                                onChange={() => toggleTaskLocal(task.id)}
+                                onChange={(e) => { e.stopPropagation(); toggleTaskLocal(task.id); }}
                                 onClick={e => e.stopPropagation()}
                                 style={{ width: 18, height: 18, accentColor: '#0092FE', cursor: 'pointer', flexShrink: 0 }}
                               />
