@@ -125,8 +125,9 @@ export const actApi = {
     return response.data;
   },
 
-  getRecordingPlayback: async (id) => {
-    const response = await api.get(`/act/find-by-id/${id}/recording-playback`);
+  getRecordingPlayback: async (id, heroUserId) => {
+    const params = heroUserId ? { heroUserId } : undefined;
+    const response = await api.get(`/act/find-by-id/${id}/recording-playback`, { params });
     return response.data;
   },
 

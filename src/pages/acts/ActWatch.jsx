@@ -26,6 +26,8 @@ export default function ActWatch() {
   const [error, setError] = useState(null);
   const [chatMessages, setChatMessages] = useState([]);
   const [playbackTime, setPlaybackTime] = useState(0);
+  const [streamers, setStreamers] = useState([]);
+  const [selectedHeroId, setSelectedHeroId] = useState(null);
 
   const visibleMessages = useMemo(
     () =>
@@ -45,6 +47,33 @@ export default function ActWatch() {
     setPlaybackTime(video.currentTime);
   }, []);
 
+  // 1. Fetch act and active hero streams
+  useEffect(() => {
+    let cancelled = false;
+    const fetchActData = async () => {
+      try {
+        const actData = await actApi.getAct(id);
+        if (cancelled) return;
+        
+        // Filter hero streams that were actually started/recorded
+        const activeStreams = (actData.heroStreams || []).filter(s => s.startedAt);
+        setStreamers(activeStreams);
+        
+        if (activeStreams.length > 0) {
+          // Select first hero by default
+          setSelectedHeroId(activeStreams[0].heroUserId);
+        }
+      } catch (err) {
+        console.error("Failed to load act details:", err);
+      }
+    };
+    fetchActData();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  // 2. Load recording for the selected hero
   useEffect(() => {
     let cancelled = false;
 
@@ -52,7 +81,7 @@ export default function ActWatch() {
       setLoading(true);
       setError(null);
       try {
-        const playback = await actApi.getRecordingPlayback(id);
+        const playback = await actApi.getRecordingPlayback(id, selectedHeroId || undefined);
         if (cancelled) return;
 
         setTitle(playback.title || "Watch Act");
@@ -64,6 +93,13 @@ export default function ActWatch() {
         if (!video) return;
 
         const { url, format } = playback;
+
+        // Reset video state first
+        if (hlsRef.current) {
+          hlsRef.current.destroy();
+          hlsRef.current = null;
+        }
+        video.src = "";
 
         if (format === "hls" && Hls.isSupported()) {
           const hls = new Hls();
@@ -114,7 +150,7 @@ export default function ActWatch() {
         hlsRef.current = null;
       }
     };
-  }, [id]);
+  }, [id, selectedHeroId]);
 
   return (
     <div className={styles.container}>
@@ -129,6 +165,24 @@ export default function ActWatch() {
       </div>
 
       <div className={styles.contentWrapper}>
+        {streamers.length > 1 && (
+          <div className={styles.streamersTabs}>
+            {streamers.map((s) => {
+              const name = s.heroUser?.fullName || s.heroUser?.login || `Hero ${s.heroUserId}`;
+              const isActive = selectedHeroId === s.heroUserId;
+              return (
+                <button
+                  key={s.heroUserId}
+                  className={`${styles.tabBtn} ${isActive ? styles.tabBtnActive : ""}`}
+                  onClick={() => setSelectedHeroId(s.heroUserId)}
+                >
+                  📹 {name}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {loading && (
           <div className={styles.loadingBox}>
             <p className={styles.statusText}>{t("actWatchLoading")}</p>

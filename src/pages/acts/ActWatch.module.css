@@ -214,3 +214,39 @@
   word-break: break-word;
   font-family: Oxanium, sans-serif;
 }
+
+.streamersTabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  width: 100%;
+}
+
+.tabBtn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  color: #d8e8ff;
+  cursor: pointer;
+  font-family: Oxanium, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 16px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.tabBtn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.tabBtnActive {
+  background: #0092FE;
+  border-color: #0092FE;
+  color: #fff;
+  box-shadow: 0 0 12px rgba(0, 146, 254, 0.35);
+}
+
