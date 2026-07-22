@@ -7,6 +7,9 @@ import discord from '../../../images/discord.png'
 import twitch from '../../../images/twitch.png'
 import { useT } from '../../../shared/hooks/useT';
 
+import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
+
 export default function Login() {
   const t = useT();
   const [email, setEmail] = useState("");
@@ -36,14 +39,29 @@ export default function Login() {
     navigate("/forgot-password");
   };
 
-  const handleGoogleAuth = () => {
-    window.location.href = `${import.meta.env.VITE_API_URL}/auth/google`;
+  const handleGoogleAuth = async () => {
+    const url = `${import.meta.env.VITE_API_URL}/auth/google`;
+    if (Capacitor.isNativePlatform()) {
+      await Browser.open({ url: `${url}?state=app` });
+    } else {
+      window.location.href = url;
+    }
   };
-  const handleTwitchAuth = () => {
-    window.location.href = `${import.meta.env.VITE_API_URL}/auth/twitch`;
+  const handleTwitchAuth = async () => {
+    const url = `${import.meta.env.VITE_API_URL}/auth/twitch`;
+    if (Capacitor.isNativePlatform()) {
+      await Browser.open({ url: `${url}?state=app` });
+    } else {
+      window.location.href = url;
+    }
   };
-  const handleDiscordAuth = () => {
-    window.location.href = `${import.meta.env.VITE_API_URL}/auth/discord`;
+  const handleDiscordAuth = async () => {
+    const url = `${import.meta.env.VITE_API_URL}/auth/discord`;
+    if (Capacitor.isNativePlatform()) {
+      await Browser.open({ url: `${url}?state=app` });
+    } else {
+      window.location.href = url;
+    }
   };
 
   return (

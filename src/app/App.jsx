@@ -14,6 +14,9 @@ import { profileApi } from "../shared/api/profile";
 import { useI18nStore } from "../shared/stores/i18nStore";
 import { normalizeLanguage } from "../shared/constants/languages";
 import AchievementNotificationContainer from "../shared/ui/AchievementNotificationContainer/AchievementNotificationContainer";
+import { App as CapApp } from "@capacitor/app";
+import { Browser } from "@capacitor/browser";
+import { Capacitor } from "@capacitor/core";
 import "./App.css";
 import { router, technicalRouter } from "./router/Routers";
 
@@ -26,6 +29,44 @@ function App() {
   const { logout, isAuthenticated, setLocation, user } = useAuthStore();
   const { setNotifications, addNotification } = useNotificationStore();
   const isMaintenance = false;
+
+  // Handle Capacitor OAuth Deep Links
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    const handleAppUrlOpen = async (event) => {
+      const url = event.url;
+      console.log("[DeepLink] App opened with URL:", url);
+
+      // Close the custom Chrome/Safari tab
+      try {
+        await Browser.close();
+      } catch (e) {
+        console.warn("[DeepLink] Error closing browser tab:", e);
+      }
+
+      // Check if it is our auth callback
+      if (url.includes("auth-callback")) {
+        const queryString = url.split("?")[1];
+        if (queryString) {
+          console.log("[DeepLink] Navigating to HomeRedirect with query:", queryString);
+          router.navigate(`/?${queryString}`);
+        }
+      }
+    };
+
+    const setupListener = async () => {
+      const listener = await CapApp.addListener("appUrlOpen", handleAppUrlOpen);
+      return listener;
+    };
+
+    const listenerPromise = setupListener();
+
+    return () => {
+      listenerPromise.then((l) => l.remove());
+    };
+  }, []);
+
   useEffect(() => {
     if (!isAuthenticated) return;
 
