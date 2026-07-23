@@ -3469,22 +3469,27 @@ const StreamViewer = ({ channelName, streamData, id, onClose }) => {
               style={{padding:'15px'}}
               onClick={() => setIsTasksModalOpen(false)}
             >
-              <div className={styles.header} style={{backdropFilter: 'none', background:'none'}}>
-                <div className={styles.header_cont}>
-                  <div className={styles.backButton} onClick={() => setIsTasksModalOpen(false)}>
-                    <img src={back} alt="Back" className={styles.backIcon} />
+              <div 
+                className={styles.modalContent} 
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className={styles.modalHeader}>
+                  <h2 style={{color:'white', margin: 0, fontSize: '20px', fontFamily: 'Oxanium, sans-serif'}}>Act's tasks</h2>
+                  <div 
+                    className={styles.backButton} 
+                    onClick={() => setIsTasksModalOpen(false)}
+                    style={{cursor: 'pointer', display: 'flex', alignItems: 'center'}}
+                  >
+                    <img src={back} alt="Back" className={styles.backIcon} style={{width: '20px', height: '20px'}} />
                   </div>
-                  <h2 className="name" style={{color:'white'}}>Act's tasks</h2>
-                  <div></div>
                 </div>
-              </div>
-              <div className={styles.none}>
+
                 {loadingTasks ? (
                   <div className={styles.loadingTasks}>Loading tasks...</div>
                 ) : tasks.length === 0 ? (
                   <div className={styles.noTasks}>{t('streamNoTasks')}</div>
                 ) : (
-                  <div className={styles.cardcont} style={{marginTop:'100px'}}>
+                  <div className={styles.cardcont}>
                     {tasks.map((task) => {
                       const done = completedTaskIds.has(task.id);
                       return (

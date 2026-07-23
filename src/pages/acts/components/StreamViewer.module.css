@@ -526,7 +526,7 @@
   background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  z-index: 2000;
+  z-index: 20000;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -810,7 +810,6 @@
   justify-content: space-between;
   align-items: first baseline;
   margin-top: 20px;
-  
 }
 .online{
   display: flex;
